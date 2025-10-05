@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Table, 
-  LayoutGrid, 
-  Calendar, 
-  CheckCircle, 
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Table,
+  LayoutGrid,
+  Calendar,
+  CheckCircle,
   Plus,
   Filter,
   Search,
@@ -13,15 +13,54 @@ import {
   AlertCircle,
   TrendingUp
 } from 'lucide-react';
-import { sampleTasks, taskStatuses, taskPriorities, getTaskStats } from '../utils/sampleData';
+import { taskStatuses, taskPriorities } from '../utils/sampleData';
+import taskService from '../services/taskService';
 
 const Dashboard = () => {
-  const [activeView, setActiveView] = useState('table');
   const [searchQuery, setSearchQuery] = useState('');
+  const [tasks, setTasks] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    inProgress: 0,
+    completed: 0,
+    overdue: 0,
+    dueToday: 0
+  });
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    fetchTasks();
+    fetchStats();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await taskService.getAllTasks();
+      if (response.success) {
+        setTasks(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await taskService.getTaskStats();
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
   
-  const stats = getTaskStats();
-  
+  // Workspace views configuration
   const workspaceViews = [
     { id: 'table', name: 'Table', icon: Table, path: '/workspace/table' },
     { id: 'board', name: 'Board', icon: LayoutGrid, path: '/workspace/board' },
@@ -29,10 +68,22 @@ const Dashboard = () => {
     { id: 'completed', name: 'Completed', icon: CheckCircle, path: '/workspace/completed' }
   ];
 
-  const filteredTasks = sampleTasks.filter(task => 
+  // Determine active view based on current path
+  const getActiveView = () => {
+    const path = location.pathname;
+    if (path.includes('/table')) return 'table';
+    if (path.includes('/board')) return 'board';
+    if (path.includes('/calendar')) return 'calendar';
+    if (path.includes('/completed')) return 'completed';
+    return 'table'; // default
+  };
+
+  const activeView = getActiveView();
+
+  const filteredTasks = tasks.filter(task =>
     task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (task.client && task.client.toLowerCase().includes(searchQuery.toLowerCase()))
+    (task.client?.name && task.client.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const formatDate = (dateString) => {
@@ -83,18 +134,19 @@ const Dashboard = () => {
           <div className="flex bg-gray-100 rounded-lg p-1 mb-4 lg:mb-0">
             {workspaceViews.map((view) => {
               const Icon = view.icon;
+              const isActive = activeView === view.id;
+              
               return (
                 <Link
                   key={view.id}
                   to={view.path}
                   className={`
                     flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
-                    ${activeView === view.id 
+                    ${isActive 
                       ? 'bg-white text-primary-700 shadow-sm' 
                       : 'text-gray-600 hover:text-gray-900'
                     }
                   `}
-                  onClick={() => setActiveView(view.id)}
                 >
                   <Icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{view.name}</span>
@@ -199,8 +251,8 @@ const Dashboard = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">{task.title}</div>
                         <div className="text-sm text-gray-500 truncate max-w-xs">{task.description}</div>
-                        {task.client && (
-                          <div className="text-xs text-primary-600 mt-1">{task.client}</div>
+                        {task.client?.name && (
+                          <div className="text-xs text-primary-600 mt-1">{task.client.name}</div>
                         )}
                       </div>
                     </td>
@@ -220,15 +272,16 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex -space-x-2">
-                        {task.assignees.slice(0, 2).map((assignee) => (
+                        {task.assignees?.slice(0, 2).map((assignee) => (
                           <div
-                            key={assignee.id}
+                            key={assignee._id || assignee.id}
                             className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium border-2 border-white"
+                            title={assignee.name}
                           >
-                            {assignee.avatar}
+                            {assignee.name?.substring(0, 2).toUpperCase() || assignee.avatar}
                           </div>
                         ))}
-                        {task.assignees.length > 2 && (
+                        {task.assignees?.length > 2 && (
                           <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center font-medium border-2 border-white">
                             +{task.assignees.length - 2}
                           </div>

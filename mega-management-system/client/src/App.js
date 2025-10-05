@@ -2,18 +2,14 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/common/Sidebar';
 import Dashboard from './pages/Dashboard';
+import TasksOverview from './pages/Tasks/TasksOverview';
+import TaskBoard from './pages/Tasks/TaskBoard';
+import TaskCalendar from './pages/Tasks/TaskCalendar';
+import CompletedTasks from './pages/Tasks/CompletedTasks';
+import QuotationsList from './pages/Quotations/QuotationsList';
 import './App.css';
 
 // Placeholder components for other routes
-const QuotationsList = () => (
-  <div className="h-full bg-gray-50 flex items-center justify-center">
-    <div className="text-center">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Quotations</h1>
-      <p className="text-gray-600">Quotations management coming soon...</p>
-    </div>
-  </div>
-);
-
 const ClientsList = () => (
   <div className="h-full bg-gray-50 flex items-center justify-center">
     <div className="text-center">
@@ -60,11 +56,20 @@ function App() {
               {/* Default route redirects to workspace */}
               <Route path="/" element={<Navigate to="/workspace" replace />} />
               
-              {/* Main routes */}
+              {/* Workspace routes */}
               <Route path="/workspace" element={<Dashboard />} />
+              <Route path="/workspace/table" element={<TasksOverview />} />
+              <Route path="/workspace/board" element={<TaskBoard />} />
+              <Route path="/workspace/calendar" element={<TaskCalendar />} />
+              <Route path="/workspace/completed" element={<CompletedTasks />} />
+              
+              {/* Other main tabs */}
               <Route path="/quotations" element={<QuotationsList />} />
               <Route path="/clients" element={<ClientsList />} />
               <Route path="/products" element={<ProductCatalog />} />
+              
+              {/* Catch all - redirect to workspace */}
+              <Route path="*" element={<Navigate to="/workspace" replace />} />
             </Routes>
           </main>
         </div>

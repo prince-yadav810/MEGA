@@ -1,15 +1,17 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Users, 
-  Package, 
-  BarChart3, 
-  Settings, 
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  Package,
+  BarChart3,
+  Settings,
   UserCog,
   Menu,
-  ChevronLeft
+  ChevronLeft,
+  Inbox,
+  Bell
 } from 'lucide-react';
 
 const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
@@ -20,58 +22,75 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       id: 'workspace',
       name: 'Workspace',
       icon: LayoutDashboard,
-      path: '/workspace',
-      description: 'Task management & collaboration'
+      path: '/workspace'
+    },
+    {
+      id: 'inbox',
+      name: 'Inbox',
+      icon: Inbox,
+      path: '/inbox'
+    },
+    {
+      id: 'notifications',
+      name: 'Notifications',
+      icon: Bell,
+      path: '/notifications'
     },
     {
       id: 'quotations',
       name: 'Quotations',
       icon: FileText,
-      path: '/quotations',
-      description: 'Quotes & proposals'
+      path: '/quotations'
     },
     {
       id: 'clients',
       name: 'Clients',
       icon: Users,
-      path: '/clients',
-      description: 'Client management & CRM'
+      path: '/clients'
     },
     {
       id: 'products',
       name: 'Products',
       icon: Package,
-      path: '/products',
-      description: 'Product catalog & inventory'
+      path: '/products'
     },
     {
       id: 'analytics',
       name: 'Analytics',
       icon: BarChart3,
-      path: '/analytics',
-      description: 'Reports & insights'
+      path: '/analytics'
     },
     {
       id: 'users',
       name: 'Team',
       icon: UserCog,
-      path: '/users',
-      description: 'User management'
+      path: '/users'
     },
     {
       id: 'settings',
       name: 'Settings',
       icon: Settings,
-      path: '/settings',
-      description: 'System configuration'
+      path: '/settings'
     }
   ];
 
   const isActive = (path) => {
+    // For workspace, check if we're on any workspace route
     if (path === '/workspace') {
-      return location.pathname === '/' || location.pathname.startsWith('/workspace');
+      return location.pathname === '/' || 
+             location.pathname === '/workspace' || 
+             location.pathname.startsWith('/workspace/');
     }
     return location.pathname.startsWith(path);
+  };
+
+  const handleNavClick = (itemId, itemPath) => {
+    setActiveTab(itemId);
+    // If clicking on workspace and already on a workspace sub-route, stay there
+    // Otherwise navigate to the main workspace
+    if (itemPath === '/workspace' && location.pathname.startsWith('/workspace/')) {
+      return; // Don't navigate, just update active tab
+    }
   };
 
   return (
@@ -108,7 +127,7 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
             <Link
               key={item.id}
               to={item.path}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleNavClick(item.id, item.path)}
               className={`
                 flex items-center p-3 rounded-lg transition-all duration-200 group relative
                 ${active 
@@ -119,11 +138,10 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
               `}
             >
               <Icon className={`h-5 w-5 flex-shrink-0 ${active ? 'text-primary-600' : ''}`} />
-              
+
               {!collapsed && (
                 <div className="ml-3 flex-1">
                   <div className="text-sm font-medium">{item.name}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
                 </div>
               )}
 

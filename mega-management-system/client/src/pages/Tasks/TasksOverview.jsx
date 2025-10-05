@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  ArrowUpDown, 
-  Filter, 
-  Search, 
-  Plus, 
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import {
+  ArrowUpDown,
+  Filter,
+  Search,
+  Plus,
   MoreHorizontal,
   Calendar,
   User,
@@ -15,11 +17,69 @@ import {
   Eye,
   Edit,
   Trash2,
-  ChevronDown
+  ChevronDown,
+  Table,
+  LayoutGrid,
+  CheckCircle
 } from 'lucide-react';
-import { sampleTasks, taskStatuses, taskPriorities, teamMembers } from '../../utils/sampleData';
+import { taskStatuses, taskPriorities, teamMembers } from '../../utils/sampleData';
+import TaskForm from '../../components/forms/TaskForm';
+import taskService from '../../services/taskService';
 
-const TasksOverview = () => {
+const TasksOverview = ({ onViewChange }) => {
+  const location = useLocation();
+  const [tasks, setTasks] = useState([]);
+  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    inProgress: 0,
+    completed: 0,
+    overdue: 0
+  });
+
+  useEffect(() => {
+    fetchTasks();
+    fetchStats();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await taskService.getAllTasks();
+      if (response.success) {
+        setTasks(response.data);
+      }
+    } catch (error) {
+      toast.error('Failed to fetch tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await taskService.getTaskStats();
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const handleCreateTask = async (taskData) => {
+    try {
+      const response = await taskService.createTask(taskData);
+      if (response.success) {
+        toast.success(response.message || 'Task created successfully!');
+        fetchTasks();
+        fetchStats();
+      }
+    } catch (error) {
+      toast.error('Failed to create task');
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('dueDate');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -29,17 +89,25 @@ const TasksOverview = () => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Workspace views configuration
+  const workspaceViews = [
+    { id: 'table', name: 'Table', icon: Table, path: '/workspace/table' },
+    { id: 'board', name: 'Board', icon: LayoutGrid, path: '/workspace/board' },
+    { id: 'calendar', name: 'Calendar', icon: Calendar, path: '/workspace/calendar' },
+    { id: 'completed', name: 'Completed', icon: CheckCircle, path: '/workspace/completed' }
+  ];
+
   // Filtering and sorting logic
   const filteredAndSortedTasks = useMemo(() => {
-    let filtered = sampleTasks.filter(task => {
+    let filtered = tasks.filter(task => {
       const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           (task.client && task.client.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+                           (task.client?.name && task.client.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-      const matchesAssignee = assigneeFilter === 'all' || 
-                             task.assignees.some(assignee => assignee.id.toString() === assigneeFilter);
+      const matchesAssignee = assigneeFilter === 'all' ||
+                             task.assignees?.some(assignee => (assignee._id || assignee.id).toString() === assigneeFilter);
 
       return matchesSearch && matchesStatus && matchesPriority && matchesAssignee;
     });
@@ -65,7 +133,7 @@ const TasksOverview = () => {
     });
 
     return filtered;
-  }, [searchQuery, sortField, sortDirection, statusFilter, priorityFilter, assigneeFilter]);
+  }, [tasks, searchQuery, sortField, sortDirection, statusFilter, priorityFilter, assigneeFilter]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -136,12 +204,12 @@ const TasksOverview = () => {
       <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div className="mb-4 lg:mb-0">
-            <h1 className="text-2xl font-bold text-gray-900">Table View</h1>
-            <p className="text-gray-600">{filteredAndSortedTasks.length} tasks found</p>
+            <h1 className="text-2xl font-bold text-gray-900">Workspace</h1>
+            <p className="text-gray-600">Manage tasks and collaborate with your team</p>
           </div>
-          
+
           <div className="flex items-center space-x-3">
-            <button 
+            <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
                 showFilters ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -150,23 +218,51 @@ const TasksOverview = () => {
               <Filter className="h-4 w-4" />
               <span>Filters</span>
             </button>
-            <button className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition-colors">
+            <button
+              onClick={() => setIsTaskFormOpen(true)}
+              className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition-colors"
+            >
               <Plus className="h-4 w-4" />
               <span>New Task</span>
             </button>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="mt-4">
-          <div className="relative max-w-md">
+        {/* View Switcher */}
+        <div className="mt-6 flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex bg-gray-100 rounded-lg p-1 mb-4 lg:mb-0">
+            {workspaceViews.map((view) => {
+              const Icon = view.icon;
+              const isActive = location.pathname === view.path;
+
+              return (
+                <Link
+                  key={view.id}
+                  to={view.path}
+                  className={`
+                    flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
+                    ${isActive
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{view.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -233,6 +329,59 @@ const TasksOverview = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Stats Cards */}
+      <div className="px-4 pt-6 lg:px-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Tasks</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              </div>
+              <div className="bg-primary-100 p-2 rounded-full">
+                <Table className="h-5 w-5 text-primary-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-primary-600">{stats.inProgress}</p>
+              </div>
+              <div className="bg-primary-100 p-2 rounded-full">
+                <Clock className="h-5 w-5 text-primary-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Completed</p>
+                <p className="text-2xl font-bold text-success-600">{stats.completed}</p>
+              </div>
+              <div className="bg-success-100 p-2 rounded-full">
+                <CheckCircle className="h-5 w-5 text-success-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Overdue</p>
+                <p className="text-2xl font-bold text-error-600">{stats.overdue}</p>
+              </div>
+              <div className="bg-error-100 p-2 rounded-full">
+                <AlertCircle className="h-5 w-5 text-error-600" />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bulk Actions */}
@@ -442,6 +591,13 @@ const TasksOverview = () => {
           )}
         </div>
       </div>
+
+      {/* Task Form Modal */}
+      <TaskForm
+        isOpen={isTaskFormOpen}
+        onClose={() => setIsTaskFormOpen(false)}
+        onSubmit={handleCreateTask}
+      />
     </div>
   );
 };

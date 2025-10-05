@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Search, 
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import {
+  Search,
   Filter,
   Calendar,
   User,
@@ -13,27 +15,60 @@ import {
   MoreHorizontal,
   Paperclip,
   MessageCircle,
-  TrendingUp
+  TrendingUp,
+  Table,
+  LayoutGrid,
+  Plus
 } from 'lucide-react';
-import { sampleTasks, taskPriorities, teamMembers } from '../../utils/sampleData';
+import { taskPriorities, teamMembers } from '../../utils/sampleData';
+import taskService from '../../services/taskService';
 
-const CompletedTasks = () => {
+const CompletedTasks = ({ onViewChange }) => {
+  const location = useLocation();
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCompletedTasks();
+  }, []);
+
+  const fetchCompletedTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await taskService.getTasksByStatus('completed');
+      if (response.success) {
+        setTasks(response.data);
+      }
+    } catch (error) {
+      toast.error('Failed to fetch completed tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // all, this_week, this_month, last_month
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Workspace views configuration
+  const workspaceViews = [
+    { id: 'table', name: 'Table', icon: Table, path: '/workspace/table' },
+    { id: 'board', name: 'Board', icon: LayoutGrid, path: '/workspace/board' },
+    { id: 'calendar', name: 'Calendar', icon: Calendar, path: '/workspace/calendar' },
+    { id: 'completed', name: 'Completed', icon: CheckCircle, path: '/workspace/completed' }
+  ];
+
   // Get completed tasks
   const completedTasks = useMemo(() => {
-    let filtered = sampleTasks.filter(task => task.status === 'completed');
+    let filtered = tasks.filter(task => task.status === 'completed');
 
     // Apply search filter
     if (searchQuery) {
-      filtered = filtered.filter(task => 
+      filtered = filtered.filter(task =>
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (task.client && task.client.toLowerCase().includes(searchQuery.toLowerCase()))
+        (task.client?.name && task.client.name.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
 
@@ -63,14 +98,14 @@ const CompletedTasks = () => {
 
     // Apply assignee filter
     if (assigneeFilter !== 'all') {
-      filtered = filtered.filter(task => 
-        task.assignees.some(assignee => assignee.id.toString() === assigneeFilter)
+      filtered = filtered.filter(task =>
+        task.assignees?.some(assignee => (assignee._id || assignee.id).toString() === assigneeFilter)
       );
     }
 
     // Sort by completion date (most recent first)
-    return filtered.sort((a, b) => new Date(b.completedDate) - new Date(a.completedDate));
-  }, [searchQuery, dateFilter, assigneeFilter]);
+    return filtered.sort((a, b) => new Date(b.completedDate || b.updatedAt) - new Date(a.completedDate || a.updatedAt));
+  }, [tasks, searchQuery, dateFilter, assigneeFilter]);
 
   const toggleTaskSelection = (taskId) => {
     setSelectedTasks(prev => 
@@ -127,12 +162,12 @@ const CompletedTasks = () => {
       <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div className="mb-4 lg:mb-0">
-            <h1 className="text-2xl font-bold text-gray-900">Completed Tasks</h1>
-            <p className="text-gray-600">{completedTasks.length} completed tasks found</p>
+            <h1 className="text-2xl font-bold text-gray-900">Workspace</h1>
+            <p className="text-gray-600">Manage tasks and collaborate with your team</p>
           </div>
-          
+
           <div className="flex items-center space-x-3">
-            <button 
+            <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
                 showFilters ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -148,16 +183,41 @@ const CompletedTasks = () => {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="mt-4">
-          <div className="relative max-w-md">
+        {/* View Switcher */}
+        <div className="mt-6 flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex bg-gray-100 rounded-lg p-1 mb-4 lg:mb-0">
+            {workspaceViews.map((view) => {
+              const Icon = view.icon;
+              const isActive = location.pathname === view.path;
+
+              return (
+                <Link
+                  key={view.id}
+                  to={view.path}
+                  className={`
+                    flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
+                    ${isActive
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{view.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search completed tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
         </div>
