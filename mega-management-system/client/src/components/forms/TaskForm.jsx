@@ -1,22 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Flag, Tag, Plus } from 'lucide-react';
 import { taskStatuses, taskPriorities, teamMembers } from '../../utils/sampleData';
 
 const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
   const [formData, setFormData] = useState({
-    title: initialData?.title || '',
-    description: initialData?.description || '',
-    status: initialData?.status || 'todo',
-    priority: initialData?.priority || 'medium',
-    assignees: initialData?.assignees?.map(a => a.id) || [],
-    dueDate: initialData?.dueDate || '',
-    estimatedTime: initialData?.estimatedTime || '',
-    tags: initialData?.tags || [],
-    client: initialData?.client || ''
+    title: '',
+    description: '',
+    status: 'todo',
+    priority: 'medium',
+    assignees: [],
+    dueDate: '',
+    estimatedTime: '',
+    tags: [],
+    client: ''
   });
 
   const [newTag, setNewTag] = useState('');
   const [errors, setErrors] = useState({});
+
+  // Update form data when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      // Format dueDate for date input (YYYY-MM-DD)
+      let formattedDate = '';
+      if (initialData.dueDate) {
+        const date = new Date(initialData.dueDate);
+        formattedDate = date.toISOString().split('T')[0];
+      }
+
+      setFormData({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        status: initialData.status || 'todo',
+        priority: initialData.priority || 'medium',
+        assignees: initialData.assignees?.map(a => a._id || a.id) || [],
+        dueDate: formattedDate,
+        estimatedTime: initialData.estimatedTime || '',
+        tags: initialData.tags || [],
+        client: initialData.client?.name || initialData.client || ''
+      });
+    } else {
+      // Reset form for new task
+      setFormData({
+        title: '',
+        description: '',
+        status: 'todo',
+        priority: 'medium',
+        assignees: [],
+        dueDate: '',
+        estimatedTime: '',
+        tags: [],
+        client: ''
+      });
+    }
+    setErrors({});
+  }, [initialData, isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

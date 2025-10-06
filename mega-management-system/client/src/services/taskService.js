@@ -43,7 +43,7 @@ const taskService = {
     } catch (error) {
       console.warn('API not available, using localStorage');
       const tasks = getLocalTasks();
-      const task = tasks.find(t => t.id === id);
+      const task = tasks.find(t => (t._id || t.id) === id);
       return { success: true, data: task };
     }
   },
@@ -76,7 +76,7 @@ const taskService = {
     } catch (error) {
       console.warn('API not available, using localStorage');
       const tasks = getLocalTasks();
-      const index = tasks.findIndex(t => t.id === id);
+      const index = tasks.findIndex(t => (t._id || t.id) === id);
       if (index !== -1) {
         tasks[index] = { ...tasks[index], ...taskData, updatedAt: new Date().toISOString() };
         saveLocalTasks(tasks);
@@ -94,7 +94,7 @@ const taskService = {
     } catch (error) {
       console.warn('API not available, using localStorage');
       const tasks = getLocalTasks();
-      const filteredTasks = tasks.filter(t => t.id !== id);
+      const filteredTasks = tasks.filter(t => (t._id || t.id) !== id);
       saveLocalTasks(filteredTasks);
       return { success: true, message: 'Task deleted (offline)' };
     }
@@ -121,7 +121,7 @@ const taskService = {
     } catch (error) {
       console.warn('API not available, using localStorage');
       const tasks = getLocalTasks();
-      const index = tasks.findIndex(t => t.id === id);
+      const index = tasks.findIndex(t => (t._id || t.id) === id);
       if (index !== -1) {
         if (!tasks[index].comments) tasks[index].comments = [];
         tasks[index].comments.push({

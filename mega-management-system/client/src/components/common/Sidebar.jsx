@@ -31,12 +31,6 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       path: '/inbox'
     },
     {
-      id: 'notifications',
-      name: 'Notifications',
-      icon: Bell,
-      path: '/notifications'
-    },
-    {
       id: 'quotations',
       name: 'Quotations',
       icon: FileText,

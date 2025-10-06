@@ -20,11 +20,13 @@ import {
   ChevronDown,
   Table,
   LayoutGrid,
-  CheckCircle
+  CheckCircle,
+  Bell
 } from 'lucide-react';
 import { taskStatuses, taskPriorities, teamMembers } from '../../utils/sampleData';
 import TaskForm from '../../components/forms/TaskForm';
 import taskService from '../../services/taskService';
+import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const TasksOverview = ({ onViewChange }) => {
   const location = useLocation();
@@ -80,6 +82,37 @@ const TasksOverview = ({ onViewChange }) => {
       toast.error('Failed to create task');
     }
   };
+
+  const handleUpdateTask = async (taskData) => {
+    try {
+      const taskId = editingTask._id || editingTask.id;
+      const response = await taskService.updateTask(taskId, taskData);
+      if (response.success) {
+        toast.success('Task updated successfully!');
+        fetchTasks();
+        fetchStats();
+        setEditingTask(null);
+      }
+    } catch (error) {
+      toast.error('Failed to update task');
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!deleteConfirmTask) return;
+    try {
+      const taskId = deleteConfirmTask._id || deleteConfirmTask.id;
+      const response = await taskService.deleteTask(taskId);
+      if (response.success) {
+        toast.success('Task deleted successfully!');
+        fetchTasks();
+        fetchStats();
+        setDeleteConfirmTask(null);
+      }
+    } catch (error) {
+      toast.error('Failed to delete task');
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('dueDate');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -88,6 +121,8 @@ const TasksOverview = ({ onViewChange }) => {
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
 
   // Workspace views configuration
   const workspaceViews = [
@@ -145,8 +180,8 @@ const TasksOverview = ({ onViewChange }) => {
   };
 
   const toggleTaskSelection = (taskId) => {
-    setSelectedTasks(prev => 
-      prev.includes(taskId) 
+    setSelectedTasks(prev =>
+      prev.includes(taskId)
         ? prev.filter(id => id !== taskId)
         : [...prev, taskId]
     );
@@ -156,24 +191,26 @@ const TasksOverview = ({ onViewChange }) => {
     if (selectedTasks.length === filteredAndSortedTasks.length) {
       setSelectedTasks([]);
     } else {
-      setSelectedTasks(filteredAndSortedTasks.map(task => task.id));
+      setSelectedTasks(filteredAndSortedTasks.map(task => task._id || task.id));
     }
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
+    date.setHours(0, 0, 0, 0);
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const diffTime = date - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Tomorrow';
     if (diffDays === -1) return 'Yesterday';
     if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
     if (diffDays <= 7) return `In ${diffDays} days`;
-    
-    return date.toLocaleDateString('en-IN', { 
-      day: 'numeric', 
+
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
       month: 'short',
       year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
     });
@@ -187,11 +224,13 @@ const TasksOverview = ({ onViewChange }) => {
 
   const getDueDateColor = (dueDate, status) => {
     if (status === 'completed') return 'text-gray-500';
-    
+
     const date = new Date(dueDate);
+    date.setHours(0, 0, 0, 0);
     const today = new Date();
-    const diffDays = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
-    
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((date - today) / (1000 * 60 * 60 * 24));
+
     if (diffDays < 0) return 'text-error-600 font-medium';
     if (diffDays === 0) return 'text-warning-600 font-medium';
     if (diffDays <= 3) return 'text-warning-500';
@@ -209,6 +248,7 @@ const TasksOverview = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
+            <NotificationDropdown />
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
@@ -475,13 +515,15 @@ const TasksOverview = ({ onViewChange }) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-gray-50 group">
+                {filteredAndSortedTasks.map((task) => {
+                  const taskId = task._id || task.id;
+                  return (
+                  <tr key={taskId} className="hover:bg-gray-50 group">
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
-                        checked={selectedTasks.includes(task.id)}
-                        onChange={() => toggleTaskSelection(task.id)}
+                        checked={selectedTasks.includes(taskId)}
+                        onChange={() => toggleTaskSelection(taskId)}
                         className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                       />
                     </td>
@@ -524,19 +566,25 @@ const TasksOverview = ({ onViewChange }) => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex -space-x-2">
-                        {task.assignees.slice(0, 3).map((assignee) => (
-                          <div
-                            key={assignee.id}
-                            className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium border-2 border-white"
-                            title={assignee.name}
-                          >
-                            {assignee.avatar}
-                          </div>
-                        ))}
-                        {task.assignees.length > 3 && (
-                          <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center font-medium border-2 border-white">
-                            +{task.assignees.length - 3}
-                          </div>
+                        {task.assignees && task.assignees.length > 0 ? (
+                          <>
+                            {task.assignees.slice(0, 3).map((assignee, index) => (
+                              <div
+                                key={assignee._id || assignee.id || index}
+                                className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium border-2 border-white"
+                                title={assignee.name || 'Assignee'}
+                              >
+                                {assignee.avatar || assignee.name?.substring(0, 2).toUpperCase() || '??'}
+                              </div>
+                            ))}
+                            {task.assignees.length > 3 && (
+                              <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center font-medium border-2 border-white">
+                                +{task.assignees.length - 3}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400">No assignees</span>
                         )}
                       </div>
                     </td>
@@ -560,22 +608,28 @@ const TasksOverview = ({ onViewChange }) => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-1 text-gray-400 hover:text-gray-600" title="View">
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button className="p-1 text-gray-400 hover:text-gray-600" title="Edit">
+                        <button
+                          onClick={() => setEditingTask(task)}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                          title="Edit"
+                        >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button className="p-1 text-gray-400 hover:text-error-600" title="Delete">
+                        <button
+                          onClick={() => setDeleteConfirmTask(task)}
+                          className="p-1 text-gray-400 hover:text-error-600"
+                          title="Delete"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
-                        <button className="p-1 text-gray-400 hover:text-gray-600">
+                        <button className="p-1 text-gray-400 hover:text-gray-600" title="More options">
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -594,10 +648,62 @@ const TasksOverview = ({ onViewChange }) => {
 
       {/* Task Form Modal */}
       <TaskForm
-        isOpen={isTaskFormOpen}
-        onClose={() => setIsTaskFormOpen(false)}
-        onSubmit={handleCreateTask}
+        isOpen={isTaskFormOpen || editingTask !== null}
+        onClose={() => {
+          setIsTaskFormOpen(false);
+          setEditingTask(null);
+        }}
+        onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+        initialData={editingTask}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmTask && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setDeleteConfirmTask(null)}
+            ></div>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-error-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <AlertCircle className="h-6 w-6 text-error-600" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      Delete Task
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Are you sure you want to delete "{deleteConfirmTask.title}"? This action cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleDeleteTask}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-error-600 text-base font-medium text-white hover:bg-error-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-error-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmTask(null)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

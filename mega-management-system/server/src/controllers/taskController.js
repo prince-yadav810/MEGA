@@ -171,11 +171,23 @@ exports.updateTask = async (req, res) => {
       });
     }
 
-    // Update task
-    const updateData = {
-      ...req.body,
-      updatedBy: req.user._id
-    };
+    // Clean up assignees if provided - filter out invalid IDs
+    let updateData = { ...req.body };
+
+    if (req.body.assignees) {
+      updateData.assignees = req.body.assignees.filter(id =>
+        id && id.toString().match(/^[0-9a-fA-F]{24}$/)
+      );
+    }
+
+    // Remove client if it's not a valid ObjectId
+    if (req.body.client && !req.body.client.match(/^[0-9a-fA-F]{24}$/)) {
+      delete updateData.client;
+    }
+
+    updateData.updatedBy = req.user._id;
+
+    console.log('Updating task with data:', updateData);
 
     task = await Task.findByIdAndUpdate(
       req.params.id,
@@ -184,6 +196,8 @@ exports.updateTask = async (req, res) => {
     )
       .populate('assignees', 'name email avatar')
       .populate('client', 'name email');
+
+    console.log('Task updated successfully:', task._id);
 
     // Emit socket event for real-time updates
     if (req.io) {
@@ -196,10 +210,12 @@ exports.updateTask = async (req, res) => {
       data: task
     });
   } catch (error) {
+    console.error('Error updating task:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating task',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

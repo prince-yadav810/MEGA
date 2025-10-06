@@ -13,11 +13,20 @@ const {
 } = require('../controllers/taskController');
 const { protect } = require('../middleware/auth');
 
-// Validation rules
-const taskValidation = [
+// Validation rules for creating tasks
+const createTaskValidation = [
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('dueDate').isISO8601().withMessage('Valid due date is required'),
+  body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority'),
+  body('status').optional().isIn(['todo', 'in_progress', 'review', 'scheduled', 'completed']).withMessage('Invalid status')
+];
+
+// Validation rules for updating tasks (all fields optional)
+const updateTaskValidation = [
+  body('title').optional().trim().notEmpty().withMessage('Title cannot be empty'),
+  body('description').optional().trim().notEmpty().withMessage('Description cannot be empty'),
+  body('dueDate').optional().isISO8601().withMessage('Valid due date is required'),
   body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority'),
   body('status').optional().isIn(['todo', 'in_progress', 'review', 'scheduled', 'completed']).withMessage('Invalid status')
 ];
@@ -27,8 +36,8 @@ router.get('/stats', protect, getTaskStats);
 router.get('/status/:status', protect, getTasksByStatus);
 router.get('/', protect, getTasks);
 router.get('/:id', protect, getTask);
-router.post('/', protect, taskValidation, createTask);
-router.put('/:id', protect, taskValidation, updateTask);
+router.post('/', protect, createTaskValidation, createTask);
+router.put('/:id', protect, updateTaskValidation, updateTask);
 router.delete('/:id', protect, deleteTask);
 router.post('/:id/comments', protect, addComment);
 
