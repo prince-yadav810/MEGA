@@ -36,6 +36,7 @@ const TaskBoard = ({ onViewChange }) => {
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [menuOpenTaskId, setMenuOpenTaskId] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null); // { taskId, type: 'priority', position: 'top' | 'bottom' }
 
   // Workspace views configuration
   const workspaceViews = [
@@ -54,6 +55,9 @@ const TaskBoard = ({ onViewChange }) => {
     const handleClickOutside = (event) => {
       if (menuOpenTaskId && !event.target.closest('.task-menu-container')) {
         setMenuOpenTaskId(null);
+      }
+      if (!event.target.closest('.dropdown-container')) {
+        setActiveDropdown(null);
       }
     };
 
@@ -267,6 +271,29 @@ const TaskBoard = ({ onViewChange }) => {
     setDraggedOverColumn(null);
   };
 
+  const handleQuickPriorityChange = async (taskId, newPriority) => {
+    try {
+      const response = await taskService.updateTask(taskId, { priority: newPriority });
+      if (response.success) {
+        setTasks(tasks.map(task =>
+          (task._id || task.id) === taskId ? { ...task, priority: newPriority } : task
+        ));
+        setActiveDropdown(null);
+        toast.success('Priority updated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to update priority');
+    }
+  };
+
+  const getDropdownPosition = (buttonElement) => {
+    if (!buttonElement) return 'bottom';
+    const rect = buttonElement.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    return spaceBelow < 200 && spaceAbove > spaceBelow ? 'top' : 'bottom';
+  };
+
   const TaskCard = ({ task }) => {
     const taskId = task._id || task.id;
     const isMenuOpen = menuOpenTaskId === taskId;
@@ -280,11 +307,46 @@ const TaskBoard = ({ onViewChange }) => {
     >
       {/* Priority Badge - Top Corner */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${taskPriorities[task.priority].bgColor} ${taskPriorities[task.priority].color}`}>
+        <div className="flex items-center gap-2 relative dropdown-container">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const position = getDropdownPosition(e.currentTarget);
+              setActiveDropdown(
+                activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority'
+                  ? null
+                  : { taskId, type: 'priority', position }
+              );
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${taskPriorities[task.priority].bgColor} ${taskPriorities[task.priority].color} hover:opacity-80 transition-opacity`}
+          >
             {getPriorityIcon(task.priority)}
             <span>{taskPriorities[task.priority].label}</span>
-          </div>
+          </button>
+
+          {activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority' && (
+            <div
+              className={`absolute z-20 left-0 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1 ${
+                activeDropdown.position === 'top' ? 'bottom-full mb-1' : 'top-8'
+              }`}
+            >
+              {Object.entries(taskPriorities).map(([key, priority]) => (
+                <button
+                  key={key}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuickPriorityChange(taskId, key);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                    task.priority === key ? 'bg-gray-50' : ''
+                  }`}
+                >
+                  {getPriorityIcon(key)}
+                  <span className={priority.color}>{priority.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="relative task-menu-container">
           <button
