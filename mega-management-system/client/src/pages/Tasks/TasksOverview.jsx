@@ -39,10 +39,23 @@ const TasksOverview = ({ onViewChange }) => {
     completed: 0,
     overdue: 0
   });
+  const [activeDropdown, setActiveDropdown] = useState(null); // { taskId, type: 'status' | 'priority', position: 'top' | 'bottom' }
+  const [showCheckboxes, setShowCheckboxes] = useState(false);
 
   useEffect(() => {
     fetchTasks();
     fetchStats();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.dropdown-container')) {
+        setActiveDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const fetchTasks = async () => {
@@ -235,6 +248,45 @@ const TasksOverview = ({ onViewChange }) => {
     if (diffDays === 0) return 'text-warning-600 font-medium';
     if (diffDays <= 3) return 'text-warning-500';
     return 'text-gray-700';
+  };
+
+  const handleQuickStatusChange = async (taskId, newStatus) => {
+    try {
+      const response = await taskService.updateTask(taskId, { status: newStatus });
+      if (response.success) {
+        setTasks(tasks.map(task =>
+          (task._id || task.id) === taskId ? { ...task, status: newStatus } : task
+        ));
+        setActiveDropdown(null);
+        fetchStats();
+        toast.success('Status updated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  };
+
+  const handleQuickPriorityChange = async (taskId, newPriority) => {
+    try {
+      const response = await taskService.updateTask(taskId, { priority: newPriority });
+      if (response.success) {
+        setTasks(tasks.map(task =>
+          (task._id || task.id) === taskId ? { ...task, priority: newPriority } : task
+        ));
+        setActiveDropdown(null);
+        toast.success('Priority updated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to update priority');
+    }
+  };
+
+  const getDropdownPosition = (buttonElement) => {
+    if (!buttonElement) return 'bottom';
+    const rect = buttonElement.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    return spaceBelow < 200 && spaceAbove > spaceBelow ? 'top' : 'bottom';
   };
 
   return (
@@ -453,14 +505,16 @@ const TasksOverview = ({ onViewChange }) => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left">
-                    <input
-                      type="checkbox"
-                      checked={selectedTasks.length === filteredAndSortedTasks.length && filteredAndSortedTasks.length > 0}
-                      onChange={selectAllTasks}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                  </th>
+                  {showCheckboxes && (
+                    <th className="px-6 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedTasks.length === filteredAndSortedTasks.length && filteredAndSortedTasks.length > 0}
+                        onChange={selectAllTasks}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left">
                     <button
                       onClick={() => handleSort('title')}
@@ -519,14 +573,16 @@ const TasksOverview = ({ onViewChange }) => {
                   const taskId = task._id || task.id;
                   return (
                   <tr key={taskId} className="hover:bg-gray-50 group">
-                    <td className="px-6 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedTasks.includes(taskId)}
-                        onChange={() => toggleTaskSelection(taskId)}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                    </td>
+                    {showCheckboxes && (
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedTasks.includes(taskId)}
+                          onChange={() => toggleTaskSelection(taskId)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <div className="max-w-xs">
                         <div className="text-sm font-medium text-gray-900 truncate">{task.title}</div>
@@ -551,17 +607,83 @@ const TasksOverview = ({ onViewChange }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${taskStatuses[task.status].color}`}>
-                        <div className={`w-2 h-2 rounded-full mr-1.5 ${taskStatuses[task.status].dotColor}`}></div>
-                        {taskStatuses[task.status].label}
-                      </span>
+                      <div className="relative dropdown-container">
+                        <button
+                          onClick={(e) => {
+                            const position = getDropdownPosition(e.currentTarget);
+                            setActiveDropdown(
+                              activeDropdown?.taskId === taskId && activeDropdown?.type === 'status'
+                                ? null
+                                : { taskId, type: 'status', position }
+                            );
+                          }}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${taskStatuses[task.status].color} hover:opacity-80 transition-opacity`}
+                        >
+                          <div className={`w-2 h-2 rounded-full mr-1.5 ${taskStatuses[task.status].dotColor}`}></div>
+                          {taskStatuses[task.status].label}
+                        </button>
+
+                        {activeDropdown?.taskId === taskId && activeDropdown?.type === 'status' && (
+                          <div
+                            className={`absolute z-10 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 ${
+                              activeDropdown.position === 'top' ? 'bottom-full mb-1' : 'mt-1'
+                            }`}
+                          >
+                            {Object.entries(taskStatuses).map(([key, status]) => (
+                              <button
+                                key={key}
+                                onClick={() => handleQuickStatusChange(taskId, key)}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                                  task.status === key ? 'bg-gray-50' : ''
+                                }`}
+                              >
+                                <div className={`w-2 h-2 rounded-full ${status.dotColor}`}></div>
+                                <span>{status.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-1">
-                        {getPriorityIcon(task.priority)}
-                        <span className={`text-sm font-medium ${taskPriorities[task.priority].color}`}>
-                          {taskPriorities[task.priority].label}
-                        </span>
+                      <div className="relative dropdown-container">
+                        <button
+                          onClick={(e) => {
+                            const position = getDropdownPosition(e.currentTarget);
+                            setActiveDropdown(
+                              activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority'
+                                ? null
+                                : { taskId, type: 'priority', position }
+                            );
+                          }}
+                          className="flex items-center space-x-1 hover:opacity-80 transition-opacity"
+                        >
+                          {getPriorityIcon(task.priority)}
+                          <span className={`text-sm font-medium ${taskPriorities[task.priority].color}`}>
+                            {taskPriorities[task.priority].label}
+                          </span>
+                        </button>
+
+                        {activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority' && (
+                          <div
+                            className={`absolute z-10 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1 ${
+                              activeDropdown.position === 'top' ? 'bottom-full mb-1' : 'mt-1'
+                            }`}
+                          >
+                            {Object.entries(taskPriorities).map(([key, priority]) => (
+                              <button
+                                key={key}
+                                onClick={() => handleQuickPriorityChange(taskId, key)}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                                  task.priority === key ? 'bg-gray-50' : ''
+                                }`}
+                              >
+                                {getPriorityIcon(key)}
+                                <span className={priority.color}>{priority.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -622,7 +744,11 @@ const TasksOverview = ({ onViewChange }) => {
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
-                        <button className="p-1 text-gray-400 hover:text-gray-600" title="More options">
+                        <button
+                          onClick={() => setShowCheckboxes(!showCheckboxes)}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                          title="Toggle bulk selection"
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
                       </div>

@@ -52,6 +52,8 @@ const CompletedTasks = ({ onViewChange }) => {
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [showCheckboxes, setShowCheckboxes] = useState(false);
 
   // Workspace views configuration
   const workspaceViews = [
@@ -352,14 +354,16 @@ const CompletedTasks = ({ onViewChange }) => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedTasks.length === completedTasks.length && completedTasks.length > 0}
-                        onChange={selectAllTasks}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                    </th>
+                    {showCheckboxes && (
+                      <th className="px-6 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedTasks.length === completedTasks.length && completedTasks.length > 0}
+                          onChange={selectAllTasks}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Task
                     </th>
@@ -386,14 +390,16 @@ const CompletedTasks = ({ onViewChange }) => {
                     
                     return (
                       <tr key={task.id} className="hover:bg-gray-50 group">
-                        <td className="px-6 py-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedTasks.includes(task.id)}
-                            onChange={() => toggleTaskSelection(task.id)}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                        </td>
+                        {showCheckboxes && (
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedTasks.includes(task.id)}
+                              onChange={() => toggleTaskSelection(task.id)}
+                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                          </td>
+                        )}
                         <td className="px-6 py-4">
                           <div className="max-w-xs">
                             <div className="flex items-center space-x-2">
@@ -485,7 +491,11 @@ const CompletedTasks = ({ onViewChange }) => {
                             >
                               <Archive className="h-4 w-4" />
                             </button>
-                            <button className="p-1 text-gray-400 hover:text-gray-600">
+                            <button
+                              onClick={() => setShowCheckboxes(!showCheckboxes)}
+                              className="p-1 text-gray-400 hover:text-gray-600"
+                              title="Toggle bulk selection"
+                            >
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
                           </div>
