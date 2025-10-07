@@ -7,6 +7,7 @@ import TaskBoard from './pages/Tasks/TaskBoard';
 import TaskCalendar from './pages/Tasks/TaskCalendar';
 import CompletedTasks from './pages/Tasks/CompletedTasks';
 import QuotationsList from './pages/Quotations/QuotationsList';
+import { NotificationProvider } from './context/NotificationContext.js';
 import './App.css';
 
 // Placeholder components for other routes
@@ -37,8 +38,9 @@ function App() {
   };
 
   return (
-    <Router>
-      <div className="h-screen bg-gray-50 flex overflow-hidden">
+    <NotificationProvider>
+      <Router>
+        <div className="h-screen bg-gray-50 flex overflow-hidden">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">
           <Sidebar 
@@ -74,7 +76,8 @@ function App() {
           </main>
         </div>
       </div>
-    </Router>
+      </Router>
+    </NotificationProvider>
   );
 }
 

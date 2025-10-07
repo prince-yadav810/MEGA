@@ -18,10 +18,12 @@ import {
   TrendingUp,
   Table,
   LayoutGrid,
-  Plus
+  Plus,
+  Bell
 } from 'lucide-react';
 import { taskPriorities, teamMembers } from '../../utils/sampleData';
 import taskService from '../../services/taskService';
+import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const CompletedTasks = ({ onViewChange }) => {
   const location = useLocation();
@@ -167,6 +169,7 @@ const CompletedTasks = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
+            <NotificationDropdown />
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${

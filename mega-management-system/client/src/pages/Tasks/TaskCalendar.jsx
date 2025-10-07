@@ -18,11 +18,13 @@ import {
   Paperclip,
   MessageCircle,
   Edit2,
-  Tag
+  Tag,
+  Bell
 } from 'lucide-react';
 import { taskStatuses, taskPriorities } from '../../utils/sampleData';
 import TaskForm from '../../components/forms/TaskForm';
 import taskService from '../../services/taskService';
+import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const TaskCalendar = ({ onViewChange }) => {
   const location = useLocation();
@@ -219,6 +221,7 @@ const TaskCalendar = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
+            <NotificationDropdown />
             <button
               onClick={() => setIsTaskFormOpen(true)}
               className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition-colors"
