@@ -10,6 +10,7 @@ import ProductCatalog from './pages/Products/ProductCatalog';
 import Analytics from './pages/Admin/Analytics';
 import Settings from './pages/Admin/Settings';
 import UserManagement from './pages/Admin/UserManagement';
+import { NotificationProvider } from './context/NotificationContext.js';
 import { initializeSampleData } from './utils/initSampleData';
 import './App.css';
 
@@ -64,7 +65,7 @@ function Layout() {
         <main className="flex-1 overflow-y-auto bg-gray-50">
           <Routes>
             <Route index element={<Navigate to="/workspace" replace />} />
-            <Route path="workspace" element={<><div style={{display:'none'}}>{console.log('🔴 RENDERING WORKSPACE ROUTE')}</div><Workspace /></>} />
+            <Route path="workspace/*" element={<Workspace />} />
             <Route path="quotations" element={<QuotationsList />} />
             <Route path="clients" element={<ClientsList />} />
             <Route path="products" element={<ProductCatalog />} />
@@ -99,11 +100,13 @@ function Layout() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/*" element={<Layout />} />
-      </Routes>
-    </BrowserRouter>
+    <NotificationProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/*" element={<Layout />} />
+        </Routes>
+      </BrowserRouter>
+    </NotificationProvider>
   );
 }
 

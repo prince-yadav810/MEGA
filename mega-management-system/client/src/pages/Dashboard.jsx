@@ -360,9 +360,9 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex -space-x-2">
-                        {task.assignees?.slice(0, 2).map((assignee) => (
+                        {task.assignees?.slice(0, 2).map((assignee, index) => (
                           <div
-                            key={assignee._id || assignee.id}
+                            key={assignee._id || assignee.id || `assignee-${task.id}-${index}`}
                             className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium border-2 border-white"
                             title={assignee.name}
                           >

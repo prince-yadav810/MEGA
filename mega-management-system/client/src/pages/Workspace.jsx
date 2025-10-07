@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import TasksOverview from './Tasks/TasksOverview';
 import TaskBoard from './Tasks/TaskBoard';
@@ -6,36 +7,16 @@ import TaskCalendar from './Tasks/TaskCalendar';
 import CompletedTasks from './Tasks/CompletedTasks';
 
 const Workspace = () => {
-  const [activeView, setActiveView] = useState('dashboard');
-
-  useEffect(() => {
-    console.log('✅ Workspace component mounted!');
-  }, []);
-
-  const handleViewChange = (view) => {
-    console.log('Changing view to:', view);
-    setActiveView(view);
-  };
-
-  const renderView = () => {
-    console.log('Current active view:', activeView);
-    switch (activeView) {
-      case 'dashboard':
-        return <Dashboard onViewChange={handleViewChange} />;
-      case 'table':
-        return <TasksOverview onViewChange={handleViewChange} />;
-      case 'board':
-        return <TaskBoard onViewChange={handleViewChange} />;
-      case 'calendar':
-        return <TaskCalendar onViewChange={handleViewChange} />;
-      case 'completed':
-        return <CompletedTasks onViewChange={handleViewChange} />;
-      default:
-        return <Dashboard onViewChange={handleViewChange} />;
-    }
-  };
-
-  return <>{renderView()}</>;
+  return (
+    <Routes>
+      <Route index element={<Dashboard />} />
+      <Route path="table" element={<TasksOverview />} />
+      <Route path="board" element={<TaskBoard />} />
+      <Route path="calendar" element={<TaskCalendar />} />
+      <Route path="completed" element={<CompletedTasks />} />
+      <Route path="*" element={<Navigate to="/workspace" replace />} />
+    </Routes>
+  );
 };
 
 export default Workspace;
