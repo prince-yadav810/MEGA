@@ -9,8 +9,9 @@ const TaskSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: [true, 'Task description is required'],
+    required: false,
     trim: true,
+    default: '',
     maxlength: [1000, 'Description cannot be more than 1000 characters']
   },
   status: {
@@ -69,6 +70,12 @@ const TaskSchema = new mongoose.Schema({
   estimatedTime: {
     type: String,
     default: '0h'
+  },
+  progress: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

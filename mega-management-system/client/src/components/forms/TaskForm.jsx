@@ -111,12 +111,14 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     // The backend will handle populating the full data
     const taskData = {
       title: formData.title,
-      description: formData.description,
+      description: formData.description || '',
       status: formData.status,
       priority: formData.priority,
       assignees: formData.assignees, // Array of IDs
       dueDate: formData.dueDate,
       estimatedTime: formData.estimatedTime || '0h',
+      timeTracked: '0h',
+      progress: 0,
       tags: formData.tags,
       // Don't send client as string - backend should handle client lookup or creation
       // For now, omit it if it's just a string name

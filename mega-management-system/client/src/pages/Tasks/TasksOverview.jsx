@@ -226,7 +226,7 @@ const TasksOverview = ({ onViewChange }) => {
     if (diffDays === 1) return 'Tomorrow';
     if (diffDays === -1) return 'Yesterday';
     if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
-    if (diffDays <= 7) return `In ${diffDays} days`;
+    if (diffDays <= 7) return `${diffDays} days`;
 
     return date.toLocaleDateString('en-IN', {
       day: 'numeric',
@@ -565,7 +565,7 @@ const TasksOverview = ({ onViewChange }) => {
                       />
                     </th>
                   )}
-                  <th className="px-6 py-3 text-left">
+                  <th className="px-6 py-3 text-left w-1/5">
                     <button
                       onClick={() => handleSort('title')}
                       className="flex items-center space-x-1 text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
@@ -574,7 +574,7 @@ const TasksOverview = ({ onViewChange }) => {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left">
+                  <th className="px-6 py-3 text-left w-40">
                     <button
                       onClick={() => handleSort('status')}
                       className="flex items-center space-x-1 text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
@@ -633,7 +633,7 @@ const TasksOverview = ({ onViewChange }) => {
                         />
                       </td>
                     )}
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 w-1/5">
                       <div className="max-w-xs">
                         <div className="text-sm font-medium text-gray-900 truncate">{task.title}</div>
                         <div className="text-sm text-gray-500 truncate">{task.description}</div>
@@ -656,7 +656,7 @@ const TasksOverview = ({ onViewChange }) => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 w-40">
                       <div className="relative dropdown-container">
                         <button
                           onClick={(e) => {
@@ -667,7 +667,7 @@ const TasksOverview = ({ onViewChange }) => {
                                 : { taskId, type: 'status', position }
                             );
                           }}
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${taskStatuses[task.status].color} hover:opacity-80 transition-opacity`}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${taskStatuses[task.status].color} hover:opacity-80 transition-opacity`}
                         >
                           <div className={`w-2 h-2 rounded-full mr-1.5 ${taskStatuses[task.status].dotColor}`}></div>
                           {taskStatuses[task.status].label}
@@ -789,7 +789,7 @@ const TasksOverview = ({ onViewChange }) => {
                             }}
                             className="text-xs text-gray-500 hover:text-primary-600 transition-colors cursor-pointer"
                           >
-                            Progress: {task.progress || 0}%
+                            {task.progress || 0}%
                           </button>
                         )}
                       </div>
