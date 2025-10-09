@@ -53,7 +53,9 @@ const CompletedTasks = ({ onViewChange }) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
-  const [showCheckboxes, setShowCheckboxes] = useState(false);
+  const [showCheckboxes, setShowCheckboxes] = useState(true);
+  const [editingProgress, setEditingProgress] = useState(null); // taskId of task being edited
+  const [progressValue, setProgressValue] = useState(''); // temporary progress value
 
   // Workspace views configuration
   const workspaceViews = [
@@ -159,6 +161,50 @@ const CompletedTasks = ({ onViewChange }) => {
   };
 
   const stats = getCompletionStats();
+
+  const handleProgressClick = (taskId, currentProgress) => {
+    setEditingProgress(taskId);
+    setProgressValue(currentProgress || '0');
+  };
+
+  const handleProgressChange = (e) => {
+    const value = e.target.value;
+    // Only allow numbers 0-100
+    if (value === '' || (/^\d+$/.test(value) && parseInt(value) >= 0 && parseInt(value) <= 100)) {
+      setProgressValue(value);
+    }
+  };
+
+  const handleProgressSave = async (taskId) => {
+    const progress = parseInt(progressValue);
+    if (isNaN(progress) || progress < 0 || progress > 100) {
+      toast.error('Please enter a value between 0 and 100');
+      return;
+    }
+
+    try {
+      const response = await taskService.updateTask(taskId, { progress });
+      if (response.success) {
+        setTasks(tasks.map(task =>
+          (task._id || task.id) === taskId ? { ...task, progress } : task
+        ));
+        setEditingProgress(null);
+        setProgressValue('');
+        toast.success('Progress updated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to update progress');
+    }
+  };
+
+  const handleProgressKeyDown = (e, taskId) => {
+    if (e.key === 'Enter') {
+      handleProgressSave(taskId);
+    } else if (e.key === 'Escape') {
+      setEditingProgress(null);
+      setProgressValue('');
+    }
+  };
 
   return (
     <div className="h-full bg-gray-50">
@@ -466,13 +512,46 @@ const CompletedTasks = ({ onViewChange }) => {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">{task.timeTracked}</div>
-                          <div className="text-xs text-gray-500">Est: {task.estimatedTime}</div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                            <div 
-                              className="bg-success-500 h-1.5 rounded-full" 
-                              style={{ 
-                                width: `${Math.min(100, (parseFloat(task.timeTracked) / parseFloat(task.estimatedTime)) * 100)}%` 
+                          <div className="flex items-center justify-between mb-1">
+                            {editingProgress === (task._id || task.id) ? (
+                              <div className="flex items-center gap-2 progress-input-container">
+                                <input
+                                  type="text"
+                                  value={progressValue}
+                                  onChange={handleProgressChange}
+                                  onKeyDown={(e) => handleProgressKeyDown(e, task._id || task.id)}
+                                  onBlur={() => handleProgressSave(task._id || task.id)}
+                                  autoFocus
+                                  placeholder="0-100"
+                                  className="w-16 px-2 py-1 text-xs border-2 border-primary-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-center font-semibold bg-white shadow-sm"
+                                />
+                                <span className="text-xs font-semibold text-primary-600">%</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProgressClick(task._id || task.id, task.progress || 0);
+                                }}
+                                className="text-xs text-gray-500 hover:text-success-600 transition-colors cursor-pointer"
+                              >
+                                Progress: {task.progress || 0}%
+                              </button>
+                            )}
+                          </div>
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (editingProgress !== (task._id || task.id)) {
+                                handleProgressClick(task._id || task.id, task.progress || 0);
+                              }
+                            }}
+                            className="w-full bg-gray-200 rounded-full h-1.5 mt-1 cursor-pointer hover:h-2 transition-all duration-200"
+                          >
+                            <div
+                              className="bg-success-500 h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${Math.min(100, task.progress || 0)}%`
                               }}
                             ></div>
                           </div>
