@@ -28,9 +28,10 @@ const taskService = {
   getAllTasks: async (params = {}) => {
     try {
       const response = await api.get('/tasks', { params });
+      console.log('✓ Using API - Tasks fetched:', response.data.data?.length || 0);
       return response.data;
     } catch (error) {
-      console.warn('API not available, using localStorage');
+      console.warn('⚠️ API not available, using localStorage. Error:', error.message);
       return { success: true, data: getLocalTasks() };
     }
   },
@@ -51,10 +52,12 @@ const taskService = {
   // Create new task
   createTask: async (taskData) => {
     try {
+      console.log('Creating task via API with assignees:', taskData.assignees);
       const response = await api.post('/tasks', taskData);
+      console.log('✓ Task created via API:', response.data.data);
       return response.data;
     } catch (error) {
-      console.warn('API not available, using localStorage');
+      console.warn('⚠️ API not available, using localStorage. Error:', error.message);
       const tasks = getLocalTasks();
       const newTask = {
         ...taskData,

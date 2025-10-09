@@ -7,8 +7,8 @@ export const sampleTasks = [
     status: "in_progress",
     priority: "high",
     assignees: [
-      { id: 1, name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com" },
-      { id: 2, name: "Priya Sharma", avatar: "PS", email: "priya@mega.com" }
+      { id: "68e806efc81efb0b836779c6", name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com" },
+      { id: "68e806efc81efb0b836779c7", name: "Priya Sharma", avatar: "PS", email: "priya@mega.com" }
     ],
     dueDate: "2024-12-15",
     createdDate: "2024-12-01",
@@ -26,7 +26,7 @@ export const sampleTasks = [
     status: "todo",
     priority: "urgent",
     assignees: [
-      { id: 3, name: "Amit Patel", avatar: "AP", email: "amit@mega.com" }
+      { id: "68e806efc81efb0b836779c8", name: "Amit Patel", avatar: "AP", email: "amit@mega.com" }
     ],
     dueDate: "2024-12-10",
     createdDate: "2024-12-05",
@@ -44,7 +44,7 @@ export const sampleTasks = [
     status: "completed",
     priority: "medium",
     assignees: [
-      { id: 4, name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com" }
+      { id: "68e806efc81efb0b836779c9", name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com" }
     ],
     dueDate: "2024-12-08",
     createdDate: "2024-11-28",
@@ -63,8 +63,8 @@ export const sampleTasks = [
     status: "review",
     priority: "medium",
     assignees: [
-      { id: 2, name: "Priya Sharma", avatar: "PS", email: "priya@mega.com" },
-      { id: 5, name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com" }
+      { id: "68e806efc81efb0b836779c7", name: "Priya Sharma", avatar: "PS", email: "priya@mega.com" },
+      { id: "68e806efc81efb0b836779ca", name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com" }
     ],
     dueDate: "2024-12-20",
     createdDate: "2024-12-03",
@@ -82,7 +82,7 @@ export const sampleTasks = [
     status: "scheduled",
     priority: "high",
     assignees: [
-      { id: 1, name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com" }
+      { id: "68e806efc81efb0b836779c6", name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com" }
     ],
     dueDate: "2024-12-12",
     createdDate: "2024-12-04",
@@ -100,8 +100,8 @@ export const sampleTasks = [
     status: "todo",
     priority: "low",
     assignees: [
-      { id: 4, name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com" },
-      { id: 3, name: "Amit Patel", avatar: "AP", email: "amit@mega.com" }
+      { id: "68e806efc81efb0b836779c9", name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com" },
+      { id: "68e806efc81efb0b836779c8", name: "Amit Patel", avatar: "AP", email: "amit@mega.com" }
     ],
     dueDate: "2024-12-25",
     createdDate: "2024-12-06",
@@ -119,7 +119,7 @@ export const sampleTasks = [
     status: "in_progress",
     priority: "medium",
     assignees: [
-      { id: 5, name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com" }
+      { id: "68e806efc81efb0b836779ca", name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com" }
     ],
     dueDate: "2024-12-18",
     createdDate: "2024-12-02",
@@ -137,7 +137,7 @@ export const sampleTasks = [
     status: "completed",
     priority: "low",
     assignees: [
-      { id: 2, name: "Priya Sharma", avatar: "PS", email: "priya@mega.com" }
+      { id: "68e806efc81efb0b836779c7", name: "Priya Sharma", avatar: "PS", email: "priya@mega.com" }
     ],
     dueDate: "2024-12-05",
     createdDate: "2024-11-25",
@@ -204,13 +204,13 @@ export const taskPriorities = {
   }
 };
 
-// Team members
+// Team members - IDs match MongoDB User collection
 export const teamMembers = [
-  { id: 1, name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com", role: "Sales Manager" },
-  { id: 2, name: "Priya Sharma", avatar: "PS", email: "priya@mega.com", role: "Operations" },
-  { id: 3, name: "Amit Patel", avatar: "AP", email: "amit@mega.com", role: "Accounts" },
-  { id: 4, name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com", role: "Inventory" },
-  { id: 5, name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com", role: "Technical" }
+  { id: "68e806efc81efb0b836779c6", name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com", role: "Sales Manager" },
+  { id: "68e806efc81efb0b836779c7", name: "Priya Sharma", avatar: "PS", email: "priya@mega.com", role: "Operations" },
+  { id: "68e806efc81efb0b836779c8", name: "Amit Patel", avatar: "AP", email: "amit@mega.com", role: "Accounts" },
+  { id: "68e806efc81efb0b836779c9", name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com", role: "Inventory" },
+  { id: "68e806efc81efb0b836779ca", name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com", role: "Technical" }
 ];
 
 // Helper functions
