@@ -36,6 +36,16 @@ const QuotationSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  promotionalProducts: [{
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product'
+    },
+    displayOrder: {
+      type: Number,
+      default: 0
+    }
+  }],
   createdDate: {
     type: Date,
     default: Date.now
