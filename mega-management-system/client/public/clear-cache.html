@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: green;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Clear Application Cache</h1>
+    <p>Click the button below to clear all localStorage data:</p>
+    <button onclick="clearCache()">Clear Cache</button>
+    <div id="message"></div>
+
+    <script>
+        function clearCache() {
+            try {
+                // Clear all localStorage
+                localStorage.clear();
+
+                // Show success message
+                document.getElementById('message').innerHTML =
+                    '<p class="success">✓ Cache cleared successfully!<br>Please refresh the application.</p>';
+
+                console.log('LocalStorage cleared');
+            } catch (error) {
+                document.getElementById('message').innerHTML =
+                    '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

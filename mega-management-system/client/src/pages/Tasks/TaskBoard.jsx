@@ -37,6 +37,8 @@ const TaskBoard = ({ onViewChange }) => {
   const [editingTask, setEditingTask] = useState(null);
   const [menuOpenTaskId, setMenuOpenTaskId] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null); // { taskId, type: 'priority', position: 'top' | 'bottom' }
+  const [editingProgress, setEditingProgress] = useState(null); // taskId of task being edited
+  const [progressValue, setProgressValue] = useState(''); // temporary progress value
 
   // Workspace views configuration
   const workspaceViews = [
@@ -59,13 +61,17 @@ const TaskBoard = ({ onViewChange }) => {
       if (!event.target.closest('.dropdown-container')) {
         setActiveDropdown(null);
       }
+      if (editingProgress && !event.target.closest('.progress-input-container')) {
+        setEditingProgress(null);
+        setProgressValue('');
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [menuOpenTaskId]);
+  }, [menuOpenTaskId, editingProgress]);
 
   const fetchTasks = async () => {
     try {
@@ -214,10 +220,66 @@ const TaskBoard = ({ onViewChange }) => {
     return 'text-gray-600';
   };
 
-  // Drag and drop handlers
+  // Drag and drop handlers with instant response
   const handleDragStart = (e, task) => {
-    setDraggedTask(task);
+    // Immediate drag start with no delay
+    requestAnimationFrame(() => {
+      setDraggedTask(task);
+    });
+
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+
+    const element = e.currentTarget;
+    const rect = element.getBoundingClientRect();
+
+    // Create a wrapper for 3D perspective
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'absolute';
+    wrapper.style.top = '-9999px';
+    wrapper.style.left = '-9999px';
+    wrapper.style.width = `${rect.width}px`;
+    wrapper.style.height = `${rect.height}px`;
+    wrapper.style.perspective = '1200px';
+    wrapper.style.perspectiveOrigin = 'center center';
+
+    // Create custom drag image with fixed size and 3D effect
+    const dragImage = element.cloneNode(true);
+    dragImage.style.width = `${rect.width}px`;
+    dragImage.style.height = `${rect.height}px`;
+    dragImage.style.minWidth = `${rect.width}px`;
+    dragImage.style.maxWidth = `${rect.width}px`;
+    dragImage.style.minHeight = `${rect.height}px`;
+    dragImage.style.maxHeight = `${rect.height}px`;
+    dragImage.style.opacity = '0.98';
+    dragImage.style.transform = 'rotateX(-5deg) rotateY(5deg) rotateZ(-2deg)';
+    dragImage.style.transformStyle = 'preserve-3d';
+    dragImage.style.backfaceVisibility = 'hidden';
+    dragImage.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+    dragImage.style.pointerEvents = 'none';
+    dragImage.style.filter = 'brightness(1.02)';
+
+    wrapper.appendChild(dragImage);
+    document.body.appendChild(wrapper);
+
+    // Calculate center point for drag image
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    e.dataTransfer.setDragImage(wrapper, centerX, centerY);
+
+    // Remove the temporary drag image after rendering
+    setTimeout(() => {
+      if (document.body.contains(wrapper)) {
+        document.body.removeChild(wrapper);
+      }
+    }, 0);
+
+    // Immediate visual feedback with 3D effect on original card
+    element.style.opacity = '0.3';
+    element.style.transform = 'rotateX(-3deg) rotateY(3deg) rotateZ(-1deg) scale(0.95)';
+    element.style.boxShadow = '0 2px 4px rgba(0,0,0,0.08)';
+    element.style.transition = 'none';
   };
 
   const handleDragOver = (e, columnStatus) => {
@@ -235,6 +297,11 @@ const TaskBoard = ({ onViewChange }) => {
   };
 
   const handleDragEnd = (e) => {
+    // Reset all visual states
+    e.currentTarget.style.opacity = '1';
+    e.currentTarget.style.transform = '';
+    e.currentTarget.style.boxShadow = '';
+    e.currentTarget.style.transition = '';
     setDraggedTask(null);
     setDraggedOverColumn(null);
   };
@@ -286,6 +353,50 @@ const TaskBoard = ({ onViewChange }) => {
     }
   };
 
+  const handleProgressClick = (taskId, currentProgress) => {
+    setEditingProgress(taskId);
+    setProgressValue(currentProgress || '0');
+  };
+
+  const handleProgressChange = (e) => {
+    const value = e.target.value;
+    // Only allow numbers 0-100
+    if (value === '' || (/^\d+$/.test(value) && parseInt(value) >= 0 && parseInt(value) <= 100)) {
+      setProgressValue(value);
+    }
+  };
+
+  const handleProgressSave = async (taskId) => {
+    const progress = parseInt(progressValue);
+    if (isNaN(progress) || progress < 0 || progress > 100) {
+      toast.error('Please enter a value between 0 and 100');
+      return;
+    }
+
+    try {
+      const response = await taskService.updateTask(taskId, { progress });
+      if (response.success) {
+        setTasks(tasks.map(task =>
+          (task._id || task.id) === taskId ? { ...task, progress } : task
+        ));
+        setEditingProgress(null);
+        setProgressValue('');
+        toast.success('Progress updated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to update progress');
+    }
+  };
+
+  const handleProgressKeyDown = (e, taskId) => {
+    if (e.key === 'Enter') {
+      handleProgressSave(taskId);
+    } else if (e.key === 'Escape') {
+      setEditingProgress(null);
+      setProgressValue('');
+    }
+  };
+
   const getDropdownPosition = (buttonElement) => {
     if (!buttonElement) return 'bottom';
     const rect = buttonElement.getBoundingClientRect();
@@ -300,10 +411,28 @@ const TaskBoard = ({ onViewChange }) => {
 
     return (
     <div
-      draggable
+      draggable="true"
       onDragStart={(e) => handleDragStart(e, task)}
       onDragEnd={handleDragEnd}
-      className="bg-white rounded-xl border-2 border-gray-100 p-4 mb-3 hover:shadow-lg hover:border-primary-200 transition-all duration-300 cursor-move group hover:-translate-y-0.5"
+      onMouseDown={(e) => {
+        // Prevent text selection during drag
+        e.currentTarget.style.cursor = 'grabbing';
+      }}
+      onMouseUp={(e) => {
+        e.currentTarget.style.cursor = 'grab';
+      }}
+      className="bg-white rounded-xl border-2 border-gray-100 p-4 mb-3 hover:shadow-lg hover:border-primary-200 transition-all duration-150 cursor-grab group hover:-translate-y-0.5 select-none"
+      style={{
+        willChange: 'transform, opacity, box-shadow',
+        WebkitUserDrag: 'element',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        touchAction: 'none',
+        transformStyle: 'preserve-3d',
+        backfaceVisibility: 'hidden'
+      }}
     >
       {/* Priority Badge - Top Corner */}
       <div className="flex items-start justify-between mb-3">
@@ -473,30 +602,70 @@ const TaskBoard = ({ onViewChange }) => {
       </div>
 
       {/* Progress Bar */}
-      {task.timeTracked && task.estimatedTime && (
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <div className="flex justify-between text-xs text-gray-600 mb-1.5">
-            <span className="font-medium">Progress</span>
-            <span className="font-semibold">{task.timeTracked} / {task.estimatedTime}</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-primary-500 to-primary-600 h-1.5 rounded-full transition-all duration-500 shadow-sm"
-              style={{
-                width: `${Math.min(100, (parseFloat(task.timeTracked) / parseFloat(task.estimatedTime)) * 100)}%`
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <div className="flex justify-between items-center mb-2">
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              if (editingProgress !== taskId) {
+                handleProgressClick(taskId, task.progress || 0);
+              }
+            }}
+            className="text-xs text-gray-500 font-medium cursor-pointer hover:text-primary-600 transition-colors"
+          >
+            Progress
+          </span>
+          {editingProgress === taskId ? (
+            <div className="flex items-center gap-2 progress-input-container">
+              <input
+                type="text"
+                value={progressValue}
+                onChange={handleProgressChange}
+                onKeyDown={(e) => handleProgressKeyDown(e, taskId)}
+                onBlur={() => handleProgressSave(taskId)}
+                autoFocus
+                placeholder="0-100"
+                className="w-16 px-2 py-1 text-xs border-2 border-primary-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-center font-semibold bg-white shadow-sm"
+              />
+              <span className="font-semibold text-primary-600">%</span>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleProgressClick(taskId, task.progress || 0);
               }}
-            ></div>
-          </div>
+              className="text-xs font-semibold text-gray-600 hover:text-primary-600 transition-colors cursor-pointer px-2 py-1 rounded hover:bg-primary-50"
+            >
+              {task.progress || 0}%
+            </button>
+          )}
         </div>
-      )}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (editingProgress !== taskId) {
+              handleProgressClick(taskId, task.progress || 0);
+            }
+          }}
+          className="w-full bg-gray-200 rounded-full h-1.5 mt-1 overflow-hidden cursor-pointer hover:h-2 transition-all duration-200 shadow-inner"
+        >
+          <div
+            className="bg-gradient-to-r from-primary-500 to-primary-600 h-full rounded-full transition-all duration-500 shadow-sm hover:shadow-md"
+            style={{
+              width: `${Math.min(100, task.progress || 0)}%`
+            }}
+          ></div>
+        </div>
+      </div>
     </div>
     );
   };
 
   return (
     <div className="h-full bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div className="mb-4 lg:mb-0">
             <h1 className="text-2xl font-bold text-gray-900">Workspace</h1>
@@ -562,9 +731,9 @@ const TaskBoard = ({ onViewChange }) => {
             <div
               key={column.id}
               className={`
-                min-w-80 max-w-80 bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl p-4 transition-all duration-300 border-2
+                min-w-80 max-w-80 bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl p-4 transition-all duration-200 border-2
                 ${draggedOverColumn === column.status
-                  ? 'ring-2 ring-primary-400 bg-primary-50 border-primary-300 shadow-lg'
+                  ? 'ring-4 ring-primary-400 bg-gradient-to-b from-primary-50 to-primary-100 border-primary-400 shadow-2xl scale-102 transform'
                   : 'border-gray-200 shadow-sm'
                 }
               `}
@@ -582,10 +751,12 @@ const TaskBoard = ({ onViewChange }) => {
                   </span>
                 </div>
                 <button
-                  onClick={() => setIsTaskFormOpen(true)}
-                  className="text-gray-400 hover:text-primary-600 hover:bg-white p-1.5 rounded-lg transition-all"
+                  onClick={() => {
+                    // Functionality will be added in the future
+                  }}
+                  className="p-1 text-gray-400 hover:text-gray-600"
                 >
-                  <Plus className="h-4 w-4" />
+                  <MoreHorizontal className="h-4 w-4" />
                 </button>
               </div>
 

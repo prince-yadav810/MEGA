@@ -104,7 +104,9 @@ exports.createTask = async (req, res) => {
     }
 
     // Clean up assignees - filter out invalid IDs or empty array
+    console.log('Received assignees from request:', req.body.assignees);
     const assignees = req.body.assignees?.filter(id => id && id.toString().match(/^[0-9a-fA-F]{24}$/)) || [];
+    console.log('Filtered assignees:', assignees);
 
     const taskData = {
       ...req.body,
