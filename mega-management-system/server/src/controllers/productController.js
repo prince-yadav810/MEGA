@@ -11,9 +11,6 @@ exports.getAllProducts = async (req, res) => {
       limit = 20,
       search = '',
       category = '',
-      status = '',
-      minPrice = 0,
-      maxPrice = Number.MAX_SAFE_INTEGER,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
@@ -34,14 +31,6 @@ exports.getAllProducts = async (req, res) => {
     if (category && category !== 'all') {
       query.category = category;
     }
-
-    // Filter by status
-    if (status && status !== 'all') {
-      query.status = status;
-    }
-
-    // Filter by price range
-    query.price = { $gte: Number(minPrice), $lte: Number(maxPrice) };
 
     // Calculate pagination
     const skip = (Number(page) - 1) * Number(limit);
@@ -542,27 +531,3 @@ exports.bulkUpload = async (req, res) => {
   }
 };
 
-// @desc    Get low stock products
-// @route   GET /api/products/low-stock
-// @access  Private
-exports.getLowStockProducts = async (req, res) => {
-  try {
-    const products = await Product.find({
-      $expr: { $lte: ['$stock.quantity', '$stock.lowStockThreshold'] },
-      status: 'active'
-    }).sort({ 'stock.quantity': 1 });
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      data: products
-    });
-  } catch (error) {
-    console.error('Error in getLowStockProducts:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching low stock products',
-      error: error.message
-    });
-  }
-};

@@ -9,8 +9,7 @@ const {
   deleteProductImage,
   setPrimaryImage,
   getCategories,
-  bulkUpload,
-  getLowStockProducts
+  bulkUpload
 } = require('../controllers/productController');
 
 // Note: Uncomment auth middleware when authentication is implemented
@@ -19,7 +18,6 @@ const {
 // Public routes
 router.get('/', getAllProducts);
 router.get('/categories', getCategories);
-router.get('/low-stock', getLowStockProducts);
 router.get('/:id', getProductById);
 
 // Protected routes (admin only)

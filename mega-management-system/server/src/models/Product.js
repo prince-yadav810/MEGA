@@ -41,16 +41,6 @@ const ProductSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Custom category cannot exceed 100 characters']
   },
-  price: {
-    type: Number,
-    required: [true, 'Price is required'],
-    min: [0, 'Price cannot be negative']
-  },
-  currency: {
-    type: String,
-    default: 'INR',
-    enum: ['INR', 'USD', 'EUR', 'GBP']
-  },
   images: [{
     url: {
       type: String,
@@ -66,39 +56,6 @@ const ProductSchema = new mongoose.Schema({
     uploadedAt: {
       type: Date,
       default: Date.now
-    }
-  }],
-  status: {
-    type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
-  },
-  stock: {
-    quantity: {
-      type: Number,
-      default: 0,
-      min: [0, 'Stock quantity cannot be negative']
-    },
-    unit: {
-      type: String,
-      default: 'pieces',
-      trim: true
-    },
-    lowStockThreshold: {
-      type: Number,
-      default: 10
-    }
-  },
-  priceHistory: [{
-    price: Number,
-    currency: String,
-    changedAt: {
-      type: Date,
-      default: Date.now
-    },
-    changedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
     }
   }],
   createdBy: {
@@ -117,18 +74,23 @@ const ProductSchema = new mongoose.Schema({
 ProductSchema.index({ sku: 1 });
 ProductSchema.index({ name: 'text', description: 'text' });
 ProductSchema.index({ category: 1 });
-ProductSchema.index({ status: 1 });
-ProductSchema.index({ price: 1 });
-ProductSchema.index({ 'stock.quantity': 1 });
 
 // Pre-save hook to generate SKU if not provided
 ProductSchema.pre('save', async function(next) {
   if (!this.sku) {
-    // Generate SKU: PROD-YYYYMMDD-XXXX
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    this.sku = `PROD-${dateStr}-${random}`;
+    // Generate SKU: 5 unique numbers (10000-99999)
+    let sku;
+    let isUnique = false;
+
+    while (!isUnique) {
+      sku = Math.floor(10000 + Math.random() * 90000).toString();
+      const existingProduct = await this.constructor.findOne({ sku });
+      if (!existingProduct) {
+        isUnique = true;
+      }
+    }
+
+    this.sku = sku;
   }
 
   // Ensure only one primary image
@@ -144,23 +106,6 @@ ProductSchema.pre('save', async function(next) {
   }
 
   next();
-});
-
-// Pre-save hook to track price changes
-ProductSchema.pre('save', function(next) {
-  if (this.isModified('price') && !this.isNew) {
-    this.priceHistory.push({
-      price: this.price,
-      currency: this.currency,
-      changedAt: new Date()
-    });
-  }
-  next();
-});
-
-// Virtual for low stock alert
-ProductSchema.virtual('isLowStock').get(function() {
-  return this.stock.quantity <= this.stock.lowStockThreshold;
 });
 
 // Virtual for primary image
