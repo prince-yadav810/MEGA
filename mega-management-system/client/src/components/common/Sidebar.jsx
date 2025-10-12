@@ -1,3 +1,5 @@
+// File path: client/src/components/common/Sidebar.jsx
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -5,7 +7,7 @@ import {
   FileText,
   Users,
   Package,
-  BarChart3,
+  StickyNote,
   Settings,
   UserCog,
   Menu,
@@ -49,10 +51,10 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       path: '/products'
     },
     {
-      id: 'analytics',
-      name: 'Analytics',
-      icon: BarChart3,
-      path: '/analytics'
+      id: 'notes-reminders',
+      name: 'Notes & Reminders',
+      icon: StickyNote,
+      path: '/notes-reminders'
     },
     {
       id: 'users',
