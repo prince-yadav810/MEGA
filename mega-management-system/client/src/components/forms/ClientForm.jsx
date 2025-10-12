@@ -1,7 +1,7 @@
 // File Path: client/src/components/forms/ClientForm.jsx
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Star } from 'lucide-react';
+import { Plus, Trash2, Star, X } from 'lucide-react';
 import Modal from '../common/Modal';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
@@ -34,6 +34,7 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
   });
 
   const [errors, setErrors] = useState({});
+  const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -89,6 +90,7 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
       isActive: true
     });
     setErrors({});
+    setTagInput('');
   };
 
   const handleChange = (e) => {
@@ -120,6 +122,31 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
       ...prev,
       contactPersons: updatedContacts
     }));
+  };
+
+  const addTag = () => {
+    const tag = tagInput.trim();
+    if (tag && !formData.tags.includes(tag)) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tag]
+      }));
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tagToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const handleTagInputKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag();
+    }
   };
 
   const setPrimaryContact = (index) => {
@@ -404,6 +431,53 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
                 placeholder="Add any additional notes..."
               />
             </div>
+          </div>
+        </div>
+
+        {/* Tags Section */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Tags</h3>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add tag (e.g., VIP, Priority, Manufacturing)"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyPress={handleTagInputKeyPress}
+                containerClassName="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addTag}
+                disabled={!tagInput.trim()}
+              >
+                Add Tag
+              </Button>
+            </div>
+            
+            {formData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-700"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="ml-2 text-primary-600 hover:text-primary-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">
+              Tags help you categorize and filter clients easily
+            </p>
           </div>
         </div>
       </form>

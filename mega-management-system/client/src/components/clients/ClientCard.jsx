@@ -82,6 +82,25 @@ const ClientCard = ({ client, onClick }) => {
         </div>
       )}
 
+      {/* Tags */}
+      {client.tags && client.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
+          {client.tags.slice(0, 3).map((tag, index) => (
+            <span
+              key={index}
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700"
+            >
+              {tag}
+            </span>
+          ))}
+          {client.tags.length > 3 && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+              +{client.tags.length - 3} more
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Additional Info */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
         <div className="text-xs text-gray-500">

@@ -1,7 +1,7 @@
 // File Path: client/src/pages/Clients/ClientsList.jsx
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Users, UserCheck, UserX, TrendingUp } from 'lucide-react';
+import { Plus, Search, Filter, Users, Tag } from 'lucide-react';
 import ClientCard from '../../components/clients/ClientCard';
 import ClientForm from '../../components/forms/ClientForm';
 import ClientDetailsModal from '../../components/clients/ClientDetailsModal';
@@ -15,10 +15,11 @@ import toast from 'react-hot-toast';
 const ClientsList = () => {
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
-  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [availableTags, setAvailableTags] = useState([]);
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -30,12 +31,22 @@ const ClientsList = () => {
 
   useEffect(() => {
     loadClients();
-    loadStats();
   }, []);
 
   useEffect(() => {
     filterClients();
-  }, [clients, searchTerm, filterStatus]);
+  }, [clients, searchTerm, filterStatus, selectedTags]);
+
+  useEffect(() => {
+    // Extract all unique tags from clients
+    const tags = new Set();
+    clients.forEach(client => {
+      if (client.tags && Array.isArray(client.tags)) {
+        client.tags.forEach(tag => tags.add(tag));
+      }
+    });
+    setAvailableTags(Array.from(tags).sort());
+  }, [clients]);
 
   const loadClients = async () => {
     try {
@@ -52,16 +63,6 @@ const ClientsList = () => {
     }
   };
 
-  const loadStats = async () => {
-    try {
-      const response = await clientService.getClientStats();
-      if (response.success) {
-        setStats(response.data);
-      }
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    }
-  };
 
   const filterClients = () => {
     let filtered = [...clients];
@@ -72,11 +73,13 @@ const ClientsList = () => {
         const searchLower = searchTerm.toLowerCase();
         return (
           client.companyName.toLowerCase().includes(searchLower) ||
+          client.businessType?.toLowerCase().includes(searchLower) ||
           client.contactPersons?.some(contact => 
             contact.name.toLowerCase().includes(searchLower) ||
             contact.email?.toLowerCase().includes(searchLower)
           ) ||
-          client.address?.city?.toLowerCase().includes(searchLower)
+          client.address?.city?.toLowerCase().includes(searchLower) ||
+          client.tags?.some(tag => tag.toLowerCase().includes(searchLower))
         );
       });
     }
@@ -88,7 +91,24 @@ const ClientsList = () => {
       filtered = filtered.filter(client => !client.isActive);
     }
 
+    // Apply tag filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(client => {
+        return selectedTags.every(tag => client.tags?.includes(tag));
+      });
+    }
+
     setFilteredClients(filtered);
+  };
+
+  const toggleTagFilter = (tag) => {
+    setSelectedTags(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      } else {
+        return [...prev, tag];
+      }
+    });
   };
 
   const handleCreateClient = async (clientData) => {
@@ -99,7 +119,6 @@ const ClientsList = () => {
         toast.success(response.message || 'Client created successfully');
         setIsFormOpen(false);
         loadClients();
-        loadStats();
       }
     } catch (error) {
       console.error('Error creating client:', error);
@@ -166,6 +185,13 @@ const ClientsList = () => {
     }
   };
 
+  const handleDeleteClient = async (clientId) => {
+    // Remove from local state
+    setClients(prev => prev.filter(c => (c._id || c.id) !== clientId));
+    setSelectedClient(null);
+    setIsDetailsOpen(false);
+  };
+
   const handleOpenAddForm = () => {
     setEditingClient(null);
     setIsFormOpen(true);
@@ -196,82 +222,66 @@ const ClientsList = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card padding="sm">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-primary-100 rounded-lg">
-                  <Users className="h-6 w-6 text-primary-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalClients}</p>
-                  <p className="text-xs text-gray-500">Total Clients</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card padding="sm">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-success-100 rounded-lg">
-                  <UserCheck className="h-6 w-6 text-success-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.activeClients}</p>
-                  <p className="text-xs text-gray-500">Active</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card padding="sm">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <UserX className="h-6 w-6 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.inactiveClients}</p>
-                  <p className="text-xs text-gray-500">Inactive</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card padding="sm">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-warning-100 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-warning-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.clientsWithOutstanding}</p>
-                  <p className="text-xs text-gray-500">With Outstanding</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-
         {/* Search and Filter */}
         <Card>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                leftIcon={Search}
-                placeholder="Search by company, contact name, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Input
+                  leftIcon={Search}
+                  placeholder="Search by company name, business type, contact name, or tags..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Filter className="h-5 w-5 text-gray-400" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="block w-full sm:w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="all">All Clients</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
+                </select>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="h-5 w-5 text-gray-400" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="block w-full sm:w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="all">All Clients</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive Only</option>
-              </select>
-            </div>
+
+            {/* Tags Filter */}
+            {availableTags.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Filter by Tags:</p>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTagFilter(tag)}
+                      className={`
+                        inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors
+                        ${selectedTags.includes(tag)
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }
+                      `}
+                    >
+                      {tag}
+                      {selectedTags.includes(tag) && (
+                        <span className="ml-1">✓</span>
+                      )}
+                    </button>
+                  ))}
+                  {selectedTags.length > 0 && (
+                    <button
+                      onClick={() => setSelectedTags([])}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-error-100 text-error-700 hover:bg-error-200"
+                    >
+                      Clear Tags
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -285,15 +295,15 @@ const ClientsList = () => {
           <Card className="text-center py-12">
             <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || filterStatus !== 'all' ? 'No clients found' : 'No clients yet'}
+              {searchTerm || filterStatus !== 'all' || selectedTags.length > 0 ? 'No clients found' : 'No clients yet'}
             </h3>
             <p className="text-gray-500 mb-6">
-              {searchTerm || filterStatus !== 'all'
-                ? 'Try adjusting your search or filters'
+              {searchTerm || filterStatus !== 'all' || selectedTags.length > 0
+                ? 'Try adjusting your search, filters, or tags'
                 : 'Get started by adding your first client'
               }
             </p>
-            {!searchTerm && filterStatus === 'all' && (
+            {!searchTerm && filterStatus === 'all' && selectedTags.length === 0 && (
               <Button icon={Plus} onClick={handleOpenAddForm}>
                 Add Your First Client
               </Button>
@@ -339,6 +349,7 @@ const ClientsList = () => {
         onEdit={handleEditClick}
         onCreateReminder={handleCreateReminder}
         onRefresh={loadClients}
+        onDelete={handleDeleteClient}
       />
 
       <PaymentReminderForm

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Building2, Mail, Phone, Globe, MapPin, Edit, Bell, FileText,
-  User, Star, Clock, CheckCircle, XCircle, PlayCircle, PauseCircle
+  User, Star, Clock, CheckCircle, XCircle, PlayCircle, PauseCircle, Trash2
 } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../ui/Button';
@@ -17,7 +17,8 @@ const ClientDetailsModal = ({
   client, 
   onEdit,
   onCreateReminder,
-  onRefresh 
+  onRefresh,
+  onDelete
 }) => {
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -84,6 +85,26 @@ const ClientDetailsModal = ({
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete "${client.companyName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await clientService.deleteClient(client._id || client.id);
+      if (response.success) {
+        toast.success('Client deleted successfully');
+        onClose();
+        if (onDelete) {
+          onDelete(client._id || client.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast.error('Failed to delete client');
+    }
+  };
+
   if (!client) return null;
 
   const primaryContact = client.contactPersons?.find(c => c.isPrimary) || client.contactPersons?.[0];
@@ -114,22 +135,32 @@ const ClientDetailsModal = ({
     >
       <div className="space-y-6">
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 justify-between">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="primary"
+              icon={Edit}
+              onClick={() => onEdit(client)}
+              size="sm"
+            >
+              Edit Client
+            </Button>
+            <Button
+              variant="success"
+              icon={Bell}
+              onClick={() => onCreateReminder(client)}
+              size="sm"
+            >
+              Payment Reminder
+            </Button>
+          </div>
           <Button
-            variant="primary"
-            icon={Edit}
-            onClick={() => onEdit(client)}
+            variant="error"
+            icon={Trash2}
+            onClick={handleDelete}
             size="sm"
           >
-            Edit Client
-          </Button>
-          <Button
-            variant="success"
-            icon={Bell}
-            onClick={() => onCreateReminder(client)}
-            size="sm"
-          >
-            Payment Reminder
+            Delete Client
           </Button>
         </div>
 
@@ -214,6 +245,22 @@ const ClientDetailsModal = ({
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <p className="text-sm font-medium text-gray-500 mb-2">Notes</p>
                 <p className="text-base text-gray-700 whitespace-pre-wrap">{client.notes}</p>
+              </div>
+            )}
+
+            {client.tags && client.tags.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-sm font-medium text-gray-500 mb-3">Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {client.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-700"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </Card.Content>
