@@ -3,6 +3,7 @@ import { Search, Filter, Plus, Download, Upload, Grid, List, RefreshCw } from 'l
 import toast from 'react-hot-toast';
 import ProductCard from '../../components/products/ProductCard';
 import ProductForm from '../../components/products/ProductForm';
+import ProductDetailModal from '../../components/products/ProductDetailModal';
 import productService from '../../services/productService';
 
 const CATEGORIES = [
@@ -15,26 +16,19 @@ const CATEGORIES = [
   { value: 'Custom', label: 'Custom' }
 ];
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'All Status' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' }
-];
-
 export default function ProductCatalog() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [productToView, setProductToView] = useState(null);
 
   // Filters
   const [filters, setFilters] = useState({
     search: '',
     category: '',
-    status: '',
-    minPrice: '',
-    maxPrice: '',
     page: 1,
     limit: 12,
     sortBy: 'createdAt',
@@ -116,9 +110,8 @@ export default function ProductCatalog() {
   };
 
   const handleViewProduct = (product) => {
-    // For now, just show a toast. Later can implement a detail modal/page
-    toast.success(`Viewing: ${product.name}`);
-    // TODO: Navigate to product detail page or open detail modal
+    setProductToView(product);
+    setShowDetailModal(true);
   };
 
   const handleFormSuccess = () => {
@@ -134,9 +127,6 @@ export default function ProductCatalog() {
     setFilters({
       search: '',
       category: '',
-      status: '',
-      minPrice: '',
-      maxPrice: '',
       page: 1,
       limit: 12,
       sortBy: 'createdAt',
@@ -180,7 +170,7 @@ export default function ProductCatalog() {
       {/* Filters */}
       <div className="bg-white border-b">
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div className="lg:col-span-2">
               <div className="relative">
@@ -208,19 +198,6 @@ export default function ProductCatalog() {
               </select>
             </div>
 
-            {/* Status */}
-            <div>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {STATUS_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Sort */}
             <div>
               <select
@@ -235,40 +212,18 @@ export default function ProductCatalog() {
                 <option value="createdAt-asc">Oldest First</option>
                 <option value="name-asc">Name (A-Z)</option>
                 <option value="name-desc">Name (Z-A)</option>
-                <option value="price-asc">Price (Low-High)</option>
-                <option value="price-desc">Price (High-Low)</option>
               </select>
-            </div>
-
-            {/* Clear Filters */}
-            <div className="flex gap-2">
-              <button
-                onClick={handleClearFilters}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-              >
-                Clear
-              </button>
             </div>
           </div>
 
-          {/* Price Range */}
-          <div className="mt-4 flex gap-4 items-center">
-            <span className="text-sm text-gray-600">Price Range:</span>
-            <input
-              type="number"
-              placeholder="Min"
-              value={filters.minPrice}
-              onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-              className="w-32 px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <span className="text-gray-400">-</span>
-            <input
-              type="number"
-              placeholder="Max"
-              value={filters.maxPrice}
-              onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-              className="w-32 px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          {/* Clear Filters */}
+          <div className="mt-4">
+            <button
+              onClick={handleClearFilters}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
       </div>
@@ -284,7 +239,7 @@ export default function ProductCatalog() {
             <div className="text-6xl mb-4">📦</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No products found</h3>
             <p className="text-gray-600 mb-4">
-              {filters.search || filters.category || filters.status
+              {filters.search || filters.category
                 ? 'Try adjusting your filters'
                 : 'Get started by adding your first product'}
             </p>
@@ -358,6 +313,17 @@ export default function ProductCatalog() {
             setSelectedProduct(null);
           }}
           onSuccess={handleFormSuccess}
+        />
+      )}
+
+      {/* Product Detail Modal */}
+      {showDetailModal && (
+        <ProductDetailModal
+          product={productToView}
+          onClose={() => {
+            setShowDetailModal(false);
+            setProductToView(null);
+          }}
         />
       )}
     </div>

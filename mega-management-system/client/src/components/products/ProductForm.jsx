@@ -12,8 +12,6 @@ const CATEGORIES = [
   'Custom'
 ];
 
-const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP'];
-
 export default function ProductForm({ product, onClose, onSuccess }) {
   const isEditMode = !!product;
 
@@ -22,14 +20,6 @@ export default function ProductForm({ product, onClose, onSuccess }) {
     description: '',
     category: 'Custom',
     customCategory: '',
-    price: '',
-    currency: 'INR',
-    status: 'active',
-    stock: {
-      quantity: 0,
-      unit: 'pieces',
-      lowStockThreshold: 10
-    },
     specifications: {},
     images: []
   });
@@ -46,14 +36,6 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         description: product.description || '',
         category: product.category || 'Custom',
         customCategory: product.customCategory || '',
-        price: product.price || '',
-        currency: product.currency || 'INR',
-        status: product.status || 'active',
-        stock: {
-          quantity: product.stock?.quantity || 0,
-          unit: product.stock?.unit || 'pieces',
-          lowStockThreshold: product.stock?.lowStockThreshold || 10
-        },
         specifications: product.specifications ?
           (product.specifications instanceof Map ? Object.fromEntries(product.specifications) : product.specifications)
           : {},
@@ -64,24 +46,10 @@ export default function ProductForm({ product, onClose, onSuccess }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    if (name.startsWith('stock.')) {
-      const stockField = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        stock: {
-          ...prev.stock,
-          [stockField]: stockField === 'quantity' || stockField === 'lowStockThreshold'
-            ? parseInt(value) || 0
-            : value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: name === 'price' ? parseFloat(value) || 0 : value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleAddSpecification = () => {
@@ -148,7 +116,7 @@ export default function ProductForm({ product, onClose, onSuccess }) {
 
     try {
       // Validation
-      if (!formData.name || !formData.price) {
+      if (!formData.name) {
         toast.error('Please fill in all required fields');
         setLoading(false);
         return;
@@ -161,13 +129,7 @@ export default function ProductForm({ product, onClose, onSuccess }) {
       }
 
       const submitData = {
-        ...formData,
-        price: parseFloat(formData.price),
-        stock: {
-          ...formData.stock,
-          quantity: parseInt(formData.stock.quantity) || 0,
-          lowStockThreshold: parseInt(formData.stock.lowStockThreshold) || 10
-        }
+        ...formData
       };
 
       let response;
@@ -271,106 +233,6 @@ export default function ProductForm({ product, onClose, onSuccess }) {
                     />
                   </div>
                 )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Pricing */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Pricing</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Currency
-                  </label>
-                  <select
-                    name="currency"
-                    value={formData.currency}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {CURRENCIES.map(curr => (
-                      <option key={curr} value={curr}>{curr}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Stock Management */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Stock Management</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    name="stock.quantity"
-                    value={formData.stock.quantity}
-                    onChange={handleChange}
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit
-                  </label>
-                  <input
-                    type="text"
-                    name="stock.unit"
-                    value={formData.stock.unit}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Low Stock Alert
-                  </label>
-                  <input
-                    type="number"
-                    name="stock.lowStockThreshold"
-                    value={formData.stock.lowStockThreshold}
-                    onChange={handleChange}
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
               </div>
             </div>
 
