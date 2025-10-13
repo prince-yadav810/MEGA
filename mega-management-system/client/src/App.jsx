@@ -1,3 +1,6 @@
+// File path: client/src/App.jsx
+// REPLACE the entire file with this updated version
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -7,9 +10,10 @@ import Workspace from './pages/Workspace';
 import QuotationsList from './pages/Quotations/QuotationsList';
 import ClientsList from './pages/Clients/ClientsList';
 import ProductCatalog from './pages/Products/ProductCatalog';
-import Analytics from './pages/Admin/Analytics';
+import NotesReminders from './pages/Admin/NotesReminders';
 import Settings from './pages/Admin/Settings';
 import UserManagement from './pages/Admin/UserManagement';
+import { NotificationProvider } from './context/NotificationContext.js';
 import { initializeSampleData } from './utils/initSampleData';
 import './App.css';
 
@@ -36,8 +40,8 @@ function Layout() {
       setActiveTab('clients');
     } else if (path.startsWith('/products')) {
       setActiveTab('products');
-    } else if (path.startsWith('/analytics')) {
-      setActiveTab('analytics');
+    } else if (path.startsWith('/notes-reminders')) {
+      setActiveTab('notes-reminders');
     } else if (path.startsWith('/settings')) {
       setActiveTab('settings');
     } else if (path.startsWith('/users')) {
@@ -64,11 +68,11 @@ function Layout() {
         <main className="flex-1 overflow-y-auto bg-gray-50">
           <Routes>
             <Route index element={<Navigate to="/workspace" replace />} />
-            <Route path="workspace" element={<><div style={{display:'none'}}>{console.log('🔴 RENDERING WORKSPACE ROUTE')}</div><Workspace /></>} />
+            <Route path="workspace/*" element={<Workspace />} />
             <Route path="quotations" element={<QuotationsList />} />
             <Route path="clients" element={<ClientsList />} />
             <Route path="products" element={<ProductCatalog />} />
-            <Route path="analytics" element={<Analytics />} />
+            <Route path="notes-reminders" element={<NotesReminders />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="*" element={<Navigate to="/workspace" replace />} />
@@ -99,11 +103,13 @@ function Layout() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/*" element={<Layout />} />
-      </Routes>
-    </BrowserRouter>
+    <NotificationProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/*" element={<Layout />} />
+        </Routes>
+      </BrowserRouter>
+    </NotificationProvider>
   );
 }
 

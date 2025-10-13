@@ -36,6 +36,7 @@ const TaskCalendar = ({ onViewChange }) => {
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeDropdown, setActiveDropdown] = useState(null); // { taskId, type: 'priority', position: 'top' | 'bottom' }
 
   // Workspace views configuration
   const workspaceViews = [
@@ -47,6 +48,17 @@ const TaskCalendar = ({ onViewChange }) => {
 
   useEffect(() => {
     fetchTasks();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.dropdown-container')) {
+        setActiveDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const fetchTasks = async () => {
@@ -206,6 +218,32 @@ const TaskCalendar = ({ onViewChange }) => {
   const handleDateClick = (date) => {
     setSelectedDate(date);
     setSelectedTask(null);
+  };
+
+  const handleQuickPriorityChange = async (taskId, newPriority) => {
+    try {
+      const response = await taskService.updateTask(taskId, { priority: newPriority });
+      if (response.success) {
+        setTasks(tasks.map(task =>
+          (task._id || task.id) === taskId ? { ...task, priority: newPriority } : task
+        ));
+        if (selectedTask && (selectedTask._id || selectedTask.id) === taskId) {
+          setSelectedTask({ ...selectedTask, priority: newPriority });
+        }
+        setActiveDropdown(null);
+        toast.success('Priority updated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to update priority');
+    }
+  };
+
+  const getDropdownPosition = (buttonElement) => {
+    if (!buttonElement) return 'bottom';
+    const rect = buttonElement.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    return spaceBelow < 200 && spaceAbove > spaceBelow ? 'top' : 'bottom';
   };
 
   const selectedDateTasks = selectedDate ? tasksByDate[selectedDate.toDateString()] || [] : [];
@@ -438,10 +476,47 @@ const TaskCalendar = ({ onViewChange }) => {
               <div className="flex-1 overflow-y-auto p-6">
                 {/* Priority & Status */}
                 <div className="flex items-center gap-2 mb-4">
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${taskPriorities[selectedTask.priority].bgColor} ${taskPriorities[selectedTask.priority].color}`}>
-                    {selectedTask.priority === 'urgent' && <AlertCircle className="h-3.5 w-3.5" />}
-                    {selectedTask.priority === 'high' && <TrendingUp className="h-3.5 w-3.5" />}
-                    <span className="uppercase tracking-wide">{taskPriorities[selectedTask.priority].label}</span>
+                  <div className="relative dropdown-container">
+                    <button
+                      onClick={(e) => {
+                        const taskId = selectedTask._id || selectedTask.id;
+                        const position = getDropdownPosition(e.currentTarget);
+                        setActiveDropdown(
+                          activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority'
+                            ? null
+                            : { taskId, type: 'priority', position }
+                        );
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${taskPriorities[selectedTask.priority].bgColor} ${taskPriorities[selectedTask.priority].color} hover:opacity-80 transition-opacity`}
+                    >
+                      {selectedTask.priority === 'urgent' && <AlertCircle className="h-3.5 w-3.5" />}
+                      {selectedTask.priority === 'high' && <TrendingUp className="h-3.5 w-3.5" />}
+                      <span className="uppercase tracking-wide">{taskPriorities[selectedTask.priority].label}</span>
+                    </button>
+
+                    {activeDropdown?.taskId === (selectedTask._id || selectedTask.id) && activeDropdown?.type === 'priority' && (
+                      <div
+                        className={`absolute z-20 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1 ${
+                          activeDropdown.position === 'top' ? 'bottom-full mb-1' : 'mt-1'
+                        }`}
+                      >
+                        {Object.entries(taskPriorities).map(([key, priority]) => (
+                          <button
+                            key={key}
+                            onClick={() => handleQuickPriorityChange(selectedTask._id || selectedTask.id, key)}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                              selectedTask.priority === key ? 'bg-gray-50' : ''
+                            }`}
+                          >
+                            {key === 'urgent' && <AlertCircle className="h-3 w-3 text-error-500" />}
+                            {key === 'high' && <TrendingUp className="h-3 w-3 text-warning-500" />}
+                            {key === 'medium' && <Clock className="h-3 w-3 text-gray-400" />}
+                            {key === 'low' && <Clock className="h-3 w-3 text-gray-400" />}
+                            <span className={priority.color}>{priority.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${taskStatuses[selectedTask.status].color}`}>
                     {taskStatuses[selectedTask.status].label}
@@ -592,17 +667,59 @@ const TaskCalendar = ({ onViewChange }) => {
               <div className="flex-1 overflow-y-auto p-6">
                 {selectedDateTasks.length > 0 ? (
                   <div className="space-y-3">
-                    {selectedDateTasks.map((task) => (
+                    {selectedDateTasks.map((task) => {
+                      const taskId = task._id || task.id;
+                      return (
                       <div
-                        key={task._id || task.id}
+                        key={taskId}
                         onClick={() => setSelectedTask(task)}
                         className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-lg hover:border-primary-200 transition-all cursor-pointer group"
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${taskPriorities[task.priority].bgColor} ${taskPriorities[task.priority].color}`}>
-                            {task.priority === 'urgent' && <AlertCircle className="h-3 w-3" />}
-                            {task.priority === 'high' && <TrendingUp className="h-3 w-3" />}
-                            <span>{taskPriorities[task.priority].label}</span>
+                          <div className="relative dropdown-container">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const position = getDropdownPosition(e.currentTarget);
+                                setActiveDropdown(
+                                  activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority'
+                                    ? null
+                                    : { taskId, type: 'priority', position }
+                                );
+                              }}
+                              className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${taskPriorities[task.priority].bgColor} ${taskPriorities[task.priority].color} hover:opacity-80 transition-opacity`}
+                            >
+                              {task.priority === 'urgent' && <AlertCircle className="h-3 w-3" />}
+                              {task.priority === 'high' && <TrendingUp className="h-3 w-3" />}
+                              <span>{taskPriorities[task.priority].label}</span>
+                            </button>
+
+                            {activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority' && (
+                              <div
+                                className={`absolute z-20 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1 ${
+                                  activeDropdown.position === 'top' ? 'bottom-full mb-1' : 'mt-1'
+                                }`}
+                              >
+                                {Object.entries(taskPriorities).map(([key, priority]) => (
+                                  <button
+                                    key={key}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQuickPriorityChange(taskId, key);
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                                      task.priority === key ? 'bg-gray-50' : ''
+                                    }`}
+                                  >
+                                    {key === 'urgent' && <AlertCircle className="h-3 w-3 text-error-500" />}
+                                    {key === 'high' && <TrendingUp className="h-3 w-3 text-warning-500" />}
+                                    {key === 'medium' && <Clock className="h-3 w-3 text-gray-400" />}
+                                    {key === 'low' && <Clock className="h-3 w-3 text-gray-400" />}
+                                    <span className={priority.color}>{priority.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <span className={`text-xs px-2 py-1 rounded-full ${taskStatuses[task.status].color}`}>
                             {taskStatuses[task.status].label}
@@ -619,7 +736,8 @@ const TaskCalendar = ({ onViewChange }) => {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">

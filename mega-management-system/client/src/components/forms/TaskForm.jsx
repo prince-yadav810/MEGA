@@ -96,7 +96,6 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
   const validateForm = () => {
     const newErrors = {};
     if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
     if (!formData.dueDate) newErrors.dueDate = 'Due date is required';
     // Assignees are optional for now since we don't have users in DB yet
     // if (formData.assignees.length === 0) newErrors.assignees = 'At least one assignee is required';
@@ -112,12 +111,14 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     // The backend will handle populating the full data
     const taskData = {
       title: formData.title,
-      description: formData.description,
+      description: formData.description || '',
       status: formData.status,
       priority: formData.priority,
       assignees: formData.assignees, // Array of IDs
       dueDate: formData.dueDate,
       estimatedTime: formData.estimatedTime || '0h',
+      timeTracked: '0h',
+      progress: 0,
       tags: formData.tags,
       // Don't send client as string - backend should handle client lookup or creation
       // For now, omit it if it's just a string name
@@ -167,7 +168,7 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description <span className="text-error-500">*</span>
+                  Description
                 </label>
                 <textarea
                   name="description"
@@ -175,11 +176,8 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                   onChange={handleChange}
                   placeholder="Enter task description..."
                   rows={3}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                    errors.description ? 'border-error-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
-                {errors.description && <p className="mt-1 text-sm text-error-600">{errors.description}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

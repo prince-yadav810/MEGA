@@ -1,3 +1,5 @@
+// File path: client/src/context/NotificationContext.js
+
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const NotificationContext = createContext();
@@ -50,7 +52,7 @@ export const NotificationProvider = ({ children }) => {
     setNotifications([]);
   }, []);
 
-  // Helper functions for common notification types
+  // Task notification helpers
   const notifyTaskCreated = useCallback((taskTitle) => {
     addNotification({
       type: 'success',
@@ -98,6 +100,48 @@ export const NotificationProvider = ({ children }) => {
     });
   }, [addNotification]);
 
+  // Reminder notification helpers
+  const notifyReminder = useCallback((reminderTitle) => {
+    addNotification({
+      type: 'info',
+      title: '🔔 Reminder',
+      message: reminderTitle
+    });
+  }, [addNotification]);
+
+  const notifyReminderCreated = useCallback((reminderTitle) => {
+    addNotification({
+      type: 'success',
+      title: 'Reminder Created',
+      message: `Reminder "${reminderTitle}" has been set`
+    });
+  }, [addNotification]);
+
+  const notifyReminderDeleted = useCallback((reminderTitle) => {
+    addNotification({
+      type: 'warning',
+      title: 'Reminder Deleted',
+      message: `"${reminderTitle}" reminder has been deleted`
+    });
+  }, [addNotification]);
+
+  // Note notification helpers
+  const notifyNoteCreated = useCallback((noteHeading) => {
+    addNotification({
+      type: 'success',
+      title: 'Note Created',
+      message: `Note "${noteHeading}" has been created`
+    });
+  }, [addNotification]);
+
+  const notifyNotePinned = useCallback((noteHeading, isPinned) => {
+    addNotification({
+      type: 'info',
+      title: isPinned ? 'Note Pinned' : 'Note Unpinned',
+      message: `"${noteHeading}" has been ${isPinned ? 'pinned' : 'unpinned'}`
+    });
+  }, [addNotification]);
+
   const value = {
     notifications,
     addNotification,
@@ -105,12 +149,19 @@ export const NotificationProvider = ({ children }) => {
     markAllAsRead,
     removeNotification,
     clearAll,
-    // Helper methods
+    // Task helpers
     notifyTaskCreated,
     notifyTaskUpdated,
     notifyTaskDeleted,
     notifyTaskStatusChanged,
-    notifyTaskOverdue
+    notifyTaskOverdue,
+    // Reminder helpers
+    notifyReminder,
+    notifyReminderCreated,
+    notifyReminderDeleted,
+    // Note helpers
+    notifyNoteCreated,
+    notifyNotePinned
   };
 
   return (
