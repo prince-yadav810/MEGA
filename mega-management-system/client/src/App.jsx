@@ -10,7 +10,10 @@ import ProductCatalog from './pages/Products/ProductCatalog';
 import Analytics from './pages/Admin/Analytics';
 import Settings from './pages/Admin/Settings';
 import UserManagement from './pages/Admin/UserManagement';
+import Login from './pages/Login';
+import PrivateRoute from './components/PrivateRoute';
 import { NotificationProvider } from './context/NotificationContext.js';
+import { AuthProvider } from './context/AuthContext';
 import { initializeSampleData } from './utils/initSampleData';
 import './App.css';
 
@@ -100,13 +103,23 @@ function Layout() {
 
 function App() {
   return (
-    <NotificationProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/*" element={<Layout />} />
-        </Routes>
-      </BrowserRouter>
-    </NotificationProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <NotificationProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/*"
+              element={
+                <PrivateRoute>
+                  <Layout />
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </NotificationProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
