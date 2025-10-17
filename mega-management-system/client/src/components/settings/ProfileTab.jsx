@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Calendar, Shield, Lock, Save, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
+import { User, Mail, Calendar, Shield, Lock, Save, Eye, EyeOff, Check, AlertCircle, Monitor, LayoutGrid, Palette } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -23,6 +23,12 @@ const ProfileTab = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
+  });
+
+  // Appearance settings state
+  const [appearanceSettings, setAppearanceSettings] = useState({
+    defaultPage: localStorage.getItem('defaultPage') || 'workspace',
+    rowsPerPage: localStorage.getItem('rowsPerPage') || '25'
   });
 
   // Password validation
@@ -60,6 +66,10 @@ const ProfileTab = () => {
     }
   };
 
+  const handleAppearanceChange = (field, value) => {
+    setAppearanceSettings(prev => ({ ...prev, [field]: value }));
+  };
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
@@ -69,6 +79,22 @@ const ProfileTab = () => {
       setIsEditingProfile(false);
     } catch (error) {
       toast.error('Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveAppearance = async () => {
+    setIsSaving(true);
+    try {
+      // Save to localStorage
+      localStorage.setItem('defaultPage', appearanceSettings.defaultPage);
+      localStorage.setItem('rowsPerPage', appearanceSettings.rowsPerPage);
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+      toast.success('Appearance settings saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -108,7 +134,7 @@ const ProfileTab = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       {/* Profile Information Section */}
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -218,6 +244,72 @@ const ProfileTab = () => {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Appearance Settings Section */}
+      <div className="pt-6 border-t border-gray-200">
+        <div className="flex items-center mb-4">
+          <Palette className="h-6 w-6 text-blue-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">
+            Appearance Preferences
+          </h2>
+        </div>
+
+        <div className="space-y-4">
+          {/* Default Landing Page */}
+          <div>
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <Monitor className="h-4 w-4 mr-2" />
+              Default Landing Page
+            </label>
+            <select
+              value={appearanceSettings.defaultPage}
+              onChange={(e) => handleAppearanceChange('defaultPage', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="workspace">Workspace</option>
+              <option value="quotations">Quotations</option>
+              <option value="products">Products</option>
+              <option value="analytics">Analytics</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Choose which page to show when you first login
+            </p>
+          </div>
+
+          {/* Rows Per Page */}
+          <div>
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Rows Per Page (Tables)
+            </label>
+            <select
+              value={appearanceSettings.rowsPerPage}
+              onChange={(e) => handleAppearanceChange('rowsPerPage', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="10">10 rows</option>
+              <option value="25">25 rows</option>
+              <option value="50">50 rows</option>
+              <option value="100">100 rows</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Number of rows to display per page in data tables
+            </p>
+          </div>
+
+          {/* Save Button */}
+          <div className="pt-2">
+            <button
+              onClick={handleSaveAppearance}
+              disabled={isSaving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? 'Saving...' : 'Save Preferences'}
+            </button>
           </div>
         </div>
       </div>
