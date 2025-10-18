@@ -25,6 +25,31 @@ const seedUsers = async () => {
     // Hash default password
     const defaultPassword = await bcrypt.hash('password123', 10);
 
+    // Create admin user from .env if provided
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (adminEmail && adminPassword) {
+      const existingAdmin = await User.findOne({ email: adminEmail.toLowerCase() });
+      if (!existingAdmin) {
+        const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
+        const adminUser = await User.create({
+          name: 'Admin',
+          email: adminEmail.toLowerCase(),
+          password: hashedAdminPassword,
+          role: 'admin',
+          avatar: 'AD',
+          isActive: true
+        });
+        console.log(`\n✓ Admin user created successfully:`);
+        console.log(`  - ${adminUser.name} (${adminUser.email}) - ID: ${adminUser._id}`);
+      } else {
+        console.log(`\n✓ Admin user already exists: ${adminEmail}`);
+      }
+    } else {
+      console.log('\n⚠️  No admin credentials found in .env (ADMIN_EMAIL, ADMIN_PASSWORD)');
+    }
+
     // Create users
     const usersToCreate = [];
     for (const member of teamMembers) {

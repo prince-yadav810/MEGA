@@ -8,18 +8,19 @@ const {
   deleteQuotation,
   uploadExcel
 } = require('../controllers/quotationController');
+const { protect } = require('../middleware/auth');
 
-// Routes
+// All quotation routes require authentication
 router.route('/')
-  .get(getQuotations)
-  .post(createQuotation);
+  .get(protect, getQuotations)
+  .post(protect, createQuotation);
 
 router.route('/upload')
-  .post(uploadExcel);
+  .post(protect, uploadExcel);
 
 router.route('/:id')
-  .get(getQuotation)
-  .put(updateQuotation)
-  .delete(deleteQuotation);
+  .get(protect, getQuotation)
+  .put(protect, updateQuotation)
+  .delete(protect, deleteQuotation);
 
 module.exports = router;
