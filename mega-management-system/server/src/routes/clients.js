@@ -1,5 +1,3 @@
-Client.js 
-
 // File Path: server/src/routes/clients.js
 
 const express = require('express');
