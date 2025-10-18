@@ -1,11 +1,9 @@
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+import api from './api';
 
 // Get all quotations
 export const getQuotations = async () => {
   try {
-    const response = await axios.get(`${API_URL}/quotations`);
+    const response = await api.get('/quotations');
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -15,7 +13,7 @@ export const getQuotations = async () => {
 // Get single quotation
 export const getQuotation = async (id) => {
   try {
-    const response = await axios.get(`${API_URL}/quotations/${id}`);
+    const response = await api.get(`/quotations/${id}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -25,7 +23,7 @@ export const getQuotation = async (id) => {
 // Create quotation
 export const createQuotation = async (quotationData) => {
   try {
-    const response = await axios.post(`${API_URL}/quotations`, quotationData);
+    const response = await api.post('/quotations', quotationData);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -35,7 +33,7 @@ export const createQuotation = async (quotationData) => {
 // Update quotation
 export const updateQuotation = async (id, quotationData) => {
   try {
-    const response = await axios.put(`${API_URL}/quotations/${id}`, quotationData);
+    const response = await api.put(`/quotations/${id}`, quotationData);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -45,7 +43,7 @@ export const updateQuotation = async (id, quotationData) => {
 // Delete quotation
 export const deleteQuotation = async (id) => {
   try {
-    const response = await axios.delete(`${API_URL}/quotations/${id}`);
+    const response = await api.delete(`/quotations/${id}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -58,7 +56,7 @@ export const uploadExcel = async (file, onUploadProgress) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await axios.post(`${API_URL}/quotations/upload`, formData, {
+    const response = await api.post('/quotations/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
