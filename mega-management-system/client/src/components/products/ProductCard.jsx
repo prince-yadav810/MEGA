@@ -5,6 +5,8 @@ export default function ProductCard({ product, onEdit, onDelete, onView }) {
   const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
   const imageUrl = primaryImage?.url || 'https://via.placeholder.com/300x200?text=No+Image';
 
+
+  
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
       {/* Product Image */}
