@@ -1,6 +1,7 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
+const { createNotification, notifyMultipleUsers } = require('./notificationController');
 
 // @desc    Get all tasks
 // @route   GET /api/tasks
@@ -135,6 +136,24 @@ exports.createTask = async (req, res) => {
       req.io.emit('task:created', task);
     }
 
+    // Create notifications for assignees
+    if (task.assignees && task.assignees.length > 0) {
+      await notifyMultipleUsers(
+        task.assignees.map(a => a._id || a),
+        {
+          type: 'success',
+          category: 'task',
+          title: 'New Task Assigned',
+          message: `You have been assigned to task: "${task.title}"`,
+          entityType: 'task',
+          entityId: task._id,
+          actionUrl: '/workspace/tasks',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
+    }
+
     res.status(201).json({
       success: true,
       message: 'Task created successfully',
@@ -206,6 +225,24 @@ exports.updateTask = async (req, res) => {
       req.io.emit('task:updated', task);
     }
 
+    // Create notifications for assignees
+    if (task.assignees && task.assignees.length > 0) {
+      await notifyMultipleUsers(
+        task.assignees.map(a => a._id || a),
+        {
+          type: 'info',
+          category: 'task',
+          title: 'Task Updated',
+          message: `Task "${task.title}" has been updated`,
+          entityType: 'task',
+          entityId: task._id,
+          actionUrl: '/workspace/tasks',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
+    }
+
     res.json({
       success: true,
       message: 'Task updated successfully',
@@ -227,7 +264,7 @@ exports.updateTask = async (req, res) => {
 // @access  Private
 exports.deleteTask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findById(req.params.id).populate('assignees', '_id name');
 
     if (!task) {
       return res.status(404).json({
@@ -236,11 +273,30 @@ exports.deleteTask = async (req, res) => {
       });
     }
 
+    const taskTitle = task.title;
+    const assignees = task.assignees;
+
     await task.deleteOne();
 
     // Emit socket event for real-time updates
     if (req.io) {
       req.io.emit('task:deleted', { id: req.params.id });
+    }
+
+    // Create notifications for assignees
+    if (assignees && assignees.length > 0) {
+      await notifyMultipleUsers(
+        assignees.map(a => a._id),
+        {
+          type: 'warning',
+          category: 'task',
+          title: 'Task Deleted',
+          message: `Task "${taskTitle}" has been deleted`,
+          actionUrl: '/workspace/tasks',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
     }
 
     res.json({
@@ -286,7 +342,7 @@ exports.getTasksByStatus = async (req, res) => {
 // @access  Private
 exports.addComment = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findById(req.params.id).populate('assignees', '_id');
 
     if (!task) {
       return res.status(404).json({
@@ -308,6 +364,30 @@ exports.addComment = async (req, res) => {
     // Emit socket event for real-time updates
     if (req.io) {
       req.io.emit('task:comment', { taskId: task._id, comment });
+    }
+
+    // Notify assignees (except the commenter)
+    if (task.assignees && task.assignees.length > 0) {
+      const usersToNotify = task.assignees
+        .map(a => a._id)
+        .filter(id => id.toString() !== req.user._id.toString());
+
+      if (usersToNotify.length > 0) {
+        await notifyMultipleUsers(
+          usersToNotify,
+          {
+            type: 'info',
+            category: 'task',
+            title: 'New Comment on Task',
+            message: `${req.user.name} commented on "${task.title}"`,
+            entityType: 'task',
+            entityId: task._id,
+            actionUrl: '/workspace/tasks',
+            createdBy: req.user.name || 'System'
+          },
+          req.io
+        );
+      }
     }
 
     res.json({

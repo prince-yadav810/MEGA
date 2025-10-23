@@ -46,7 +46,9 @@ const protect = async (req, res, next) => {
 
     // Attach user to request object
     req.user = {
-      userId: user._id,
+      id: user._id,        // Standard 'id' field (most commonly used)
+      _id: user._id,       // MongoDB '_id' for compatibility
+      userId: user._id,    // Keep for backward compatibility
       email: user.email,
       role: user.role,
       name: user.name

@@ -1,6 +1,9 @@
 // File path: client/src/context/NotificationContext.js
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import socketService from '../services/socketService';
+import * as notificationService from '../services/notificationService';
+import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext();
 
@@ -13,16 +16,57 @@ export const useNotifications = () => {
 };
 
 export const NotificationProvider = ({ children }) => {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'info',
-      title: 'Welcome!',
-      message: 'Task management system is ready',
-      time: 'Just now',
-      read: false
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch notifications from backend on mount
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      fetchUnreadCount();
     }
-  ]);
+  }, [user]);
+
+  // Initialize Socket.io connection
+  useEffect(() => {
+    if (user) {
+      socketService.connect();
+
+      // Listen for new notifications
+      socketService.on('notification:new', (notification) => {
+        console.log('📬 New notification received:', notification);
+        setNotifications(prev => [notification, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      });
+
+      return () => {
+        socketService.off('notification:new');
+      };
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const response = await notificationService.getAllNotifications({ limit: 50 });
+      setNotifications(response.data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await notificationService.getUnreadCount();
+      setUnreadCount(response.count || 0);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
 
   const addNotification = useCallback((notification) => {
     const newNotification = {
@@ -32,24 +76,79 @@ export const NotificationProvider = ({ children }) => {
       ...notification
     };
     setNotifications(prev => [newNotification, ...prev]);
+    if (!newNotification.read) {
+      setUnreadCount(prev => prev + 1);
+    }
   }, []);
 
-  const markAsRead = useCallback((id) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+  const markAsRead = useCallback(async (id) => {
+    try {
+      // Optimistic update
+      setNotifications(prev =>
+        prev.map(n => (n._id === id || n.id === id) ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+
+      // Update backend
+      await notificationService.markNotificationAsRead(id);
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      // Revert on error
+      fetchNotifications();
+      fetchUnreadCount();
+    }
   }, []);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllAsRead = useCallback(async () => {
+    try {
+      // Optimistic update
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+
+      // Update backend
+      await notificationService.markAllNotificationsAsRead();
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      // Revert on error
+      fetchNotifications();
+      fetchUnreadCount();
+    }
   }, []);
 
-  const removeNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
+  const removeNotification = useCallback(async (id) => {
+    try {
+      const notification = notifications.find(n => n._id === id || n.id === id);
 
-  const clearAll = useCallback(() => {
-    setNotifications([]);
+      // Optimistic update
+      setNotifications(prev => prev.filter(n => n._id !== id && n.id !== id));
+      if (notification && !notification.read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+
+      // Update backend
+      await notificationService.deleteNotification(id);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      // Revert on error
+      fetchNotifications();
+      fetchUnreadCount();
+    }
+  }, [notifications]);
+
+  const clearAll = useCallback(async () => {
+    try {
+      // Optimistic update
+      setNotifications([]);
+      setUnreadCount(0);
+
+      // Update backend
+      await notificationService.clearAllNotifications();
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+      // Revert on error
+      fetchNotifications();
+      fetchUnreadCount();
+    }
   }, []);
 
   // Task notification helpers
@@ -57,7 +156,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'success',
       title: 'Task Created',
-      message: `"${taskTitle}" has been created successfully`
+      message: `"${taskTitle}" has been created successfully`,
+      category: 'task'
     });
   }, [addNotification]);
 
@@ -65,7 +165,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'info',
       title: 'Task Updated',
-      message: `"${taskTitle}" has been updated`
+      message: `"${taskTitle}" has been updated`,
+      category: 'task'
     });
   }, [addNotification]);
 
@@ -73,7 +174,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'warning',
       title: 'Task Deleted',
-      message: `"${taskTitle}" has been deleted`
+      message: `"${taskTitle}" has been deleted`,
+      category: 'task'
     });
   }, [addNotification]);
 
@@ -88,7 +190,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'info',
       title: 'Status Changed',
-      message: `"${taskTitle}" moved to ${statusLabels[newStatus] || newStatus}`
+      message: `"${taskTitle}" moved to ${statusLabels[newStatus] || newStatus}`,
+      category: 'task'
     });
   }, [addNotification]);
 
@@ -96,7 +199,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'warning',
       title: 'Task Overdue',
-      message: `"${taskTitle}" is ${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue`
+      message: `"${taskTitle}" is ${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue`,
+      category: 'task'
     });
   }, [addNotification]);
 
@@ -105,7 +209,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'info',
       title: '🔔 Reminder',
-      message: reminderTitle
+      message: reminderTitle,
+      category: 'reminder'
     });
   }, [addNotification]);
 
@@ -113,7 +218,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'success',
       title: 'Reminder Created',
-      message: `Reminder "${reminderTitle}" has been set`
+      message: `Reminder "${reminderTitle}" has been set`,
+      category: 'reminder'
     });
   }, [addNotification]);
 
@@ -121,7 +227,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'warning',
       title: 'Reminder Deleted',
-      message: `"${reminderTitle}" reminder has been deleted`
+      message: `"${reminderTitle}" reminder has been deleted`,
+      category: 'reminder'
     });
   }, [addNotification]);
 
@@ -130,7 +237,8 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'success',
       title: 'Note Created',
-      message: `Note "${noteHeading}" has been created`
+      message: `Note "${noteHeading}" has been created`,
+      category: 'note'
     });
   }, [addNotification]);
 
@@ -138,17 +246,22 @@ export const NotificationProvider = ({ children }) => {
     addNotification({
       type: 'info',
       title: isPinned ? 'Note Pinned' : 'Note Unpinned',
-      message: `"${noteHeading}" has been ${isPinned ? 'pinned' : 'unpinned'}`
+      message: `"${noteHeading}" has been ${isPinned ? 'pinned' : 'unpinned'}`,
+      category: 'note'
     });
   }, [addNotification]);
 
   const value = {
     notifications,
+    unreadCount,
+    loading,
     addNotification,
     markAsRead,
     markAllAsRead,
     removeNotification,
     clearAll,
+    fetchNotifications,
+    fetchUnreadCount,
     // Task helpers
     notifyTaskCreated,
     notifyTaskUpdated,
