@@ -13,16 +13,17 @@ import {
   Menu,
   ChevronLeft,
   Inbox,
-  Bell,
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import toast from 'react-hot-toast';
 
 const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
 
   const handleLogout = async () => {
     try {
@@ -148,11 +149,23 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
                 ${collapsed ? 'justify-center' : 'justify-start'}
               `}
             >
-              <Icon className={`h-5 w-5 flex-shrink-0 ${active ? 'text-primary-600' : ''}`} />
+              <div className="relative">
+                <Icon className={`h-5 w-5 flex-shrink-0 ${active ? 'text-primary-600' : ''}`} />
+                {item.id === 'inbox' && unreadCount > 0 && collapsed && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-error-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
 
               {!collapsed && (
-                <div className="ml-3 flex-1">
+                <div className="ml-3 flex-1 flex items-center justify-between">
                   <div className="text-sm font-medium">{item.name}</div>
+                  {item.id === 'inbox' && unreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-error-500 rounded-full">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </div>
               )}
 

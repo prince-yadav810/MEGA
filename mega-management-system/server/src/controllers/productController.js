@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const cloudinary = require('../config/cloudinary');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all products with pagination, search, and filters
 // @route   GET /api/products
@@ -153,6 +154,21 @@ exports.createProduct = async (req, res) => {
 
     const product = await Product.create(productData);
 
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'product',
+        title: 'Product Created',
+        message: `Product "${product.name}" has been added to the inventory`,
+        entityType: 'product',
+        entityId: product._id,
+        actionUrl: '/products',
+        createdBy: req.user.name || 'System'
+      }, req.io);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
@@ -248,6 +264,21 @@ exports.updateProduct = async (req, res) => {
       }
     );
 
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'product',
+        title: 'Product Updated',
+        message: `Product "${product.name}" has been updated successfully`,
+        entityType: 'product',
+        entityId: product._id,
+        actionUrl: '/products',
+        createdBy: req.user.name || 'System'
+      }, req.io);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Product updated successfully',
@@ -287,6 +318,8 @@ exports.deleteProduct = async (req, res) => {
       });
     }
 
+    const productName = product.name;
+
     // Delete images from Cloudinary
     if (product.images && product.images.length > 0) {
       for (const image of product.images) {
@@ -301,6 +334,21 @@ exports.deleteProduct = async (req, res) => {
     }
 
     await Product.findByIdAndDelete(req.params.id);
+
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'warning',
+        category: 'product',
+        title: 'Product Deleted',
+        message: `Product "${productName}" has been deleted from the inventory`,
+        entityType: 'product',
+        entityId: null,
+        actionUrl: '/products',
+        createdBy: req.user.name || 'System'
+      }, req.io);
+    }
 
     res.status(200).json({
       success: true,

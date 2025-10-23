@@ -2,6 +2,7 @@
 
 const Client = require('../models/Client');
 const PaymentReminder = require('../models/PaymentReminder');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all clients
 // @route   GET /api/clients
@@ -119,7 +120,20 @@ exports.createClient = async (req, res) => {
         createdBy: req.user
       });
     }
-    
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'success',
+      category: 'client',
+      title: 'Client Created',
+      message: `Client "${client.companyName}" has been added to your clients list`,
+      entityType: 'client',
+      entityId: client._id,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.status(201).json({
       success: true,
       message: 'Client created successfully',
@@ -183,7 +197,20 @@ exports.updateClient = async (req, res) => {
         updatedBy: req.user
       });
     }
-    
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'success',
+      category: 'client',
+      title: 'Client Updated',
+      message: `Client "${client.companyName}" has been updated successfully`,
+      entityType: 'client',
+      entityId: client._id,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.json({
       success: true,
       message: 'Client updated successfully',
@@ -230,8 +257,9 @@ exports.deleteClient = async (req, res) => {
       });
     }
     
+    const clientName = client.companyName;
     await client.deleteOne();
-    
+
     // Emit socket notification
     if (req.io) {
       req.io.emit('client:deleted', {
@@ -239,7 +267,20 @@ exports.deleteClient = async (req, res) => {
         deletedBy: req.user
       });
     }
-    
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'warning',
+      category: 'client',
+      title: 'Client Deleted',
+      message: `Client "${clientName}" has been deleted from the system`,
+      entityType: 'client',
+      entityId: null,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.json({
       success: true,
       message: 'Client deleted successfully',
@@ -271,7 +312,20 @@ exports.toggleClientActive = async (req, res) => {
     
     client.isActive = !client.isActive;
     await client.save();
-    
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: client.isActive ? 'success' : 'warning',
+      category: 'client',
+      title: `Client ${client.isActive ? 'Activated' : 'Deactivated'}`,
+      message: `Client "${client.companyName}" has been ${client.isActive ? 'activated' : 'deactivated'}`,
+      entityType: 'client',
+      entityId: client._id,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.json({
       success: true,
       message: `Client ${client.isActive ? 'activated' : 'deactivated'} successfully`,

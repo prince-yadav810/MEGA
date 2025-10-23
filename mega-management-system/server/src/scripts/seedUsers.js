@@ -15,7 +15,7 @@ const teamMembers = [
 const seedUsers = async () => {
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/mega-management');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mega-management');
     console.log('Connected to MongoDB');
 
     // Clear existing users (optional - comment out if you want to keep existing users)

@@ -2,6 +2,7 @@
 
 const PaymentReminder = require('../models/PaymentReminder');
 const Client = require('../models/Client');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all payment reminders
 // @route   GET /api/clients/payment-reminders
@@ -120,7 +121,7 @@ exports.createReminder = async (req, res) => {
     await reminder.save();
     
     await reminder.populate('client createdBy');
-    
+
     // Emit socket notification
     if (req.io) {
       req.io.emit('payment-reminder:created', {
@@ -128,7 +129,20 @@ exports.createReminder = async (req, res) => {
         createdBy: req.user
       });
     }
-    
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'success',
+      category: 'payment',
+      title: 'Payment Reminder Created',
+      message: `Payment reminder campaign created for ${client.companyName} - Invoice ${reminderData.invoiceNumber || 'N/A'}`,
+      entityType: 'payment-reminder',
+      entityId: reminder._id,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.status(201).json({
       success: true,
       message: 'Payment reminder campaign created successfully',
@@ -182,7 +196,7 @@ exports.stopReminder = async (req, res) => {
     
     await reminder.save();
     await reminder.populate('client createdBy stoppedBy');
-    
+
     // Emit socket notification
     if (req.io) {
       req.io.emit('payment-reminder:stopped', {
@@ -190,7 +204,20 @@ exports.stopReminder = async (req, res) => {
         stoppedBy: req.user
       });
     }
-    
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'warning',
+      category: 'payment',
+      title: 'Payment Reminder Stopped',
+      message: `Payment reminder campaign for ${reminder.client.companyName} has been stopped - ${reminder.stoppedReason}`,
+      entityType: 'payment-reminder',
+      entityId: reminder._id,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.json({
       success: true,
       message: 'Payment reminder stopped successfully',
@@ -285,8 +312,22 @@ exports.deleteReminder = async (req, res) => {
       });
     }
     
+    const reminderClient = await Client.findById(reminder.client);
     await reminder.deleteOne();
-    
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'warning',
+      category: 'payment',
+      title: 'Payment Reminder Deleted',
+      message: `Payment reminder campaign for ${reminderClient?.companyName || 'client'} has been deleted from the system`,
+      entityType: 'payment-reminder',
+      entityId: null,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.json({
       success: true,
       message: 'Payment reminder deleted successfully',
@@ -327,14 +368,14 @@ exports.sendReminderManually = async (req, res) => {
     // TODO: Integrate with WhatsApp API here
     // For now, just mark as sent
     await reminder.markMessageSent('sent', '', '');
-    
+
     // Emit socket notification
     if (req.io) {
       req.io.emit('payment-reminder:message-sent', {
         reminder,
         sentBy: req.user
       });
-      
+
       // If completed, send completion notification
       if (reminder.status === 'completed') {
         req.io.emit('payment-reminder:completed', {
@@ -343,7 +384,35 @@ exports.sendReminderManually = async (req, res) => {
         });
       }
     }
-    
+
+    // Create notification for message sent
+    await createNotification({
+      userId: req.user.id,
+      type: 'info',
+      category: 'payment',
+      title: 'Payment Reminder Sent',
+      message: `Payment reminder message sent to ${reminder.client.companyName} (${reminder.messagesSent}/${reminder.totalMessagesToSend})`,
+      entityType: 'payment-reminder',
+      entityId: reminder._id,
+      actionUrl: '/clients',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
+    // If completed, create completion notification
+    if (reminder.status === 'completed') {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'payment',
+        title: 'Payment Reminder Campaign Completed',
+        message: `Payment reminder campaign for ${reminder.client.companyName} has completed - all ${reminder.totalMessagesToSend} messages sent`,
+        entityType: 'payment-reminder',
+        entityId: reminder._id,
+        actionUrl: '/clients',
+        createdBy: 'System'
+      }, req.io);
+    }
+
     res.json({
       success: true,
       message: 'Reminder message sent successfully',

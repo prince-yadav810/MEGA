@@ -2,6 +2,7 @@
 // REPLACE entire file with this
 
 const Reminder = require('../models/Reminder');
+const { createNotification } = require('./notificationController');
 
 exports.getAllReminders = async (req, res) => {
   try {
@@ -27,6 +28,22 @@ exports.createReminder = async (req, res) => {
     });
 
     await reminder.save();
+
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'reminder',
+        title: 'Reminder Created',
+        message: `Reminder "${reminder.title}" has been created successfully`,
+        entityType: 'reminder',
+        entityId: reminder._id,
+        actionUrl: '/notes-reminders',
+        createdBy: req.user.name || 'Team Member'
+      }, req.io);
+    }
+
     res.status(201).json({ success: true, data: reminder, message: 'Reminder created successfully' });
   } catch (error) {
     console.error('Error creating reminder:', error);
@@ -45,6 +62,21 @@ exports.updateReminder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Reminder not found' });
     }
 
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'reminder',
+        title: 'Reminder Updated',
+        message: `Reminder "${reminder.title}" has been updated successfully`,
+        entityType: 'reminder',
+        entityId: reminder._id,
+        actionUrl: '/notes-reminders',
+        createdBy: req.user.name || 'Team Member'
+      }, req.io);
+    }
+
     res.json({ success: true, data: reminder, message: 'Reminder updated successfully' });
   } catch (error) {
     console.error('Error updating reminder:', error);
@@ -59,6 +91,21 @@ exports.deleteReminder = async (req, res) => {
 
     if (!reminder) {
       return res.status(404).json({ success: false, message: 'Reminder not found' });
+    }
+
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'warning',
+        category: 'reminder',
+        title: 'Reminder Deleted',
+        message: `Reminder "${reminder.title}" has been deleted successfully`,
+        entityType: 'reminder',
+        entityId: null,
+        actionUrl: '/notes-reminders',
+        createdBy: req.user.name || 'Team Member'
+      }, req.io);
     }
 
     res.json({ success: true, message: 'Reminder deleted successfully' });
@@ -133,16 +180,31 @@ exports.checkDueReminders = async (req, res) => {
           if (alertTime <= currentTime) {
             const lastTriggeredDate = reminder.lastTriggered ? reminder.lastTriggered.toISOString().split('T')[0] : null;
             const lastTriggeredTime = reminder.lastTriggered ? reminder.lastTriggered.toTimeString().split(' ')[0].substring(0, 5) : null;
-            
+
             if (lastTriggeredDate !== currentDate || lastTriggeredTime !== alertTime) {
               triggeredReminders.push({ ...reminder.toObject(), triggeredTime: alertTime });
               reminder.lastTriggered = now;
-              
+
               if (reminder.repeatFrequency === 'none') {
                 reminder.isActive = false;
               }
-              
+
               await reminder.save();
+
+              // Create notification for triggered reminder
+              if (reminder.createdBy) {
+                await createNotification({
+                  userId: reminder.createdBy,
+                  type: 'warning',
+                  category: 'reminder',
+                  title: 'Reminder Alert',
+                  message: `Reminder: ${reminder.title}${reminder.description ? ' - ' + reminder.description : ''}`,
+                  entityType: 'reminder',
+                  entityId: reminder._id,
+                  actionUrl: '/notes-reminders',
+                  createdBy: 'System'
+                }, req.io);
+              }
             }
           }
         }
