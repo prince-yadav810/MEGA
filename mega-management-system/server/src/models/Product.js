@@ -108,7 +108,7 @@ ProductSchema.index({ sku: 1 });
 ProductSchema.index({ name: 'text', description: 'text' });
 ProductSchema.index({ category: 1 });
 
-// Pre-save hook to generate SKU if not provided
+// Pre-save hook to generate SKU if not provided\
 ProductSchema.pre('save', async function(next) {
   if (!this.sku) {
     // Generate SKU: 5 unique numbers (10000-99999)
