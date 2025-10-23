@@ -58,6 +58,39 @@ const ProductSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  price: {
+    type: Number,
+    required: [true, 'Price is required'],
+    min: [0, 'Price cannot be negative']
+  },
+  currency: {
+    type: String,
+    default: 'INR',
+    enum: ['INR', 'USD', 'EUR', 'GBP']
+  },
+  stock: {
+    quantity: {
+      type: Number,
+      required: true,
+      min: [0, 'Stock quantity cannot be negative'],
+      default: 0
+    },
+    unit: {
+      type: String,
+      default: 'pieces',
+      enum: ['pieces', 'pairs', 'sets', 'meters', 'kg', 'liters']
+    },
+    lowStockThreshold: {
+      type: Number,
+      default: 10,
+      min: [0, 'Low stock threshold cannot be negative']
+    }
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'discontinued'],
+    default: 'active'
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
