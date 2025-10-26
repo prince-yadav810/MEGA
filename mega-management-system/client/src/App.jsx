@@ -73,7 +73,7 @@ function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto bg-gray-50">
           <Routes>
-            <Route index element={<Navigate to="/workspace" replace />} />
+            <Route index element={<Navigate to="/workspace/table" replace />} />
             <Route path="workspace/*" element={<Workspace />} />
             <Route path="inbox" element={<Inbox />} />
             <Route path="quotations" element={<QuotationsList />} />
@@ -82,7 +82,7 @@ function Layout() {
             <Route path="notes-reminders" element={<NotesReminders />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
-            <Route path="*" element={<Navigate to="/workspace" replace />} />
+            <Route path="*" element={<Navigate to="/workspace/table" replace />} />
           </Routes>
         </main>
       </div>

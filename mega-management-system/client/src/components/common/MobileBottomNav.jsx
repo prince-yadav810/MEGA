@@ -18,7 +18,7 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       id: 'workspace',
       name: 'Workspace',
       icon: LayoutDashboard,
-      path: '/workspace'
+      path: '/workspace/table'
     },
     {
       id: 'quotations',

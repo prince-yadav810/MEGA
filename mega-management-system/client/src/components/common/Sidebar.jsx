@@ -40,7 +40,7 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       id: 'workspace',
       name: 'Workspace',
       icon: LayoutDashboard,
-      path: '/workspace'
+      path: '/workspace/table'
     },
     {
       id: 'inbox',
@@ -100,7 +100,7 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
     setActiveTab(itemId);
     // If clicking on workspace and already on a workspace sub-route, stay there
     // Otherwise navigate to the main workspace
-    if (itemPath === '/workspace' && location.pathname.startsWith('/workspace/')) {
+    if (itemPath === '/workspace/table' && location.pathname.startsWith('/workspace/')) {
       return; // Don't navigate, just update active tab
     }
   };
