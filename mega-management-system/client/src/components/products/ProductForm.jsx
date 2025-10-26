@@ -20,11 +20,18 @@ export default function ProductForm({ product, onClose, onSuccess }) {
     description: '',
     category: 'Custom',
     customCategory: '',
+    price: 0,
+    currency: 'INR',
+    stock: {
+      quantity: 0,
+      unit: 'pieces',
+      lowStockThreshold: 10
+    },
+    status: 'active',
     specifications: {},
     images: []
   });
 
-  const [imageUrls, setImageUrls] = useState([]);
   const [newSpecKey, setNewSpecKey] = useState('');
   const [newSpecValue, setNewSpecValue] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,6 +43,14 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         description: product.description || '',
         category: product.category || 'Custom',
         customCategory: product.customCategory || '',
+        price: product.price || '',
+        currency: product.currency || 'INR',
+        stock: {
+          quantity: product.stock?.quantity || 0,
+          unit: product.stock?.unit || 'pieces',
+          lowStockThreshold: product.stock?.lowStockThreshold || 10
+        },
+        status: product.status || 'active',
         specifications: product.specifications ?
           (product.specifications instanceof Map ? Object.fromEntries(product.specifications) : product.specifications)
           : {},
