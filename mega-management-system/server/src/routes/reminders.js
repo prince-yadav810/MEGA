@@ -4,11 +4,13 @@
 const express = require('express');
 const router = express.Router();
 const reminderController = require('../controllers/reminderController');
+const { protect } = require('../middleware/auth');
 
-router.get('/', reminderController.getAllReminders);
-router.post('/', reminderController.createReminder);
-router.put('/:id', reminderController.updateReminder);
-router.delete('/:id', reminderController.deleteReminder);
-router.get('/check-due', reminderController.checkDueReminders);
+// All routes require authentication
+router.get('/', protect, reminderController.getAllReminders);
+router.post('/', protect, reminderController.createReminder);
+router.put('/:id', protect, reminderController.updateReminder);
+router.delete('/:id', protect, reminderController.deleteReminder);
+router.get('/check-due', protect, reminderController.checkDueReminders);
 
 module.exports = router;
