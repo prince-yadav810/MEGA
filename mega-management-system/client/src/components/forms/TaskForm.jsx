@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, Flag, Tag, Plus } from 'lucide-react';
-import { taskStatuses, taskPriorities, teamMembers } from '../../utils/sampleData';
+import { taskStatuses, taskPriorities } from '../../utils/sampleData';
+import userService from '../../services/userService';
 
 const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
   const [formData, setFormData] = useState({
@@ -17,6 +18,8 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
 
   const [newTag, setNewTag] = useState('');
   const [errors, setErrors] = useState({});
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loadingTeam, setLoadingTeam] = useState(false);
 
   // Update form data when initialData changes
   useEffect(() => {
@@ -55,6 +58,34 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     }
     setErrors({});
   }, [initialData, isOpen]);
+
+  // Fetch team members from database
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        setLoadingTeam(true);
+        const response = await userService.getAllUsers();
+        if (response.success) {
+          // Map users to match the format expected by the form
+          const users = response.data.map(user => ({
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar || user.name?.substring(0, 2).toUpperCase() || '??'
+          }));
+          setTeamMembers(users);
+        }
+      } catch (error) {
+        console.error('Error fetching team members:', error);
+      } finally {
+        setLoadingTeam(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchTeamMembers();
+    }
+  }, [isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -238,25 +269,33 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <User className="h-4 w-4 inline mr-1" />Assignees (Optional)
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {teamMembers.map(member => (
-                    <button
-                      key={member.id}
-                      type="button"
-                      onClick={() => handleAssigneeToggle(member.id)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg border-2 transition-all ${
-                        formData.assignees.includes(member.id)
-                          ? 'border-primary-500 bg-primary-50 text-primary-700'
-                          : 'border-gray-300 hover:border-gray-400 text-gray-700'
-                      }`}
-                    >
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium">
-                        {member.avatar}
-                      </div>
-                      <span className="text-sm font-medium">{member.name}</span>
-                    </button>
-                  ))}
-                </div>
+                {loadingTeam ? (
+                  <div className="text-sm text-gray-500 py-4">Loading team members...</div>
+                ) : teamMembers.length === 0 ? (
+                  <div className="text-sm text-gray-500 py-4">
+                    No team members found. Please add team members in the Team section first.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {teamMembers.map(member => (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() => handleAssigneeToggle(member.id)}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg border-2 transition-all ${
+                          formData.assignees.includes(member.id)
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium">
+                          {member.avatar}
+                        </div>
+                        <span className="text-sm font-medium">{member.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {errors.assignees && <p className="mt-1 text-sm text-error-600">{errors.assignees}</p>}
               </div>
 
