@@ -1,5 +1,3 @@
-Client.js 
-
 // File Path: server/src/routes/clients.js
 
 const express = require('express');
@@ -12,9 +10,9 @@ const paymentReminderController = require('../controllers/paymentReminderControl
 const mockAuth = (req, res, next) => {
   req.user = {
     id: '507f1f77bcf86cd799439011', // Mock user ID
-    name: 'Admin User',
+    name: 'Manager User',
     email: 'admin@mega.com',
-    role: 'admin'
+    role: 'manager'
   };
   next();
 };

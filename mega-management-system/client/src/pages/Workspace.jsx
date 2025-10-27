@@ -9,12 +9,12 @@ import CompletedTasks from './Tasks/CompletedTasks';
 const Workspace = () => {
   return (
     <Routes>
-      <Route index element={<Dashboard />} />
+      <Route index element={<Navigate to="/workspace/table" replace />} />
       <Route path="table" element={<TasksOverview />} />
       <Route path="board" element={<TaskBoard />} />
       <Route path="calendar" element={<TaskCalendar />} />
       <Route path="completed" element={<CompletedTasks />} />
-      <Route path="*" element={<Navigate to="/workspace" replace />} />
+      <Route path="*" element={<Navigate to="/workspace/table" replace />} />
     </Routes>
   );
 };

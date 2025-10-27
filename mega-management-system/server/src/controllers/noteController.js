@@ -2,6 +2,7 @@
 // REPLACE entire file with this
 
 const Note = require('../models/Note');
+const { createNotification } = require('./notificationController');
 
 exports.getAllNotes = async (req, res) => {
   try {
@@ -16,14 +17,14 @@ exports.getAllNotes = async (req, res) => {
 exports.createNote = async (req, res) => {
   try {
     const { heading, content, color } = req.body;
-    
+
     if (!heading || !content) {
       return res.status(400).json({ success: false, message: 'Heading and content are required' });
     }
-    
+
     const colors = ['#FFE5E5', '#FFF4E5', '#E5F5FF', '#F0E5FF', '#E5FFE5', '#FFE5F5'];
     const selectedColor = color || colors[Math.floor(Math.random() * colors.length)];
-    
+
     const note = new Note({
       heading,
       content,
@@ -32,6 +33,22 @@ exports.createNote = async (req, res) => {
     });
 
     await note.save();
+
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'note',
+        title: 'Note Created',
+        message: `Note "${heading}" has been created successfully`,
+        entityType: 'note',
+        entityId: note._id,
+        actionUrl: '/notes-reminders',
+        createdBy: req.user.name || 'Team Member'
+      }, req.io);
+    }
+
     res.status(201).json({ success: true, data: note, message: 'Note created successfully' });
   } catch (error) {
     console.error('Error creating note:', error);
@@ -52,6 +69,21 @@ exports.updateNote = async (req, res) => {
 
     if (!note) {
       return res.status(404).json({ success: false, message: 'Note not found' });
+    }
+
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'note',
+        title: 'Note Updated',
+        message: `Note "${note.heading}" has been updated successfully`,
+        entityType: 'note',
+        entityId: note._id,
+        actionUrl: '/notes-reminders',
+        createdBy: req.user.name || 'Team Member'
+      }, req.io);
     }
 
     res.json({ success: true, data: note, message: 'Note updated successfully' });
@@ -87,6 +119,21 @@ exports.deleteNote = async (req, res) => {
 
     if (!note) {
       return res.status(404).json({ success: false, message: 'Note not found' });
+    }
+
+    // Create notification for user
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'warning',
+        category: 'note',
+        title: 'Note Deleted',
+        message: `Note "${note.heading}" has been deleted successfully`,
+        entityType: 'note',
+        entityId: null,
+        actionUrl: '/notes-reminders',
+        createdBy: req.user.name || 'Team Member'
+      }, req.io);
     }
 
     res.json({ success: true, message: 'Note deleted successfully' });

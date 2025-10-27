@@ -1,5 +1,6 @@
 const Quotation = require('../models/Quotation');
 const xlsx = require('xlsx');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all quotations
 // @route   GET /api/quotations
@@ -64,6 +65,19 @@ exports.createQuotation = async (req, res) => {
       createdBy: req.user?._id
     });
 
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'success',
+      category: 'quotation',
+      title: 'Quotation Created',
+      message: `Quotation "${quotation.number}" for ${quotation.client} has been created successfully`,
+      entityType: 'quotation',
+      entityId: quotation._id,
+      actionUrl: '/quotations',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.status(201).json({
       success: true,
       data: quotation
@@ -101,6 +115,19 @@ exports.updateQuotation = async (req, res) => {
       });
     }
 
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'success',
+      category: 'quotation',
+      title: 'Quotation Updated',
+      message: `Quotation "${quotation.number}" for ${quotation.client} has been updated successfully`,
+      entityType: 'quotation',
+      entityId: quotation._id,
+      actionUrl: '/quotations',
+      createdBy: req.user.name || 'System'
+    }, req.io);
+
     res.status(200).json({
       success: true,
       data: quotation
@@ -127,6 +154,19 @@ exports.deleteQuotation = async (req, res) => {
         message: 'Quotation not found'
       });
     }
+
+    // Create notification for user
+    await createNotification({
+      userId: req.user.id,
+      type: 'warning',
+      category: 'quotation',
+      title: 'Quotation Deleted',
+      message: `Quotation "${quotation.number}" for ${quotation.client} has been deleted from the system`,
+      entityType: 'quotation',
+      entityId: null,
+      actionUrl: '/quotations',
+      createdBy: req.user.name || 'System'
+    }, req.io);
 
     res.status(200).json({
       success: true,

@@ -7,6 +7,7 @@ import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/common/Sidebar';
 import MobileBottomNav from './components/common/MobileBottomNav';
 import Workspace from './pages/Workspace';
+import Inbox from './pages/Inbox/Inbox';
 import QuotationsList from './pages/Quotations/QuotationsList';
 import ClientsList from './pages/Clients/ClientsList';
 import ProductCatalog from './pages/Products/ProductCatalog';
@@ -37,6 +38,8 @@ function Layout() {
     const path = location.pathname;
     if (path.startsWith('/workspace')) {
       setActiveTab('workspace');
+    } else if (path.startsWith('/inbox')) {
+      setActiveTab('inbox');
     } else if (path.startsWith('/quotations')) {
       setActiveTab('quotations');
     } else if (path.startsWith('/clients')) {
@@ -70,15 +73,16 @@ function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto bg-gray-50">
           <Routes>
-            <Route index element={<Navigate to="/workspace" replace />} />
+            <Route index element={<Navigate to="/workspace/table" replace />} />
             <Route path="workspace/*" element={<Workspace />} />
+            <Route path="inbox" element={<Inbox />} />
             <Route path="quotations" element={<QuotationsList />} />
             <Route path="clients" element={<ClientsList />} />
             <Route path="products" element={<ProductCatalog />} />
             <Route path="notes-reminders" element={<NotesReminders />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
-            <Route path="*" element={<Navigate to="/workspace" replace />} />
+            <Route path="*" element={<Navigate to="/workspace/table" replace />} />
           </Routes>
         </main>
       </div>

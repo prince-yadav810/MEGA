@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext.js';
 
 const NotificationDropdown = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, markAsRead, markAllAsRead, removeNotification } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification } = useNotifications();
   const dropdownRef = useRef(null);
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -71,48 +72,57 @@ const NotificationDropdown = () => {
                 <p className="text-sm">No notifications</p>
               </div>
             ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                    !notification.read ? 'bg-primary-50' : ''
-                  }`}
-                  onClick={() => markAsRead(notification.id)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getIcon(notification.type)}
+              notifications.slice(0, 5).map((notification) => {
+                const notifId = notification._id || notification.id;
+                return (
+                  <div
+                    key={notifId}
+                    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                      !notification.read ? 'bg-primary-50' : ''
+                    }`}
+                    onClick={() => markAsRead(notifId)}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getIcon(notification.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">
+                          {notification.title}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-0.5">
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {notification.timeAgo || notification.time || 'Just now'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeNotification(notifId);
+                        }}
+                        className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {notification.title}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-0.5">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {notification.time}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeNotification(notification.id);
-                      }}
-                      className="flex-shrink-0 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
           {/* Footer */}
           {notifications.length > 0 && (
             <div className="px-4 py-2 border-t border-gray-200">
-              <button className="text-xs text-primary-600 hover:text-primary-700 w-full text-center">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/inbox');
+                }}
+                className="text-xs text-primary-600 hover:text-primary-700 w-full text-center"
+              >
                 View all notifications
               </button>
             </div>

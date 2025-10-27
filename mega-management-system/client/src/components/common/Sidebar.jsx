@@ -13,16 +13,17 @@ import {
   Menu,
   ChevronLeft,
   Inbox,
-  Bell,
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import toast from 'react-hot-toast';
 
 const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
 
   const handleLogout = async () => {
     try {
@@ -39,7 +40,7 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       id: 'workspace',
       name: 'Workspace',
       icon: LayoutDashboard,
-      path: '/workspace'
+      path: '/workspace/table'
     },
     {
       id: 'inbox',
@@ -75,7 +76,9 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       id: 'users',
       name: 'Team',
       icon: UserCog,
-      path: '/users'
+      path: '/users',
+      // Only managers can access Team tab
+      roles: ['manager']
     },
     {
       id: 'settings',
@@ -84,6 +87,18 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       path: '/settings'
     }
   ];
+
+  // Filter navigation items based on user role
+  const filteredNavigationItems = navigationItems.filter(item => {
+    // If item has role restrictions, check if user's role is allowed
+    if (item.roles && user?.role) {
+      // Support both 'manager' and 'admin' roles for Team tab (backward compatibility)
+      const allowedRoles = item.id === 'users' ? ['manager', 'admin'] : item.roles;
+      return allowedRoles.includes(user.role);
+    }
+    // If no role restrictions, show to everyone
+    return true;
+  });
 
   const isActive = (path) => {
     // For workspace, check if we're on any workspace route
@@ -99,7 +114,7 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
     setActiveTab(itemId);
     // If clicking on workspace and already on a workspace sub-route, stay there
     // Otherwise navigate to the main workspace
-    if (itemPath === '/workspace' && location.pathname.startsWith('/workspace/')) {
+    if (itemPath === '/workspace/table' && location.pathname.startsWith('/workspace/')) {
       return; // Don't navigate, just update active tab
     }
   };
@@ -130,10 +145,10 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {navigationItems.map((item) => {
+        {filteredNavigationItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
-          
+
           return (
             <Link
               key={item.id}
@@ -141,18 +156,30 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
               onClick={() => handleNavClick(item.id, item.path)}
               className={`
                 flex items-center p-3 rounded-lg transition-all duration-200 group relative
-                ${active 
-                  ? 'bg-gradient-to-r from-primary-50 to-primary-100 text-primary-700 shadow-sm' 
+                ${active
+                  ? 'bg-gradient-to-r from-primary-50 to-primary-100 text-primary-700 shadow-sm'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }
                 ${collapsed ? 'justify-center' : 'justify-start'}
               `}
             >
-              <Icon className={`h-5 w-5 flex-shrink-0 ${active ? 'text-primary-600' : ''}`} />
+              <div className="relative">
+                <Icon className={`h-5 w-5 flex-shrink-0 ${active ? 'text-primary-600' : ''}`} />
+                {item.id === 'inbox' && unreadCount > 0 && collapsed && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-error-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
 
               {!collapsed && (
-                <div className="ml-3 flex-1">
+                <div className="ml-3 flex-1 flex items-center justify-between">
                   <div className="text-sm font-medium">{item.name}</div>
+                  {item.id === 'inbox' && unreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-error-500 rounded-full">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -187,6 +214,9 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
+              <p className="text-xs font-semibold text-primary-600 truncate capitalize mt-0.5">
+                {user.role === 'admin' ? 'Manager' : user.role}
+              </p>
             </div>
           </div>
         )}

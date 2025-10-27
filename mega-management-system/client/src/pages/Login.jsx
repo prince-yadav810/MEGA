@@ -7,6 +7,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showAccountInfo, setShowAccountInfo] = useState(false);
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -155,11 +156,61 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Footer Note */}
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>
-              Contact your administrator for access credentials
-            </p>
+          {/* Account Types Info */}
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => setShowAccountInfo(!showAccountInfo)}
+              className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              {showAccountInfo ? '▼' : '►'} Account Types & Demo Credentials
+            </button>
+
+            {showAccountInfo && (
+              <div className="mt-4 space-y-4 text-sm">
+                {/* Manager Account */}
+                <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-purple-900">Manager Account</h3>
+                  </div>
+                  <p className="text-purple-700 text-xs mb-3">
+                    Full access to all features including team management
+                  </p>
+                  <div className="bg-white rounded p-2 font-mono text-xs">
+                    <div className="text-gray-600">Email: <span className="text-purple-900 font-semibold">admin@mega.com</span></div>
+                    <div className="text-gray-600">Password: <span className="text-purple-900 font-semibold">Admin@123</span></div>
+                  </div>
+                </div>
+
+                {/* Employee Account */}
+                <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-blue-900">Employee Account</h3>
+                  </div>
+                  <p className="text-blue-700 text-xs mb-3">
+                    Access to all features except team management
+                  </p>
+                  <div className="bg-white rounded p-2 font-mono text-xs">
+                    <div className="text-gray-600">Email: <span className="text-blue-900 font-semibold">rajesh@mega.com</span></div>
+                    <div className="text-gray-600">Password: <span className="text-blue-900 font-semibold">password123</span></div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500 text-center">
+                  Your account type is determined by your credentials. Contact your manager for access.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
