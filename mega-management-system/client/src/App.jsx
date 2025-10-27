@@ -18,21 +18,12 @@ import Login from './pages/Login';
 import PrivateRoute from './components/PrivateRoute';
 import { NotificationProvider } from './context/NotificationContext.js';
 import { AuthProvider } from './context/AuthContext';
-import { initializeSampleData } from './utils/initSampleData';
 import './App.css';
 
 function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('workspace');
   const location = useLocation();
-
-  useEffect(() => {
-    try {
-      initializeSampleData();
-    } catch (error) {
-      console.error('Error initializing sample data:', error);
-    }
-  }, []);
 
   useEffect(() => {
     const path = location.pathname;
