@@ -17,10 +17,22 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  phone: {
+    type: String,
+    required: false,
+    trim: true,
+    default: ''
+  },
+  department: {
+    type: String,
+    required: false,
+    trim: true,
+    default: ''
+  },
   role: {
     type: String,
-    enum: ['admin', 'user'],
-    default: 'user'
+    enum: ['manager', 'employee', 'admin'],
+    default: 'employee'
   },
   avatar: {
     type: String,

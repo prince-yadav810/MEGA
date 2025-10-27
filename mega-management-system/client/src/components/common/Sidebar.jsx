@@ -76,7 +76,9 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       id: 'users',
       name: 'Team',
       icon: UserCog,
-      path: '/users'
+      path: '/users',
+      // Only managers can access Team tab
+      roles: ['manager']
     },
     {
       id: 'settings',
@@ -85,6 +87,18 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       path: '/settings'
     }
   ];
+
+  // Filter navigation items based on user role
+  const filteredNavigationItems = navigationItems.filter(item => {
+    // If item has role restrictions, check if user's role is allowed
+    if (item.roles && user?.role) {
+      // Support both 'manager' and 'admin' roles for Team tab (backward compatibility)
+      const allowedRoles = item.id === 'users' ? ['manager', 'admin'] : item.roles;
+      return allowedRoles.includes(user.role);
+    }
+    // If no role restrictions, show to everyone
+    return true;
+  });
 
   const isActive = (path) => {
     // For workspace, check if we're on any workspace route
@@ -131,10 +145,10 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {navigationItems.map((item) => {
+        {filteredNavigationItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
-          
+
           return (
             <Link
               key={item.id}
@@ -142,8 +156,8 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
               onClick={() => handleNavClick(item.id, item.path)}
               className={`
                 flex items-center p-3 rounded-lg transition-all duration-200 group relative
-                ${active 
-                  ? 'bg-gradient-to-r from-primary-50 to-primary-100 text-primary-700 shadow-sm' 
+                ${active
+                  ? 'bg-gradient-to-r from-primary-50 to-primary-100 text-primary-700 shadow-sm'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }
                 ${collapsed ? 'justify-center' : 'justify-start'}
@@ -200,6 +214,9 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
+              <p className="text-xs font-semibold text-primary-600 truncate capitalize mt-0.5">
+                {user.role === 'admin' ? 'Manager' : user.role}
+              </p>
             </div>
           </div>
         )}

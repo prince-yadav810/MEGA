@@ -5,11 +5,11 @@ require('dotenv').config();
 
 // Team members from frontend sampleData
 const teamMembers = [
-  { name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com", role: "user" },
-  { name: "Priya Sharma", avatar: "PS", email: "priya@mega.com", role: "user" },
-  { name: "Amit Patel", avatar: "AP", email: "amit@mega.com", role: "user" },
-  { name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com", role: "user" },
-  { name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com", role: "user" }
+  { name: "Rajesh Kumar", avatar: "RK", email: "rajesh@mega.com", phone: "+91 98765 43210", department: "Sales", role: "employee" },
+  { name: "Priya Sharma", avatar: "PS", email: "priya@mega.com", phone: "+91 98765 43211", department: "Marketing", role: "employee" },
+  { name: "Amit Patel", avatar: "AP", email: "amit@mega.com", phone: "+91 98765 43212", department: "IT", role: "employee" },
+  { name: "Sneha Reddy", avatar: "SR", email: "sneha@mega.com", phone: "+91 98765 43213", department: "HR", role: "employee" },
+  { name: "Vikash Singh", avatar: "VS", email: "vikash@mega.com", phone: "+91 98765 43214", department: "Operations", role: "employee" }
 ];
 
 const seedUsers = async () => {
@@ -37,17 +37,19 @@ const seedUsers = async () => {
           name: 'Admin',
           email: adminEmail.toLowerCase(),
           password: hashedAdminPassword,
-          role: 'admin',
-          avatar: 'AD',
+          phone: '+91 99999 99999',
+          department: 'Management',
+          role: 'manager',
+          avatar: '',
           isActive: true
         });
-        console.log(`\n✓ Admin user created successfully:`);
+        console.log(`\n✓ Manager user created successfully:`);
         console.log(`  - ${adminUser.name} (${adminUser.email}) - ID: ${adminUser._id}`);
       } else {
-        console.log(`\n✓ Admin user already exists: ${adminEmail}`);
+        console.log(`\n✓ Manager user already exists: ${adminEmail}`);
       }
     } else {
-      console.log('\n⚠️  No admin credentials found in .env (ADMIN_EMAIL, ADMIN_PASSWORD)');
+      console.log('\n⚠️  No manager credentials found in .env (ADMIN_EMAIL, ADMIN_PASSWORD)');
     }
 
     // Create users
@@ -60,6 +62,8 @@ const seedUsers = async () => {
           name: member.name,
           email: member.email,
           password: defaultPassword,
+          phone: member.phone,
+          department: member.department,
           role: member.role,
           avatar: member.avatar,
           isActive: true
