@@ -21,17 +21,20 @@ import {
   Plus,
   Bell
 } from 'lucide-react';
-import { taskPriorities, teamMembers } from '../../utils/sampleData';
+import { taskPriorities } from '../../utils/sampleData';
 import taskService from '../../services/taskService';
+import userService from '../../services/userService';
 import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const CompletedTasks = ({ onViewChange }) => {
   const location = useLocation();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [teamMembers, setTeamMembers] = useState([]);
 
   useEffect(() => {
     fetchCompletedTasks();
+    fetchTeamMembers();
   }, []);
 
   const fetchCompletedTasks = async () => {
@@ -47,6 +50,18 @@ const CompletedTasks = ({ onViewChange }) => {
       setLoading(false);
     }
   };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const response = await userService.getAllUsers();
+      if (response.success) {
+        setTeamMembers(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // all, this_week, this_month, last_month
   const [assigneeFilter, setAssigneeFilter] = useState('all');
@@ -300,7 +315,7 @@ const CompletedTasks = ({ onViewChange }) => {
                 >
                   <option value="all">All Team Members</option>
                   {teamMembers.map((member) => (
-                    <option key={member.id} value={member.id.toString()}>{member.name}</option>
+                    <option key={member._id || member.id} value={(member._id || member.id).toString()}>{member.name}</option>
                   ))}
                 </select>
               </div>

@@ -23,9 +23,10 @@ import {
   CheckCircle,
   Bell
 } from 'lucide-react';
-import { taskStatuses, taskPriorities, teamMembers } from '../../utils/sampleData';
+import { taskStatuses, taskPriorities } from '../../utils/sampleData';
 import TaskForm from '../../components/forms/TaskForm';
 import taskService from '../../services/taskService';
+import userService from '../../services/userService';
 import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const TasksOverview = ({ onViewChange }) => {
@@ -43,10 +44,12 @@ const TasksOverview = ({ onViewChange }) => {
   const [showCheckboxes, setShowCheckboxes] = useState(true);
   const [editingProgress, setEditingProgress] = useState(null); // taskId of task being edited
   const [progressValue, setProgressValue] = useState(''); // temporary progress value
+  const [teamMembers, setTeamMembers] = useState([]);
 
   useEffect(() => {
     fetchTasks();
     fetchStats();
+    fetchTeamMembers();
   }, []);
 
   useEffect(() => {
@@ -86,6 +89,17 @@ const TasksOverview = ({ onViewChange }) => {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const response = await userService.getAllUsers();
+      if (response.success) {
+        setTeamMembers(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error);
     }
   };
 
@@ -154,6 +168,9 @@ const TasksOverview = ({ onViewChange }) => {
   // Filtering and sorting logic
   const filteredAndSortedTasks = useMemo(() => {
     let filtered = tasks.filter(task => {
+      // Exclude completed tasks from the table view
+      const notCompleted = task.status !== 'completed';
+
       const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            (task.client?.name && task.client.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -163,7 +180,7 @@ const TasksOverview = ({ onViewChange }) => {
       const matchesAssignee = assigneeFilter === 'all' ||
                              task.assignees?.some(assignee => (assignee._id || assignee.id).toString() === assigneeFilter);
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesAssignee;
+      return notCompleted && matchesSearch && matchesStatus && matchesPriority && matchesAssignee;
     });
 
     // Sort tasks
@@ -422,7 +439,7 @@ const TasksOverview = ({ onViewChange }) => {
                 >
                   <option value="all">All Statuses</option>
                   {Object.entries(taskStatuses).map(([key, status]) => (
-                    <option key={key} value={key}>{status.label}</option>
+                    key !== 'completed' && <option key={key} value={key}>{status.label}</option>
                   ))}
                 </select>
               </div>
@@ -450,7 +467,7 @@ const TasksOverview = ({ onViewChange }) => {
                 >
                   <option value="all">All Team Members</option>
                   {teamMembers.map((member) => (
-                    <option key={member.id} value={member.id.toString()}>{member.name}</option>
+                    <option key={member._id || member.id} value={(member._id || member.id).toString()}>{member.name}</option>
                   ))}
                 </select>
               </div>
