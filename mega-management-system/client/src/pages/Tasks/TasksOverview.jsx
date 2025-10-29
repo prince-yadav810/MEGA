@@ -21,13 +21,12 @@ import {
   Table,
   LayoutGrid,
   CheckCircle,
-  Bell
+  X
 } from 'lucide-react';
 import { taskStatuses, taskPriorities } from '../../utils/sampleData';
 import TaskForm from '../../components/forms/TaskForm';
 import taskService from '../../services/taskService';
 import userService from '../../services/userService';
-import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const TasksOverview = ({ onViewChange }) => {
   const location = useLocation();
@@ -56,6 +55,9 @@ const TasksOverview = ({ onViewChange }) => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.dropdown-container')) {
         setActiveDropdown(null);
+      }
+      if (!event.target.closest('.menu-dropdown-container')) {
+        setOpenMenuTaskId(null);
       }
       if (editingProgress && !event.target.closest('.progress-input-container')) {
         setEditingProgress(null);
@@ -146,6 +148,79 @@ const TasksOverview = ({ onViewChange }) => {
       toast.error('Failed to delete task');
     }
   };
+
+  const handleMarkCompleted = async (task) => {
+    try {
+      const taskId = task._id || task.id;
+      const response = await taskService.updateTask(taskId, {
+        status: 'completed',
+        completedDate: new Date()
+      });
+      if (response.success) {
+        toast.success('Task marked as completed!');
+        fetchTasks();
+        fetchStats();
+        setOpenMenuTaskId(null);
+      }
+    } catch (error) {
+      toast.error('Failed to mark task as completed');
+    }
+  };
+
+  const handleAssignTask = (task) => {
+    setAssigningTask(task);
+    setOpenMenuTaskId(null);
+  };
+
+  const handleUpdateAssignees = async (taskData) => {
+    try {
+      const taskId = assigningTask._id || assigningTask.id;
+      const response = await taskService.updateTask(taskId, {
+        assignees: taskData.assignees
+      });
+      if (response.success) {
+        toast.success('Assignees updated successfully!');
+        fetchTasks();
+        setAssigningTask(null);
+      }
+    } catch (error) {
+      toast.error('Failed to update assignees');
+    }
+  };
+
+  const handleBulkMarkCompleted = async () => {
+    try {
+      const promises = selectedTasks.map(taskId =>
+        taskService.updateTask(taskId, {
+          status: 'completed',
+          completedDate: new Date()
+        })
+      );
+      await Promise.all(promises);
+      toast.success(`${selectedTasks.length} task(s) marked as completed!`);
+      fetchTasks();
+      fetchStats();
+      setSelectedTasks([]);
+    } catch (error) {
+      toast.error('Failed to mark tasks as completed');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete ${selectedTasks.length} task(s)? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const promises = selectedTasks.map(taskId => taskService.deleteTask(taskId));
+      await Promise.all(promises);
+      toast.success(`${selectedTasks.length} task(s) deleted successfully!`);
+      fetchTasks();
+      fetchStats();
+      setSelectedTasks([]);
+    } catch (error) {
+      toast.error('Failed to delete tasks');
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('dueDate');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -156,6 +231,8 @@ const TasksOverview = ({ onViewChange }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
+  const [openMenuTaskId, setOpenMenuTaskId] = useState(null);
+  const [assigningTask, setAssigningTask] = useState(null);
 
   // Workspace views configuration
   const workspaceViews = [
@@ -367,7 +444,6 @@ const TasksOverview = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <NotificationDropdown />
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
@@ -551,13 +627,28 @@ const TasksOverview = ({ onViewChange }) => {
               {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''} selected
             </span>
             <div className="flex items-center space-x-2">
-              <button className="px-3 py-1 text-sm text-primary-700 hover:text-primary-800">
+              <button
+                onClick={handleBulkMarkCompleted}
+                className="px-3 py-1 text-sm text-primary-700 hover:text-primary-800"
+              >
                 Mark Complete
               </button>
-              <button className="px-3 py-1 text-sm text-primary-700 hover:text-primary-800">
+              <button
+                onClick={() => {
+                  // For bulk assign, assign to the first selected task
+                  const firstTask = tasks.find(t => (t._id || t.id) === selectedTasks[0]);
+                  if (firstTask) {
+                    setAssigningTask(firstTask);
+                  }
+                }}
+                className="px-3 py-1 text-sm text-primary-700 hover:text-primary-800"
+              >
                 Assign
               </button>
-              <button className="px-3 py-1 text-sm text-error-600 hover:text-error-700">
+              <button
+                onClick={handleBulkDelete}
+                className="px-3 py-1 text-sm text-error-600 hover:text-error-700"
+              >
                 Delete
               </button>
             </div>
@@ -843,15 +934,48 @@ const TasksOverview = ({ onViewChange }) => {
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => {
-                            // Functionality will be added in the future
-                          }}
-                          className="p-1 text-gray-400 hover:text-gray-600"
-                          title="More options"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                        <div className="relative menu-dropdown-container">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuTaskId(openMenuTaskId === taskId ? null : taskId);
+                            }}
+                            className="p-1 text-gray-400 hover:text-gray-600"
+                            title="More options"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                          {openMenuTaskId === taskId && (
+                            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                              <div className="py-1" role="menu">
+                                <button
+                                  onClick={() => handleMarkCompleted(task)}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  <span>Mark Completed</span>
+                                </button>
+                                <button
+                                  onClick={() => handleAssignTask(task)}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                  <User className="h-4 w-4" />
+                                  <span>Assign</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeleteConfirmTask(task);
+                                    setOpenMenuTaskId(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-error-600 hover:bg-error-50 flex items-center space-x-2"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -922,6 +1046,103 @@ const TasksOverview = ({ onViewChange }) => {
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmTask(null)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Dialog */}
+      {assigningTask && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setAssigningTask(null)}
+            ></div>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Assign Task: {assigningTask.title}
+                  </h3>
+                  <button
+                    onClick={() => setAssigningTask(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Select Team Members
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {teamMembers.map(member => {
+                      const isAssigned = assigningTask.assignees?.some(
+                        a => (a._id || a.id || a) === member._id
+                      );
+                      return (
+                        <button
+                          key={member._id}
+                          type="button"
+                          onClick={() => {
+                            const currentAssignees = assigningTask.assignees || [];
+                            const assigneeIds = currentAssignees.map(a => a._id || a.id || a);
+                            let newAssignees;
+
+                            if (isAssigned) {
+                              newAssignees = assigneeIds.filter(id => id !== member._id);
+                            } else {
+                              newAssignees = [...assigneeIds, member._id];
+                            }
+
+                            setAssigningTask({
+                              ...assigningTask,
+                              assignees: newAssignees
+                            });
+                          }}
+                          className={`flex items-center space-x-2 px-3 py-2 rounded-lg border-2 transition-all ${
+                            isAssigned
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                          }`}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium">
+                            {member.avatar || member.name?.substring(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-sm font-medium">{member.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {teamMembers.length === 0 && (
+                    <p className="text-sm text-gray-500">No team members available. Add team members in the Team section first.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateAssignees({
+                    assignees: Array.isArray(assigningTask.assignees)
+                      ? assigningTask.assignees.map(a => a._id || a.id || a)
+                      : []
+                  })}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Update Assignees
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssigningTask(null)}
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Cancel

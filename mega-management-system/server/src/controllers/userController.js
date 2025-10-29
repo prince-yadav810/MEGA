@@ -61,7 +61,7 @@ exports.getUserById = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, password, phone, department, role, avatar } = req.body;
+    const { name, email, password, phone, department, role, avatar, salary } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -76,7 +76,7 @@ exports.createUser = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'Email already exists'
+        message: 'Email already exists. Please use a different email address.'
       });
     }
 
@@ -92,18 +92,21 @@ exports.createUser = async (req, res) => {
       department,
       role: role || 'employee',
       avatar: avatar || '',
+      salary: salary || 0,
       isActive: true
     });
 
     // Return user without password
     const userResponse = {
-      id: newUser._id,
+      _id: newUser._id,
       name: newUser.name,
       email: newUser.email,
       phone: newUser.phone,
       department: newUser.department,
       role: newUser.role,
       avatar: newUser.avatar,
+      salary: newUser.salary,
+      advances: newUser.advances,
       isActive: newUser.isActive,
       createdAt: newUser.createdAt,
       updatedAt: newUser.updatedAt
@@ -117,6 +120,15 @@ exports.createUser = async (req, res) => {
 
   } catch (error) {
     console.error('Create user error:', error);
+
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists. Please use a different email address.'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Failed to create user',
@@ -131,7 +143,7 @@ exports.createUser = async (req, res) => {
  */
 exports.updateUser = async (req, res) => {
   try {
-    const { name, email, phone, department, role, avatar, isActive, password } = req.body;
+    const { name, email, phone, department, role, avatar, isActive, password, salary } = req.body;
 
     const user = await User.findById(req.params.id);
 
@@ -148,7 +160,7 @@ exports.updateUser = async (req, res) => {
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: 'Email already exists'
+          message: 'Email already exists. Please use a different email address.'
         });
       }
     }
@@ -161,6 +173,7 @@ exports.updateUser = async (req, res) => {
     if (role) user.role = role;
     if (avatar !== undefined) user.avatar = avatar;
     if (isActive !== undefined) user.isActive = isActive;
+    if (salary !== undefined) user.salary = salary;
 
     // Update password if provided
     if (password) {
@@ -180,6 +193,15 @@ exports.updateUser = async (req, res) => {
 
   } catch (error) {
     console.error('Update user error:', error);
+
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists. Please use a different email address.'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Failed to update user',
@@ -204,7 +226,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     // Prevent deleting yourself
-    if (user._id.toString() === req.user.id.toString()) {
+    if (req.user && user._id.toString() === req.user.id.toString()) {
       return res.status(400).json({
         success: false,
         message: 'You cannot delete your own account'
@@ -223,6 +245,86 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete user',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Add advance payment to a user
+ * @route POST /api/users/:id/advances
+ */
+exports.addAdvance = async (req, res) => {
+  try {
+    const { amount, reason, status } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid advance amount'
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Add advance to user's advances array
+    user.advances.push({
+      amount,
+      date: new Date(),
+      reason: reason || '',
+      status: status || 'pending'
+    });
+
+    await user.save();
+
+    // Return updated user without password
+    const userResponse = await User.findById(user._id).select('-password');
+
+    res.status(200).json({
+      success: true,
+      message: 'Advance added successfully',
+      data: userResponse
+    });
+
+  } catch (error) {
+    console.error('Add advance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add advance',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get user tasks
+ * @route GET /api/users/:id/tasks
+ */
+exports.getUserTasks = async (req, res) => {
+  try {
+    const Task = require('../models/Task');
+
+    const tasks = await Task.find({
+      assignees: req.params.id
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: tasks
+    });
+
+  } catch (error) {
+    console.error('Get user tasks error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user tasks',
       error: error.message
     });
   }

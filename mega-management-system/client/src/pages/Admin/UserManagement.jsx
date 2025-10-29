@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Mail, Phone, Building2, User, Eye, EyeOff, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Mail, Phone, Building2, User, Eye, EyeOff, X, DollarSign } from 'lucide-react';
 import userService from '../../services/userService';
 import toast from 'react-hot-toast';
+import EmployeeDetailModal from '../../components/EmployeeDetailModal';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -9,14 +10,15 @@ export default function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     phone: '',
     department: '',
-    role: 'employee',
-    avatar: ''
+    avatar: '',
+    salary: 0
   });
 
   // Fetch users on component mount
@@ -54,8 +56,8 @@ export default function UserManagement() {
       password: '',
       phone: '',
       department: '',
-      role: 'employee',
-      avatar: ''
+      avatar: '',
+      salary: 0
     });
     setEditingUser(null);
     setShowPassword(false);
@@ -70,10 +72,36 @@ export default function UserManagement() {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
     // Validate password for new users
     if (!editingUser && !formData.password) {
       toast.error('Password is required for new team members');
       return;
+    }
+
+    // Check for duplicate email (client-side check)
+    if (!editingUser) {
+      const emailExists = users.some(u => u.email.toLowerCase() === formData.email.toLowerCase());
+      if (emailExists) {
+        toast.error('Email already exists. Please use a different email address.');
+        return;
+      }
+    } else {
+      // When editing, check if email is taken by another user
+      const emailExists = users.some(u =>
+        u.email.toLowerCase() === formData.email.toLowerCase() &&
+        (u._id || u.id) !== (editingUser._id || editingUser.id)
+      );
+      if (emailExists) {
+        toast.error('Email already exists. Please use a different email address.');
+        return;
+      }
     }
 
     try {
@@ -94,8 +122,9 @@ export default function UserManagement() {
           ));
         }
       } else {
-        // Create new user
-        const response = await userService.createUser(formData);
+        // Create new user - set default role as employee
+        const userData = { ...formData, role: 'employee' };
+        const response = await userService.createUser(userData);
 
         if (response.success) {
           toast.success('Team member added successfully');
@@ -106,7 +135,9 @@ export default function UserManagement() {
       setShowModal(false);
       resetForm();
     } catch (error) {
-      toast.error(error.message || 'Failed to save team member');
+      // Backend will also validate and return error if email exists
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to save team member';
+      toast.error(errorMessage);
       console.error('Error saving user:', error);
     }
   };
@@ -119,10 +150,14 @@ export default function UserManagement() {
       password: '', // Don't populate password for security
       phone: user.phone || '',
       department: user.department || '',
-      role: user.role || 'employee',
-      avatar: user.avatar || ''
+      avatar: user.avatar || '',
+      salary: user.salary || 0
     });
     setShowModal(true);
+  };
+
+  const handleViewEmployee = (user) => {
+    setSelectedEmployee(user);
   };
 
   const handleDelete = async (user) => {
@@ -258,6 +293,9 @@ export default function UserManagement() {
                     Department
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Salary
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -273,7 +311,10 @@ export default function UserManagement() {
                   <tr key={user.id || user._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div
+                          className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow"
+                          onClick={() => handleViewEmployee(user)}
+                        >
                           {user.avatar ? (
                             <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full" />
                           ) : (
@@ -283,7 +324,12 @@ export default function UserManagement() {
                           )}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                          <div
+                            className="text-sm font-medium text-gray-900 hover:text-blue-600 cursor-pointer transition-colors"
+                            onClick={() => handleViewEmployee(user)}
+                          >
+                            {user.name}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -304,6 +350,12 @@ export default function UserManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-green-600 flex items-center gap-1">
+                        <DollarSign className="w-4 h-4" />
+                        ₹{user.salary?.toLocaleString('en-IN') || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {getRoleBadge(user.role)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -313,12 +365,14 @@ export default function UserManagement() {
                       <button
                         onClick={() => handleEdit(user)}
                         className="text-blue-600 hover:text-blue-900 mr-3"
+                        title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(user)}
                         className="text-red-600 hover:text-red-900"
+                        title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -397,7 +451,7 @@ export default function UserManagement() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="+1 234 567 8900"
+                    placeholder="+91 98765 43210"
                     required
                   />
                 </div>
@@ -418,21 +472,20 @@ export default function UserManagement() {
                   />
                 </div>
 
-                {/* Role */}
+                {/* Salary */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role <span className="text-red-500">*</span>
+                    Monthly Salary (₹)
                   </label>
-                  <select
-                    name="role"
-                    value={formData.role}
+                  <input
+                    type="number"
+                    name="salary"
+                    value={formData.salary}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  >
-                    <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
-                  </select>
+                    placeholder="0"
+                    min="0"
+                  />
                 </div>
 
                 {/* Password */}
@@ -499,6 +552,15 @@ export default function UserManagement() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Employee Detail Modal */}
+      {selectedEmployee && (
+        <EmployeeDetailModal
+          employee={selectedEmployee}
+          onClose={() => setSelectedEmployee(null)}
+          onUpdate={fetchUsers}
+        />
       )}
     </div>
   );

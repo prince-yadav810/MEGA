@@ -21,6 +21,12 @@ router.put('/:id', protect, restrictTo('manager', 'admin'), userController.updat
 // Delete user
 router.delete('/:id', protect, restrictTo('manager', 'admin'), userController.deleteUser);
 
+// Add advance payment to user
+router.post('/:id/advances', protect, restrictTo('manager', 'admin'), userController.addAdvance);
+
+// Get user tasks
+router.get('/:id/tasks', protect, restrictTo('manager', 'admin'), userController.getUserTasks);
+
 module.exports = router;
 
 
