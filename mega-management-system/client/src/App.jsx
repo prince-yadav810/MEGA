@@ -8,6 +8,7 @@ import Sidebar from './components/common/Sidebar';
 import MobileBottomNav from './components/common/MobileBottomNav';
 import Workspace from './pages/Workspace';
 import Inbox from './pages/Inbox/Inbox';
+import Attendance from './pages/Attendance/Attendance';
 import QuotationsList from './pages/Quotations/QuotationsList';
 import ClientsList from './pages/Clients/ClientsList';
 import ProductCatalog from './pages/Products/ProductCatalog';
@@ -18,7 +19,6 @@ import Login from './pages/Login';
 import PrivateRoute from './components/PrivateRoute';
 import { NotificationProvider } from './context/NotificationContext.js';
 import { AuthProvider } from './context/AuthContext';
-import { initializeSampleData } from './utils/initSampleData';
 import './App.css';
 
 function Layout() {
@@ -27,19 +27,13 @@ function Layout() {
   const location = useLocation();
 
   useEffect(() => {
-    try {
-      initializeSampleData();
-    } catch (error) {
-      console.error('Error initializing sample data:', error);
-    }
-  }, []);
-
-  useEffect(() => {
     const path = location.pathname;
     if (path.startsWith('/workspace')) {
       setActiveTab('workspace');
     } else if (path.startsWith('/inbox')) {
       setActiveTab('inbox');
+    } else if (path.startsWith('/attendance')) {
+      setActiveTab('attendance');
     } else if (path.startsWith('/quotations')) {
       setActiveTab('quotations');
     } else if (path.startsWith('/clients')) {
@@ -76,6 +70,7 @@ function Layout() {
             <Route index element={<Navigate to="/workspace/table" replace />} />
             <Route path="workspace/*" element={<Workspace />} />
             <Route path="inbox" element={<Inbox />} />
+            <Route path="attendance" element={<Attendance />} />
             <Route path="quotations" element={<QuotationsList />} />
             <Route path="clients" element={<ClientsList />} />
             <Route path="products" element={<ProductCatalog />} />

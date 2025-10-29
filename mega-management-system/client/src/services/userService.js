@@ -110,6 +110,28 @@ const userService = {
       saveLocalUsers(filteredUsers);
       return { success: true, message: 'User deleted (offline)' };
     }
+  },
+
+  // Add advance payment to user
+  addAdvance: async (userId, advanceData) => {
+    try {
+      const response = await api.post(`/users/${userId}/advances`, advanceData);
+      return response.data;
+    } catch (error) {
+      console.error('Error adding advance:', error);
+      throw error;
+    }
+  },
+
+  // Get user tasks
+  getUserTasks: async (userId) => {
+    try {
+      const response = await api.get(`/users/${userId}/tasks`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user tasks:', error);
+      return { success: true, data: [] }; // Return empty array if tasks not available
+    }
   }
 };
 

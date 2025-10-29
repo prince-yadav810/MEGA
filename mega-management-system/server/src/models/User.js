@@ -41,7 +41,34 @@ const UserSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  salary: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  advances: [{
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    date: {
+      type: Date,
+      required: true,
+      default: Date.now
+    },
+    reason: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'paid'],
+      default: 'pending'
+    }
+  }]
 }, {
   timestamps: true
 });

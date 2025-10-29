@@ -13,7 +13,8 @@ import {
   Menu,
   ChevronLeft,
   Inbox,
-  LogOut
+  LogOut,
+  ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -47,6 +48,12 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       name: 'Inbox',
       icon: Inbox,
       path: '/inbox'
+    },
+    {
+      id: 'attendance',
+      name: 'Attendance',
+      icon: ClipboardCheck,
+      path: '/attendance'
     },
     {
       id: 'quotations',
