@@ -4,7 +4,6 @@ import toast from 'react-hot-toast';
 import {
   Plus,
   Search,
-  Filter,
   MoreHorizontal,
   Calendar,
   Paperclip,
@@ -28,6 +27,7 @@ const TaskBoard = ({ onViewChange }) => {
   const location = useLocation();
   const { notifyTaskCreated, notifyTaskUpdated, notifyTaskDeleted, notifyTaskStatusChanged } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
+  const [boardView, setBoardView] = useState('status'); // 'status' or 'timeline'
   const [draggedTask, setDraggedTask] = useState(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -144,8 +144,8 @@ const TaskBoard = ({ onViewChange }) => {
     }
   };
 
-  // Kanban columns configuration
-  const columns = [
+  // Status-based columns configuration
+  const statusColumns = [
     { id: 'todo', title: 'To Do', status: 'todo', color: 'bg-gray-100' },
     { id: 'in_progress', title: 'In Progress', status: 'in_progress', color: 'bg-primary-100' },
     { id: 'review', title: 'Review', status: 'review', color: 'bg-yellow-100' },
@@ -153,31 +153,75 @@ const TaskBoard = ({ onViewChange }) => {
     { id: 'completed', title: 'Completed', status: 'completed', color: 'bg-success-100' }
   ];
 
+  // Timeline-based columns configuration
+  const timelineColumns = [
+    { id: 'overdue', title: 'Overdue', timeline: 'overdue', color: 'bg-error-100' },
+    { id: 'today', title: 'Today', timeline: 'today', color: 'bg-warning-100' },
+    { id: 'tomorrow', title: 'Tomorrow', timeline: 'tomorrow', color: 'bg-primary-100' }
+  ];
+
+  // Dynamic columns based on board view
+  const columns = boardView === 'status' ? statusColumns : timelineColumns;
+
   // Priority sorting order (urgent > high > medium > low)
   const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
 
-  // Group tasks by status with priority sorting
+  // Helper function to get timeline category for a task
+  const getTimelineCategory = (task) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(task.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+
+    if (dueDate < today) return 'overdue';
+    if (dueDate.getTime() === today.getTime()) return 'today';
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (dueDate.getTime() === tomorrow.getTime()) return 'tomorrow';
+
+    return null; // Tasks beyond tomorrow are not shown in timeline view
+  };
+
+  // Group tasks by status or timeline with priority sorting
   const tasksByStatus = useMemo(() => {
+    // Apply search filter
     const filtered = tasks.filter(task =>
       task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (task.client && task.client.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    return columns.reduce((acc, column) => {
-      // Filter by status and sort by priority (high to low)
-      acc[column.status] = filtered
-        .filter(task => task.status === column.status)
-        .sort((a, b) => {
-          // First sort by priority
-          const priorityDiff = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
-          if (priorityDiff !== 0) return priorityDiff;
-          // Then sort by due date
-          return new Date(a.dueDate) - new Date(b.dueDate);
-        });
-      return acc;
-    }, {});
-  }, [tasks, searchQuery]);
+    if (boardView === 'status') {
+      // Group by status
+      return columns.reduce((acc, column) => {
+        acc[column.id] = filtered
+          .filter(task => task.status === column.status)
+          .sort((a, b) => {
+            // First sort by priority
+            const priorityDiff = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+            if (priorityDiff !== 0) return priorityDiff;
+            // Then sort by due date
+            return new Date(a.dueDate) - new Date(b.dueDate);
+          });
+        return acc;
+      }, {});
+    } else {
+      // Group by timeline (overdue, today, tomorrow)
+      return columns.reduce((acc, column) => {
+        acc[column.id] = filtered
+          .filter(task => getTimelineCategory(task) === column.timeline)
+          .sort((a, b) => {
+            // First sort by priority
+            const priorityDiff = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+            if (priorityDiff !== 0) return priorityDiff;
+            // Then sort by due date
+            return new Date(a.dueDate) - new Date(b.dueDate);
+          });
+        return acc;
+      }, {});
+    }
+  }, [tasks, searchQuery, boardView, columns]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -408,20 +452,25 @@ const TaskBoard = ({ onViewChange }) => {
   const TaskCard = ({ task }) => {
     const taskId = task._id || task.id;
     const isMenuOpen = menuOpenTaskId === taskId;
+    const isDraggable = boardView === 'status'; // Only allow dragging in status view
 
     return (
     <div
-      draggable="true"
-      onDragStart={(e) => handleDragStart(e, task)}
-      onDragEnd={handleDragEnd}
+      draggable={isDraggable}
+      onDragStart={isDraggable ? (e) => handleDragStart(e, task) : undefined}
+      onDragEnd={isDraggable ? handleDragEnd : undefined}
       onMouseDown={(e) => {
         // Prevent text selection during drag
-        e.currentTarget.style.cursor = 'grabbing';
+        if (isDraggable) {
+          e.currentTarget.style.cursor = 'grabbing';
+        }
       }}
       onMouseUp={(e) => {
-        e.currentTarget.style.cursor = 'grab';
+        if (isDraggable) {
+          e.currentTarget.style.cursor = 'grab';
+        }
       }}
-      className="bg-white rounded-xl border-2 border-gray-100 p-4 mb-3 hover:shadow-lg hover:border-primary-200 transition-all duration-150 cursor-grab group hover:-translate-y-0.5 select-none"
+      className={`bg-white rounded-xl border-2 border-gray-100 p-4 mb-3 hover:shadow-lg hover:border-primary-200 transition-all duration-150 ${isDraggable ? 'cursor-grab' : 'cursor-default'} group hover:-translate-y-0.5 select-none`}
       style={{
         willChange: 'transform, opacity, box-shadow',
         WebkitUserDrag: 'element',
@@ -726,28 +775,68 @@ const TaskBoard = ({ onViewChange }) => {
 
       {/* Kanban Board */}
       <div className="flex-1 overflow-x-auto">
-        <div className="flex gap-5 p-6 min-w-max">
+        <div className="px-6 pt-6 pb-3">
+          {/* Board View Toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => setBoardView('status')}
+              className={`
+                flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
+                ${boardView === 'status'
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                }
+              `}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              <span>Status</span>
+            </button>
+            <button
+              onClick={() => setBoardView('timeline')}
+              className={`
+                flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
+                ${boardView === 'timeline'
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                }
+              `}
+            >
+              <Clock className="h-4 w-4" />
+              <span>Timeline</span>
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-5 px-6 pb-6 min-w-max">
           {columns.map((column) => (
             <div
               key={column.id}
               className={`
                 min-w-80 max-w-80 bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl p-4 transition-all duration-200 border-2
-                ${draggedOverColumn === column.status
+                ${boardView === 'status' && draggedOverColumn === column.status
                   ? 'ring-4 ring-primary-400 bg-gradient-to-b from-primary-50 to-primary-100 border-primary-400 shadow-2xl scale-102 transform'
                   : 'border-gray-200 shadow-sm'
                 }
               `}
-              onDragOver={(e) => handleDragOver(e, column.status)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, column.status)}
+              onDragOver={boardView === 'status' ? (e) => handleDragOver(e, column.status) : undefined}
+              onDragLeave={boardView === 'status' ? handleDragLeave : undefined}
+              onDrop={boardView === 'status' ? (e) => handleDrop(e, column.status) : undefined}
             >
               {/* Column Header */}
               <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-200">
                 <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${taskStatuses[column.status].dotColor} shadow-sm`}></div>
+                  {boardView === 'status' && column.status && taskStatuses[column.status] && (
+                    <div className={`w-3 h-3 rounded-full ${taskStatuses[column.status].dotColor} shadow-sm`}></div>
+                  )}
+                  {boardView === 'timeline' && (
+                    <div className={`w-3 h-3 rounded-full ${
+                      column.timeline === 'overdue' ? 'bg-error-500' :
+                      column.timeline === 'today' ? 'bg-warning-500' :
+                      'bg-primary-500'
+                    } shadow-sm`}></div>
+                  )}
                   <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide">{column.title}</h2>
                   <span className="bg-white text-gray-700 text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm border border-gray-200">
-                    {tasksByStatus[column.status]?.length || 0}
+                    {tasksByStatus[column.id]?.length || 0}
                   </span>
                 </div>
                 <button
@@ -762,20 +851,22 @@ const TaskBoard = ({ onViewChange }) => {
 
               {/* Tasks */}
               <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                {tasksByStatus[column.status]?.map((task) => (
+                {tasksByStatus[column.id]?.map((task) => (
                   <TaskCard key={task._id || task.id} task={task} />
                 ))}
 
-                {(!tasksByStatus[column.status] || tasksByStatus[column.status].length === 0) && (
+                {(!tasksByStatus[column.id] || tasksByStatus[column.id].length === 0) && (
                   <div className="text-center py-12 px-4">
                     <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-6 transition-all hover:border-primary-300 hover:bg-primary-50">
-                      <div className="text-sm text-gray-500 mb-2">No tasks yet</div>
-                      <button
-                        onClick={() => setIsTaskFormOpen(true)}
-                        className="text-xs text-primary-600 hover:text-primary-700 font-medium"
-                      >
-                        + Add first task
-                      </button>
+                      <div className="text-sm text-gray-500 mb-2">No tasks {boardView === 'timeline' ? 'in this timeline' : 'yet'}</div>
+                      {boardView === 'status' && (
+                        <button
+                          onClick={() => setIsTaskFormOpen(true)}
+                          className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                        >
+                          + Add first task
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
