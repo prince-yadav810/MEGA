@@ -1,17 +1,32 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Users, 
-  Package, 
-  BarChart3, 
-  Settings, 
-  UserCog
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  Package,
+  BarChart3,
+  Settings,
+  UserCog,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      toast.error('Logout failed');
+    }
+  };
 
   const navigationItems = [
     {
@@ -102,7 +117,7 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
             {navigationItems.slice(5).map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
-              
+
               return (
                 <Link
                   key={item.id}
@@ -110,8 +125,8 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
                   onClick={() => setActiveTab(item.id)}
                   className={`
                     p-1 rounded transition-colors
-                    ${active 
-                      ? 'text-primary-600 bg-primary-100' 
+                    ${active
+                      ? 'text-primary-600 bg-primary-100'
                       : 'text-gray-500 hover:text-gray-700'
                     }
                   `}
@@ -120,6 +135,13 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
                 </Link>
               );
             })}
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="p-1 rounded transition-colors text-red-600 hover:bg-red-50"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
           <span className="text-xs font-medium text-gray-500 mt-1">More</span>
         </div>
