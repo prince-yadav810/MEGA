@@ -39,9 +39,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // File upload middleware
 app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: '/tmp/',
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
   abortOnLimit: true,
-  responseOnLimit: 'File size limit exceeded'
+  responseOnLimit: 'File size limit exceeded',
+  createParentPath: true
 }));
 
 // Socket.io middleware

@@ -3,6 +3,7 @@
 
 const Reminder = require('../models/Reminder');
 const { createNotification } = require('./notificationController');
+const cloudinary = require('../config/cloudinary');
 
 exports.getAllReminders = async (req, res) => {
   try {
@@ -17,14 +18,66 @@ exports.getAllReminders = async (req, res) => {
 exports.createReminder = async (req, res) => {
   try {
     const reminderData = req.body;
-    
+
     if (!reminderData.title || !reminderData.reminderDate || !reminderData.reminderTime) {
       return res.status(400).json({ success: false, message: 'Title, date, and time are required' });
     }
-    
+
+    // Handle file uploads
+    const attachments = [];
+    if (req.files && req.files.attachments) {
+      const files = Array.isArray(req.files.attachments)
+        ? req.files.attachments
+        : [req.files.attachments];
+
+      const allowedTypes = ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      for (const file of files) {
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+
+        if (!allowedTypes.includes(fileExtension)) {
+          return res.status(400).json({
+            success: false,
+            message: `File type .${fileExtension} is not allowed. Allowed types: ${allowedTypes.join(', ')}`
+          });
+        }
+
+        if (file.size > maxSize) {
+          return res.status(400).json({
+            success: false,
+            message: `File ${file.name} exceeds the maximum size of 10MB`
+          });
+        }
+
+        try {
+          const result = await cloudinary.uploader.upload(file.tempFilePath, {
+            folder: 'mega/reminders',
+            resource_type: 'auto'
+          });
+
+          attachments.push({
+            filename: file.name,
+            originalName: file.name,
+            url: result.secure_url,
+            publicId: result.public_id,
+            fileType: fileExtension,
+            size: file.size
+          });
+        } catch (uploadError) {
+          console.error('Error uploading file to Cloudinary:', uploadError);
+          return res.status(500).json({
+            success: false,
+            message: `Error uploading file ${file.name}`
+          });
+        }
+      }
+    }
+
     const reminder = new Reminder({
       ...reminderData,
-      createdByName: 'Team Member'
+      createdByName: 'Team Member',
+      attachments
     });
 
     await reminder.save();
@@ -56,11 +109,64 @@ exports.updateReminder = async (req, res) => {
     const { id } = req.params;
     const reminderData = req.body;
 
-    const reminder = await Reminder.findByIdAndUpdate(id, reminderData, { new: true, runValidators: true });
-
+    const reminder = await Reminder.findById(id);
     if (!reminder) {
       return res.status(404).json({ success: false, message: 'Reminder not found' });
     }
+
+    // Handle new file uploads
+    if (req.files && req.files.attachments) {
+      const files = Array.isArray(req.files.attachments)
+        ? req.files.attachments
+        : [req.files.attachments];
+
+      const allowedTypes = ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      for (const file of files) {
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+
+        if (!allowedTypes.includes(fileExtension)) {
+          return res.status(400).json({
+            success: false,
+            message: `File type .${fileExtension} is not allowed. Allowed types: ${allowedTypes.join(', ')}`
+          });
+        }
+
+        if (file.size > maxSize) {
+          return res.status(400).json({
+            success: false,
+            message: `File ${file.name} exceeds the maximum size of 10MB`
+          });
+        }
+
+        try {
+          const result = await cloudinary.uploader.upload(file.tempFilePath, {
+            folder: 'mega/reminders',
+            resource_type: 'auto'
+          });
+
+          reminder.attachments.push({
+            filename: file.name,
+            originalName: file.name,
+            url: result.secure_url,
+            publicId: result.public_id,
+            fileType: fileExtension,
+            size: file.size
+          });
+        } catch (uploadError) {
+          console.error('Error uploading file to Cloudinary:', uploadError);
+          return res.status(500).json({
+            success: false,
+            message: `Error uploading file ${file.name}`
+          });
+        }
+      }
+    }
+
+    // Update other fields
+    Object.assign(reminder, reminderData);
+    await reminder.save();
 
     // Create notification for user
     if (req.user) {
@@ -87,11 +193,24 @@ exports.updateReminder = async (req, res) => {
 exports.deleteReminder = async (req, res) => {
   try {
     const { id } = req.params;
-    const reminder = await Reminder.findByIdAndDelete(id);
+    const reminder = await Reminder.findById(id);
 
     if (!reminder) {
       return res.status(404).json({ success: false, message: 'Reminder not found' });
     }
+
+    // Delete all attachments from Cloudinary
+    if (reminder.attachments && reminder.attachments.length > 0) {
+      for (const attachment of reminder.attachments) {
+        try {
+          await cloudinary.uploader.destroy(attachment.publicId);
+        } catch (error) {
+          console.error(`Error deleting file from Cloudinary: ${attachment.publicId}`, error);
+        }
+      }
+    }
+
+    await Reminder.findByIdAndDelete(id);
 
     // Create notification for user
     if (req.user) {
@@ -215,5 +334,67 @@ exports.checkDueReminders = async (req, res) => {
   } catch (error) {
     console.error('Error checking due reminders:', error);
     res.status(500).json({ success: false, message: 'Error checking due reminders', error: error.message });
+  }
+};
+
+exports.deleteAttachment = async (req, res) => {
+  try {
+    const { reminderId, attachmentId } = req.params;
+
+    const reminder = await Reminder.findById(reminderId);
+    if (!reminder) {
+      return res.status(404).json({ success: false, message: 'Reminder not found' });
+    }
+
+    const attachment = reminder.attachments.id(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+
+    // Delete from Cloudinary
+    try {
+      await cloudinary.uploader.destroy(attachment.publicId);
+    } catch (error) {
+      console.error('Error deleting file from Cloudinary:', error);
+    }
+
+    // Remove from reminder
+    reminder.attachments.pull(attachmentId);
+    await reminder.save();
+
+    res.json({ success: true, message: 'Attachment deleted successfully', data: reminder });
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ success: false, message: 'Error deleting attachment', error: error.message });
+  }
+};
+
+exports.renameAttachment = async (req, res) => {
+  try {
+    const { reminderId, attachmentId } = req.params;
+    const { filename } = req.body;
+
+    if (!filename || !filename.trim()) {
+      return res.status(400).json({ success: false, message: 'Filename is required' });
+    }
+
+    const reminder = await Reminder.findById(reminderId);
+    if (!reminder) {
+      return res.status(404).json({ success: false, message: 'Reminder not found' });
+    }
+
+    const attachment = reminder.attachments.id(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+
+    // Update filename
+    attachment.filename = filename.trim();
+    await reminder.save();
+
+    res.json({ success: true, message: 'Attachment renamed successfully', data: reminder });
+  } catch (error) {
+    console.error('Error renaming attachment:', error);
+    res.status(500).json({ success: false, message: 'Error renaming attachment', error: error.message });
   }
 };

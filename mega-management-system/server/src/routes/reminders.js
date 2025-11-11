@@ -13,4 +13,8 @@ router.put('/:id', protect, reminderController.updateReminder);
 router.delete('/:id', protect, reminderController.deleteReminder);
 router.get('/check-due', protect, reminderController.checkDueReminders);
 
+// Attachment routes
+router.delete('/:reminderId/attachments/:attachmentId', protect, reminderController.deleteAttachment);
+router.patch('/:reminderId/attachments/:attachmentId/rename', protect, reminderController.renameAttachment);
+
 module.exports = router;

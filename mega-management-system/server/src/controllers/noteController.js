@@ -3,6 +3,7 @@
 
 const Note = require('../models/Note');
 const { createNotification } = require('./notificationController');
+const cloudinary = require('../config/cloudinary');
 
 exports.getAllNotes = async (req, res) => {
   try {
@@ -16,6 +17,10 @@ exports.getAllNotes = async (req, res) => {
 
 exports.createNote = async (req, res) => {
   try {
+    console.log('=== CREATE NOTE REQUEST ===');
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
+    
     const { heading, content, color } = req.body;
 
     if (!heading || !content) {
@@ -25,11 +30,63 @@ exports.createNote = async (req, res) => {
     const colors = ['#FFE5E5', '#FFF4E5', '#E5F5FF', '#F0E5FF', '#E5FFE5', '#FFE5F5'];
     const selectedColor = color || colors[Math.floor(Math.random() * colors.length)];
 
+    // Handle file uploads
+    const attachments = [];
+    if (req.files && req.files.attachments) {
+      const files = Array.isArray(req.files.attachments)
+        ? req.files.attachments
+        : [req.files.attachments];
+
+      const allowedTypes = ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      for (const file of files) {
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+
+        if (!allowedTypes.includes(fileExtension)) {
+          return res.status(400).json({
+            success: false,
+            message: `File type .${fileExtension} is not allowed. Allowed types: ${allowedTypes.join(', ')}`
+          });
+        }
+
+        if (file.size > maxSize) {
+          return res.status(400).json({
+            success: false,
+            message: `File ${file.name} exceeds the maximum size of 10MB`
+          });
+        }
+
+        try {
+          const result = await cloudinary.uploader.upload(file.tempFilePath, {
+            folder: 'mega/notes',
+            resource_type: 'auto'
+          });
+
+          attachments.push({
+            filename: file.name,
+            originalName: file.name,
+            url: result.secure_url,
+            publicId: result.public_id,
+            fileType: fileExtension,
+            size: file.size
+          });
+        } catch (uploadError) {
+          console.error('Error uploading file to Cloudinary:', uploadError);
+          return res.status(500).json({
+            success: false,
+            message: `Error uploading file ${file.name}`
+          });
+        }
+      }
+    }
+
     const note = new Note({
       heading,
       content,
       color: selectedColor,
-      createdByName: 'Team Member'
+      createdByName: 'Team Member',
+      attachments
     });
 
     await note.save();
@@ -51,7 +108,10 @@ exports.createNote = async (req, res) => {
 
     res.status(201).json({ success: true, data: note, message: 'Note created successfully' });
   } catch (error) {
-    console.error('Error creating note:', error);
+    console.error('=== ERROR CREATING NOTE ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error:', error);
     res.status(500).json({ success: false, message: 'Error creating note', error: error.message });
   }
 };
@@ -61,15 +121,68 @@ exports.updateNote = async (req, res) => {
     const { id } = req.params;
     const { heading, content, color, isPinned } = req.body;
 
-    const note = await Note.findByIdAndUpdate(
-      id,
-      { heading, content, color, isPinned },
-      { new: true, runValidators: true }
-    );
-
+    const note = await Note.findById(id);
     if (!note) {
       return res.status(404).json({ success: false, message: 'Note not found' });
     }
+
+    // Handle new file uploads
+    if (req.files && req.files.attachments) {
+      const files = Array.isArray(req.files.attachments)
+        ? req.files.attachments
+        : [req.files.attachments];
+
+      const allowedTypes = ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      for (const file of files) {
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+
+        if (!allowedTypes.includes(fileExtension)) {
+          return res.status(400).json({
+            success: false,
+            message: `File type .${fileExtension} is not allowed. Allowed types: ${allowedTypes.join(', ')}`
+          });
+        }
+
+        if (file.size > maxSize) {
+          return res.status(400).json({
+            success: false,
+            message: `File ${file.name} exceeds the maximum size of 10MB`
+          });
+        }
+
+        try {
+          const result = await cloudinary.uploader.upload(file.tempFilePath, {
+            folder: 'mega/notes',
+            resource_type: 'auto'
+          });
+
+          note.attachments.push({
+            filename: file.name,
+            originalName: file.name,
+            url: result.secure_url,
+            publicId: result.public_id,
+            fileType: fileExtension,
+            size: file.size
+          });
+        } catch (uploadError) {
+          console.error('Error uploading file to Cloudinary:', uploadError);
+          return res.status(500).json({
+            success: false,
+            message: `Error uploading file ${file.name}`
+          });
+        }
+      }
+    }
+
+    // Update other fields
+    if (heading) note.heading = heading;
+    if (content) note.content = content;
+    if (color) note.color = color;
+    if (isPinned !== undefined) note.isPinned = isPinned;
+
+    await note.save();
 
     // Create notification for user
     if (req.user) {
@@ -115,11 +228,24 @@ exports.togglePin = async (req, res) => {
 exports.deleteNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Note.findByIdAndDelete(id);
+    const note = await Note.findById(id);
 
     if (!note) {
       return res.status(404).json({ success: false, message: 'Note not found' });
     }
+
+    // Delete all attachments from Cloudinary
+    if (note.attachments && note.attachments.length > 0) {
+      for (const attachment of note.attachments) {
+        try {
+          await cloudinary.uploader.destroy(attachment.publicId);
+        } catch (error) {
+          console.error(`Error deleting file from Cloudinary: ${attachment.publicId}`, error);
+        }
+      }
+    }
+
+    await Note.findByIdAndDelete(id);
 
     // Create notification for user
     if (req.user) {
@@ -140,5 +266,67 @@ exports.deleteNote = async (req, res) => {
   } catch (error) {
     console.error('Error deleting note:', error);
     res.status(500).json({ success: false, message: 'Error deleting note', error: error.message });
+  }
+};
+
+exports.deleteAttachment = async (req, res) => {
+  try {
+    const { noteId, attachmentId } = req.params;
+
+    const note = await Note.findById(noteId);
+    if (!note) {
+      return res.status(404).json({ success: false, message: 'Note not found' });
+    }
+
+    const attachment = note.attachments.id(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+
+    // Delete from Cloudinary
+    try {
+      await cloudinary.uploader.destroy(attachment.publicId);
+    } catch (error) {
+      console.error('Error deleting file from Cloudinary:', error);
+    }
+
+    // Remove from note
+    note.attachments.pull(attachmentId);
+    await note.save();
+
+    res.json({ success: true, message: 'Attachment deleted successfully', data: note });
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ success: false, message: 'Error deleting attachment', error: error.message });
+  }
+};
+
+exports.renameAttachment = async (req, res) => {
+  try {
+    const { noteId, attachmentId } = req.params;
+    const { filename } = req.body;
+
+    if (!filename || !filename.trim()) {
+      return res.status(400).json({ success: false, message: 'Filename is required' });
+    }
+
+    const note = await Note.findById(noteId);
+    if (!note) {
+      return res.status(404).json({ success: false, message: 'Note not found' });
+    }
+
+    const attachment = note.attachments.id(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+
+    // Update filename
+    attachment.filename = filename.trim();
+    await note.save();
+
+    res.json({ success: true, message: 'Attachment renamed successfully', data: note });
+  } catch (error) {
+    console.error('Error renaming attachment:', error);
+    res.status(500).json({ success: false, message: 'Error renaming attachment', error: error.message });
   }
 };
