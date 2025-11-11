@@ -8,6 +8,7 @@ const {
   getMyAttendance,
   getUserAttendance,
   getUserAttendanceStats,
+  getUserAttendanceSummary,
   getAllAttendance
 } = require('../controllers/attendanceController');
 
@@ -21,5 +22,6 @@ router.get('/my-records', protect, getMyAttendance);
 router.get('/', protect, restrictTo('manager', 'admin'), getAllAttendance);
 router.get('/user/:userId', protect, restrictTo('manager', 'admin'), getUserAttendance);
 router.get('/user/:userId/stats', protect, restrictTo('manager', 'admin'), getUserAttendanceStats);
+router.get('/user/:userId/summary', protect, getUserAttendanceSummary); // Accessible by user themselves or admin/manager
 
 module.exports = router;

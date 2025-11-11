@@ -17,5 +17,8 @@
     "concurrently": "^7.6.0"
   },
   "author": "MEGA Enterprises Development Team",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "moment": "^2.30.1"
+  }
 }

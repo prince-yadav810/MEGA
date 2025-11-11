@@ -53,7 +53,9 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       id: 'attendance',
       name: 'Attendance',
       icon: ClipboardCheck,
-      path: '/attendance'
+      path: '/attendance',
+      // Only employees can access Attendance tab (admins/managers use Team tab)
+      roles: ['employee']
     },
     {
       id: 'quotations',

@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, CheckCircle, Clock, AlertCircle, Plus, ClipboardCheck } from 'lucide-react';
+import { X, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, CheckCircle, Clock, AlertCircle, Plus, ClipboardCheck, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
 import userService from '../services/userService';
+import attendanceService from '../services/attendanceService';
 import toast from 'react-hot-toast';
 import { taskStatuses, taskPriorities } from '../utils/sampleData';
-import AttendanceCalendar from './attendance/AttendanceCalendar';
+import AttendanceCalendarGrid from './attendance/AttendanceCalendarGrid';
+import AttendanceSummary from './attendance/AttendanceSummary';
+import SalaryCalculator from './attendance/SalaryCalculator';
+import moment from 'moment';
 
-export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
+export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdit }) {
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [showAdvanceForm, setShowAdvanceForm] = useState(false);
+  const [attendanceSummary, setAttendanceSummary] = useState(null);
+  const [loadingAttendance, setLoadingAttendance] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(moment().month() + 1);
+  const [selectedYear, setSelectedYear] = useState(moment().year());
   const [advanceData, setAdvanceData] = useState({
     amount: '',
     reason: '',
@@ -18,8 +26,9 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
   useEffect(() => {
     if (employee) {
       fetchUserTasks();
+      fetchAttendanceSummary(selectedMonth, selectedYear);
     }
-  }, [employee]);
+  }, [employee, selectedMonth, selectedYear]);
 
   const fetchUserTasks = async () => {
     try {
@@ -32,6 +41,25 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
       console.error('Error fetching tasks:', error);
     } finally {
       setLoadingTasks(false);
+    }
+  };
+
+  const fetchAttendanceSummary = async (month, year) => {
+    try {
+      setLoadingAttendance(true);
+      const response = await attendanceService.getUserAttendanceSummary(
+        employee._id || employee.id,
+        month,
+        year
+      );
+      if (response.success) {
+        setAttendanceSummary(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching attendance summary:', error);
+      toast.error('Failed to load attendance data');
+    } finally {
+      setLoadingAttendance(false);
     }
   };
 
@@ -55,6 +83,8 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
         setAdvanceData({ amount: '', reason: '', status: 'pending' });
         setShowAdvanceForm(false);
         onUpdate(); // Refresh employee data
+        // Refresh attendance summary to reflect new advance
+        fetchAttendanceSummary(selectedMonth, selectedYear);
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to add advance');
@@ -73,17 +103,35 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
     return tasks.filter(task => task.status !== 'completed').length;
   };
 
+  const handlePreviousMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
   if (!employee) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-[95vw] w-full max-h-[95vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
           <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
               {employee.avatar ? (
-                <img src={employee.avatar} alt={employee.name} className="w-16 h-16 rounded-full" />
+                <img src={employee.avatar} alt={employee.name} className="w-16 h-16 rounded-full object-cover" />
               ) : (
                 <span className="text-white font-bold text-2xl">
                   {employee.name?.charAt(0).toUpperCase()}
@@ -93,20 +141,38 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{employee.name}</h2>
               <p className="text-gray-600">{employee.department}</p>
+              <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs font-medium ${
+                employee.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                employee.role === 'manager' ? 'bg-blue-100 text-blue-800' :
+                'bg-green-100 text-green-800'
+              }`}>
+                {employee.role?.charAt(0).toUpperCase() + employee.role?.slice(1)}
+              </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <button
+                onClick={() => onEdit(employee)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6">
+        <div className="p-6">
           {/* Contact Information */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Mail className="w-5 h-5 text-blue-600" />
               Contact Information
@@ -125,24 +191,82 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
             </div>
           </div>
 
-          {/* Salary & Financial Information */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4">
+          {/* Month Navigation */}
+          <div className="flex items-center justify-between mb-6 bg-indigo-50 rounded-lg p-4">
+            <button
+              onClick={handlePreviousMonth}
+              className="flex items-center gap-1 px-3 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Previous</span>
+            </button>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-indigo-900">
+                {moment(`${selectedYear}-${selectedMonth}-01`).format('MMMM YYYY')}
+              </h3>
+              <p className="text-sm text-indigo-600">Attendance & Salary Details</p>
+            </div>
+            <button
+              onClick={handleNextMonth}
+              disabled={selectedMonth === moment().month() + 1 && selectedYear === moment().year()}
+              className="flex items-center gap-1 px-3 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="text-sm font-medium">Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {loadingAttendance ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center mb-6">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+              <p className="mt-4 text-gray-600">Loading attendance data...</p>
+            </div>
+          ) : attendanceSummary ? (
+            <>
+              {/* Attendance Summary & Salary Calculator Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <AttendanceSummary summaryData={attendanceSummary} />
+                <SalaryCalculator
+                  salaryData={attendanceSummary.salary}
+                  advancesData={attendanceSummary.advances}
+                />
+              </div>
+
+              {/* Attendance Calendar Grid */}
+              <div className="mb-6">
+                <AttendanceCalendarGrid
+                  calendarData={attendanceSummary.calendar}
+                  period={attendanceSummary.period}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center mb-6">
+              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No attendance data available for this month</p>
+            </div>
+          )}
+
+          {/* Advance Payment Management */}
+          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg p-4 mb-6">
             <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-600" />
-              Salary & Advances
+              <DollarSign className="w-5 h-5 text-orange-600" />
+              Advance Payments Management
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div className="bg-white rounded-lg p-4 shadow-sm">
-                <p className="text-sm text-gray-600 mb-1">Monthly Salary</p>
-                <p className="text-2xl font-bold text-green-600">₹{employee.salary?.toLocaleString('en-IN') || 0}</p>
-              </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <p className="text-sm text-gray-600 mb-1">Total Advances</p>
+                <p className="text-sm text-gray-600 mb-1">Total Advances (All Time)</p>
                 <p className="text-2xl font-bold text-orange-600">₹{getTotalAdvances().toLocaleString('en-IN')}</p>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <p className="text-sm text-gray-600 mb-1">Pending Advances</p>
                 <p className="text-2xl font-bold text-red-600">₹{getPendingAdvances().toLocaleString('en-IN')}</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <p className="text-sm text-gray-600 mb-1">This Month</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  ₹{attendanceSummary?.advances?.totalAdvancesThisMonth?.toLocaleString('en-IN') || 0}
+                </p>
               </div>
             </div>
 
@@ -152,7 +276,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
                 <h4 className="font-medium text-gray-900">Advance History</h4>
                 <button
                   onClick={() => setShowAdvanceForm(!showAdvanceForm)}
-                  className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-1 px-3 py-1 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Add Advance
@@ -161,7 +285,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
 
               {/* Add Advance Form */}
               {showAdvanceForm && (
-                <form onSubmit={handleAddAdvance} className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                <form onSubmit={handleAddAdvance} className="mb-4 p-4 bg-orange-50 rounded-lg space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -171,7 +295,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
                         type="number"
                         value={advanceData.amount}
                         onChange={(e) => setAdvanceData({ ...advanceData, amount: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                         placeholder="Enter amount"
                         required
                       />
@@ -181,7 +305,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
                       <select
                         value={advanceData.status}
                         onChange={(e) => setAdvanceData({ ...advanceData, status: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                       >
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
@@ -195,7 +319,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
                       type="text"
                       value={advanceData.reason}
                       onChange={(e) => setAdvanceData({ ...advanceData, reason: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                       placeholder="Reason for advance"
                     />
                   </div>
@@ -212,7 +336,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                      className="px-4 py-2 text-sm text-white bg-orange-600 rounded-lg hover:bg-orange-700"
                     >
                       Add Advance
                     </button>
@@ -222,7 +346,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
 
               {employee.advances && employee.advances.length > 0 ? (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {employee.advances.map((advance, index) => (
+                  {employee.advances.slice().reverse().map((advance, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -230,10 +354,16 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
                           <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                             advance.status === 'paid' ? 'bg-green-100 text-green-800' :
                             advance.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                            advance.status === 'deducted' ? 'bg-purple-100 text-purple-800' :
                             'bg-yellow-100 text-yellow-800'
                           }`}>
                             {advance.status.charAt(0).toUpperCase() + advance.status.slice(1)}
                           </span>
+                          {advance.deductedFromSalary && (
+                            <span className="text-xs text-gray-500">
+                              (Deducted: {advance.deductionMonth})
+                            </span>
+                          )}
                         </div>
                         {advance.reason && (
                           <p className="text-sm text-gray-600 mt-1">{advance.reason}</p>
@@ -313,24 +443,13 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate }) {
               )}
             </div>
           </div>
-
-          {/* Attendance Information */}
-          <div className="bg-purple-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-purple-600" />
-              Attendance Records
-            </h3>
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <AttendanceCalendar userId={employee._id || employee.id} />
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Close
           </button>

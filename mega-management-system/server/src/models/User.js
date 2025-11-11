@@ -65,8 +65,25 @@ const UserSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'paid'],
+      enum: ['pending', 'approved', 'paid', 'deducted'],
       default: 'pending'
+    },
+    deductedFromSalary: {
+      type: Boolean,
+      default: false
+    },
+    deductionMonth: {
+      type: String, // Format: 'YYYY-MM'
+      default: null
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    approvedDate: {
+      type: Date,
+      default: null
     }
   }]
 }, {

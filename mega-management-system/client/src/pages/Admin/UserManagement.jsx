@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Mail, Phone, Building2, User, Eye, EyeOff, X, DollarSign } from 'lucide-react';
+import { Plus, Search, Filter, X, Eye, EyeOff, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import userService from '../../services/userService';
+import taskService from '../../services/taskService';
 import toast from 'react-hot-toast';
-import EmployeeDetailModal from '../../components/EmployeeDetailModal';
+import moment from 'moment';
+import EmployeeCard from '../../components/team/EmployeeCard';
 
 export default function UserManagement() {
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [tasks, setTasks] = useState([]);
+  const [dueTasksMap, setDueTasksMap] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,20 +29,29 @@ export default function UserManagement() {
     phone: '',
     department: '',
     avatar: '',
-    salary: 0
+    salary: 0,
+    role: 'employee'
   });
 
-  // Fetch users on component mount
+  // Fetch users and tasks on component mount
   useEffect(() => {
     fetchUsers();
+    fetchTasks();
   }, []);
+
+  // Apply filters whenever users, search, or filters change
+  useEffect(() => {
+    applyFilters();
+  }, [users, searchTerm, filterRole, filterDepartment]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       const response = await userService.getAllUsers();
       if (response.success) {
-        setUsers(response.data || []);
+        // Filter out admin and manager roles - only show employees
+        const employeesOnly = (response.data || []).filter(u => u.role === 'employee');
+        setUsers(employeesOnly);
       }
     } catch (error) {
       toast.error('Failed to fetch team members');
@@ -40,6 +60,65 @@ export default function UserManagement() {
       setLoading(false);
     }
   };
+
+  const fetchTasks = async () => {
+    try {
+      const response = await taskService.getAllTasks();
+      if (response.success) {
+        setTasks(response.data || []);
+        calculateDueTasks(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      // Don't show error toast, tasks are optional
+    }
+  };
+
+  const calculateDueTasks = (allTasks) => {
+    const now = moment();
+    const dueMap = {};
+
+    // Calculate due tasks for each employee
+    allTasks.forEach(task => {
+      if (task.status !== 'completed' && task.dueDate && moment(task.dueDate).isBefore(now)) {
+        // Task is overdue
+        if (task.assignees && Array.isArray(task.assignees)) {
+          task.assignees.forEach(assignee => {
+            const userId = assignee._id || assignee.id || assignee;
+            if (!dueMap[userId]) {
+              dueMap[userId] = 0;
+            }
+            dueMap[userId]++;
+          });
+        }
+      }
+    });
+
+    setDueTasksMap(dueMap);
+  };
+
+  const applyFilters = () => {
+    let filtered = [...users];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user =>
+        user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.department?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Department filter
+    if (filterDepartment !== 'all') {
+      filtered = filtered.filter(user => user.department === filterDepartment);
+    }
+
+    setFilteredUsers(filtered);
+  };
+
+  // Get unique departments for filter
+  const departments = [...new Set(users.map(u => u.department).filter(Boolean))];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -57,7 +136,8 @@ export default function UserManagement() {
       phone: '',
       department: '',
       avatar: '',
-      salary: 0
+      salary: 0,
+      role: 'employee'
     });
     setEditingUser(null);
     setShowPassword(false);
@@ -122,9 +202,8 @@ export default function UserManagement() {
           ));
         }
       } else {
-        // Create new user - set default role as employee
-        const userData = { ...formData, role: 'employee' };
-        const response = await userService.createUser(userData);
+        // Create new user
+        const response = await userService.createUser(formData);
 
         if (response.success) {
           toast.success('Team member added successfully');
@@ -135,7 +214,6 @@ export default function UserManagement() {
       setShowModal(false);
       resetForm();
     } catch (error) {
-      // Backend will also validate and return error if email exists
       const errorMessage = error.response?.data?.message || error.message || 'Failed to save team member';
       toast.error(errorMessage);
       console.error('Error saving user:', error);
@@ -151,239 +229,150 @@ export default function UserManagement() {
       phone: user.phone || '',
       department: user.department || '',
       avatar: user.avatar || '',
-      salary: user.salary || 0
+      salary: user.salary || 0,
+      role: user.role || 'employee'
     });
     setShowModal(true);
   };
 
   const handleViewEmployee = (user) => {
-    setSelectedEmployee(user);
+    // Navigate to employee detail page
+    navigate(`/users/${user._id || user.id}`);
   };
 
-  const handleDelete = async (user) => {
-    if (!window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const response = await userService.deleteUser(user.id || user._id);
-
-      if (response.success) {
-        toast.success('Team member deleted successfully');
-        setUsers(users.filter(u => (u.id || u._id) !== (user.id || user._id)));
-      }
-    } catch (error) {
-      toast.error(error.message || 'Failed to delete team member');
-      console.error('Error deleting user:', error);
-    }
-  };
-
-  const getRoleBadge = (role) => {
-    if (role === 'manager') {
-      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Manager</span>;
-    }
-    return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Employee</span>;
-  };
-
-  const getStatusBadge = (isActive) => {
-    if (isActive) {
-      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>;
-    }
-    return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Inactive</span>;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterRole('all');
+    setFilterDepartment('all');
   };
 
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Team Management</h1>
-          <p className="text-gray-600 mt-1">Manage your team members and their roles</p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Team Management</h1>
+            <p className="text-sm text-gray-600 mt-1">Manage employees and track their attendance</p>
+          </div>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5" />
+            Add Employee
+          </button>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add Team Member
-        </button>
+
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or department..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                />
+              </div>
+            </div>
+
+            {/* Department Filter */}
+            <div className="flex gap-2">
+              <select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              >
+                <option value="all">All Departments</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+              {(searchTerm || filterDepartment !== 'all') && (
+                <button
+                  onClick={clearFilters}
+                  className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  title="Clear filters"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Active Filter Tags */}
+          {(searchTerm || filterDepartment !== 'all') && (
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200">
+              <Filter className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Active filters:</span>
+              {searchTerm && (
+                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                  Search: "{searchTerm}"
+                </span>
+              )}
+              {filterDepartment !== 'all' && (
+                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                  Dept: {filterDepartment}
+                </span>
+              )}
+              <span className="text-sm text-gray-500">
+                ({filteredUsers.length} result{filteredUsers.length !== 1 ? 's' : ''})
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm">Total Members</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{users.length}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <User className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
+      {/* Team Members Grid */}
+      {loading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+          <p className="mt-4 text-gray-600">Loading team members...</p>
         </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm">Managers</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
-                {users.filter(u => u.role === 'manager').length}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <User className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm">Employees</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
-                {users.filter(u => u.role === 'employee').length}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <User className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Team Members Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading team members...</p>
-          </div>
-        ) : users.length === 0 ? (
-          <div className="p-12 text-center">
-            <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No team members yet</h3>
-            <p className="text-gray-600 mb-4">Get started by adding your first team member</p>
+      ) : filteredUsers.length === 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            {users.length === 0 ? 'No employees yet' : 'No employees found'}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {users.length === 0
+              ? 'Get started by adding your first employee'
+              : 'Try adjusting your filters or search term'}
+          </p>
+          {users.length === 0 && (
             <button
               onClick={() => {
                 resetForm();
                 setShowModal(true);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
             >
               <Plus className="w-5 h-5" />
-              Add Team Member
+              Add Employee
             </button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Department
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Salary
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id || user._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div
-                          className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow"
-                          onClick={() => handleViewEmployee(user)}
-                        >
-                          {user.avatar ? (
-                            <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full" />
-                          ) : (
-                            <span className="text-white font-semibold">
-                              {user.name?.charAt(0).toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div
-                            className="text-sm font-medium text-gray-900 hover:text-blue-600 cursor-pointer transition-colors"
-                            onClick={() => handleViewEmployee(user)}
-                          >
-                            {user.name}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 flex items-center gap-1">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        {user.email}
-                      </div>
-                      <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        {user.phone}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 flex items-center gap-1">
-                        <Building2 className="w-4 h-4 text-gray-400" />
-                        {user.department}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-green-600 flex items-center gap-1">
-                        <DollarSign className="w-4 h-4" />
-                        ₹{user.salary?.toLocaleString('en-IN') || 0}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getRoleBadge(user.role)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(user.isActive)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(user)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(user)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredUsers.map((user) => (
+            <EmployeeCard
+              key={user.id || user._id}
+              employee={user}
+              onClick={handleViewEmployee}
+              dueTasks={dueTasksMap[user._id || user.id] || 0}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit User Modal */}
       {showModal && (
@@ -392,7 +381,7 @@ export default function UserManagement() {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">
-                {editingUser ? 'Edit Team Member' : 'Add New Team Member'}
+                {editingUser ? 'Edit Employee' : 'Add New Employee'}
               </h2>
               <button
                 onClick={() => {
@@ -418,7 +407,7 @@ export default function UserManagement() {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     placeholder="John Doe"
                     required
                   />
@@ -434,7 +423,7 @@ export default function UserManagement() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     placeholder="john@example.com"
                     required
                   />
@@ -450,7 +439,7 @@ export default function UserManagement() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     placeholder="+91 98765 43210"
                     required
                   />
@@ -466,7 +455,7 @@ export default function UserManagement() {
                     name="department"
                     value={formData.department}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     placeholder="Sales, IT, HR, etc."
                     required
                   />
@@ -482,7 +471,7 @@ export default function UserManagement() {
                     name="salary"
                     value={formData.salary}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     placeholder="0"
                     min="0"
                   />
@@ -500,7 +489,7 @@ export default function UserManagement() {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 pr-10"
                       placeholder="Enter password"
                       required={!editingUser}
                     />
@@ -525,7 +514,7 @@ export default function UserManagement() {
                   name="avatar"
                   value={formData.avatar}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                   placeholder="https://example.com/photo.jpg"
                 />
               </div>
@@ -544,23 +533,14 @@ export default function UserManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                 >
-                  {editingUser ? 'Update Member' : 'Add Member'}
+                  {editingUser ? 'Update Employee' : 'Add Employee'}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
-
-      {/* Employee Detail Modal */}
-      {selectedEmployee && (
-        <EmployeeDetailModal
-          employee={selectedEmployee}
-          onClose={() => setSelectedEmployee(null)}
-          onUpdate={fetchUsers}
-        />
       )}
     </div>
   );
