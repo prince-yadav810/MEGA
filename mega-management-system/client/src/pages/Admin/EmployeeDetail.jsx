@@ -1,0 +1,738 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, Plus, Edit2, ChevronLeft, ChevronRight, CheckCircle, X, Eye, EyeOff } from 'lucide-react';
+import userService from '../../services/userService';
+import attendanceService from '../../services/attendanceService';
+import toast from 'react-hot-toast';
+import { taskStatuses, taskPriorities } from '../../utils/sampleData';
+import AttendanceCalendarGrid from '../../components/attendance/AttendanceCalendarGrid';
+import AttendanceSummary from '../../components/attendance/AttendanceSummary';
+import SalaryCalculator from '../../components/attendance/SalaryCalculator';
+import moment from 'moment';
+
+export default function EmployeeDetail() {
+  const { userId } = useParams();
+  const navigate = useNavigate();
+  const [employee, setEmployee] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [loadingEmployee, setLoadingEmployee] = useState(true);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [showAdvanceForm, setShowAdvanceForm] = useState(false);
+  const [attendanceSummary, setAttendanceSummary] = useState(null);
+  const [loadingAttendance, setLoadingAttendance] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(moment().month() + 1);
+  const [selectedYear, setSelectedYear] = useState(moment().year());
+  const [advanceData, setAdvanceData] = useState({
+    amount: '',
+    reason: '',
+    status: 'pending'
+  });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    department: '',
+    avatar: '',
+    salary: 0
+  });
+
+  useEffect(() => {
+    if (userId) {
+      fetchEmployee();
+      fetchUserTasks();
+      fetchAttendanceSummary(selectedMonth, selectedYear);
+    }
+  }, [userId, selectedMonth, selectedYear]);
+
+  const fetchEmployee = async () => {
+    try {
+      setLoadingEmployee(true);
+      const response = await userService.getUser(userId);
+      if (response.success) {
+        setEmployee(response.data);
+      }
+    } catch (error) {
+      toast.error('Failed to fetch employee details');
+      console.error('Error fetching employee:', error);
+    } finally {
+      setLoadingEmployee(false);
+    }
+  };
+
+  const fetchUserTasks = async () => {
+    try {
+      setLoadingTasks(true);
+      const response = await userService.getUserTasks(userId);
+      if (response.success) {
+        setTasks(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  const fetchAttendanceSummary = async (month, year) => {
+    try {
+      setLoadingAttendance(true);
+      const response = await attendanceService.getUserAttendanceSummary(userId, month, year);
+      if (response.success) {
+        const data = response.data.data || response.data;
+        console.log('Employee Detail - Attendance Summary:', data);
+
+        // Handle backwards compatibility: if backend returns 'attendance' key instead of 'stats'
+        if (data && data.attendance && !data.stats) {
+          data.stats = data.attendance;
+          console.log('Converted attendance to stats for backwards compatibility');
+        }
+
+        setAttendanceSummary(data);
+      }
+    } catch (error) {
+      console.error('Error fetching attendance summary:', error);
+      toast.error('Failed to load attendance data');
+    } finally {
+      setLoadingAttendance(false);
+    }
+  };
+
+  const handleAddAdvance = async (e) => {
+    e.preventDefault();
+
+    if (!advanceData.amount || parseFloat(advanceData.amount) <= 0) {
+      toast.error('Please enter a valid advance amount');
+      return;
+    }
+
+    try {
+      const response = await userService.addAdvance(userId, {
+        amount: parseFloat(advanceData.amount),
+        reason: advanceData.reason,
+        status: advanceData.status
+      });
+
+      if (response.success) {
+        toast.success('Advance added successfully');
+        setAdvanceData({ amount: '', reason: '', status: 'pending' });
+        setShowAdvanceForm(false);
+        fetchEmployee(); // Refresh employee data
+        fetchAttendanceSummary(selectedMonth, selectedYear); // Refresh attendance summary
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to add advance');
+    }
+  };
+
+  const getTotalAdvances = () => {
+    return employee?.advances?.reduce((sum, adv) => sum + adv.amount, 0) || 0;
+  };
+
+  const getPendingAdvances = () => {
+    return employee?.advances?.filter(adv => adv.status === 'pending').reduce((sum, adv) => sum + adv.amount, 0) || 0;
+  };
+
+  const getActiveTasks = () => {
+    return tasks.filter(task => task.status !== 'completed').length;
+  };
+
+  const getDueTasks = () => {
+    const now = moment();
+    return tasks.filter(task =>
+      task.status !== 'completed' &&
+      task.dueDate &&
+      moment(task.dueDate).isBefore(now)
+    ).length;
+  };
+
+  const handlePreviousMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  const handleEditClick = () => {
+    setEditFormData({
+      name: employee.name || '',
+      email: employee.email || '',
+      password: '',
+      phone: employee.phone || '',
+      department: employee.department || '',
+      avatar: employee.avatar || '',
+      salary: employee.salary || 0
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!editFormData.name || !editFormData.email) {
+      toast.error('Please fill in name and email');
+      return;
+    }
+
+    try {
+      const updateData = { ...editFormData };
+      if (!updateData.password) {
+        delete updateData.password;
+      }
+
+      const response = await userService.updateUser(userId, updateData);
+
+      if (response.success) {
+        toast.success('Employee updated successfully');
+        setEmployee(response.data);
+        setShowEditModal(false);
+        setShowPassword(false);
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update employee';
+      toast.error(errorMessage);
+    }
+  };
+
+  if (loadingEmployee) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+          <p className="mt-4 text-gray-600">Loading employee details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!employee) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Employee not found</p>
+          <button
+            onClick={() => navigate('/users')}
+            className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+          >
+            Back to Team
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/users')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="w-12 h-12 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
+                {employee.avatar ? (
+                  <img src={employee.avatar} alt={employee.name} className="w-12 h-12 rounded-full object-cover" />
+                ) : (
+                  <span className="text-white font-bold text-lg">
+                    {employee.name?.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">{employee.name}</h1>
+                <p className="text-sm text-gray-600">{employee.department} • {employee.role}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleEditClick}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        {/* Contact Information */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Mail className="w-5 h-5 text-gray-600" />
+            Contact Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <Mail className="w-4 h-4 text-gray-400" />
+              <span className="font-medium">Email:</span>
+              <span>{employee.email}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <Phone className="w-4 h-4 text-gray-400" />
+              <span className="font-medium">Phone:</span>
+              <span>{employee.phone}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Month Navigation */}
+        <div className="flex items-center justify-between mb-6 bg-white rounded-lg border border-gray-200 p-4">
+          <button
+            onClick={handlePreviousMonth}
+            className="flex items-center gap-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Previous</span>
+          </button>
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-gray-900">
+              {moment(`${selectedYear}-${selectedMonth}-01`).format('MMMM YYYY')}
+            </h3>
+            <p className="text-sm text-gray-600">Attendance & Salary Details</p>
+          </div>
+          <button
+            onClick={handleNextMonth}
+            disabled={selectedMonth === moment().month() + 1 && selectedYear === moment().year()}
+            className="flex items-center gap-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="text-sm font-medium">Next</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {loadingAttendance ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center mb-6">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <p className="mt-4 text-gray-600">Loading attendance data...</p>
+          </div>
+        ) : attendanceSummary ? (
+          <>
+            {/* Attendance Summary & Salary Calculator Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {attendanceSummary.stats && attendanceSummary.period && (
+                <AttendanceSummary
+                  stats={attendanceSummary.stats}
+                  period={attendanceSummary.period}
+                />
+              )}
+              {attendanceSummary.salary && attendanceSummary.advances && (
+                <SalaryCalculator
+                  salaryData={attendanceSummary.salary}
+                  advancesData={attendanceSummary.advances}
+                />
+              )}
+            </div>
+
+            {/* Attendance Calendar Grid */}
+            {attendanceSummary.calendar && attendanceSummary.period && (
+              <div className="mb-6">
+                <AttendanceCalendarGrid
+                  calendarData={attendanceSummary.calendar}
+                  period={attendanceSummary.period}
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center mb-6">
+            <p className="text-gray-600">No attendance data available for this month</p>
+          </div>
+        )}
+
+        {/* Advance Payment Management */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-gray-600" />
+            Advance Payments
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Total Advances</p>
+              <p className="text-2xl font-bold text-gray-900">₹{getTotalAdvances().toLocaleString('en-IN')}</p>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Pending</p>
+              <p className="text-2xl font-bold text-gray-900">₹{getPendingAdvances().toLocaleString('en-IN')}</p>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">This Month</p>
+              <p className="text-2xl font-bold text-gray-900">
+                ₹{attendanceSummary?.advances?.totalAdvancesThisMonth?.toLocaleString('en-IN') || 0}
+              </p>
+            </div>
+          </div>
+
+          {/* Advances List */}
+          <div className="border-t border-gray-200 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-gray-900">History</h4>
+              <button
+                onClick={() => setShowAdvanceForm(!showAdvanceForm)}
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Advance
+              </button>
+            </div>
+
+            {/* Add Advance Form */}
+            {showAdvanceForm && (
+              <form onSubmit={handleAddAdvance} className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Amount (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={advanceData.amount}
+                      onChange={(e) => setAdvanceData({ ...advanceData, amount: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900"
+                      placeholder="Enter amount"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      value={advanceData.status}
+                      onChange={(e) => setAdvanceData({ ...advanceData, status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="paid">Paid</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                  <input
+                    type="text"
+                    value={advanceData.reason}
+                    onChange={(e) => setAdvanceData({ ...advanceData, reason: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900"
+                    placeholder="Reason for advance"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdvanceForm(false);
+                      setAdvanceData({ amount: '', reason: '', status: 'pending' });
+                    }}
+                    className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+                  >
+                    Add Advance
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {employee.advances && employee.advances.length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {employee.advances.slice().reverse().map((advance, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">₹{advance.amount.toLocaleString('en-IN')}</p>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                          advance.status === 'paid' ? 'bg-green-100 text-green-800' :
+                          advance.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                          advance.status === 'deducted' ? 'bg-gray-100 text-gray-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {advance.status.charAt(0).toUpperCase() + advance.status.slice(1)}
+                        </span>
+                      </div>
+                      {advance.reason && (
+                        <p className="text-sm text-gray-600 mt-1">{advance.reason}</p>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(advance.date).toLocaleDateString('en-IN')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">No advances recorded</p>
+            )}
+          </div>
+        </div>
+
+        {/* Tasks Information */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-gray-600" />
+            Assigned Tasks
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Total Tasks</p>
+              <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Active</p>
+              <p className="text-2xl font-bold text-gray-900">{getActiveTasks()}</p>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Due</p>
+              <p className="text-2xl font-bold text-red-600">{getDueTasks()}</p>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Completed</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {tasks.filter(task => task.status === 'completed').length}
+              </p>
+            </div>
+          </div>
+
+          {/* Tasks List */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="font-medium text-gray-900 mb-3">Current Tasks</h4>
+            {loadingTasks ? (
+              <p className="text-sm text-gray-500 text-center py-4">Loading tasks...</p>
+            ) : tasks.length > 0 ? (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {tasks.map((task) => {
+                  const isDue = task.status !== 'completed' && task.dueDate && moment(task.dueDate).isBefore(moment());
+                  return (
+                    <div key={task._id} className={`p-3 rounded-lg border ${isDue ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h5 className="font-medium text-gray-900">{task.title}</h5>
+                          {task.description && (
+                            <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${taskStatuses[task.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                              {taskStatuses[task.status]?.label || task.status}
+                            </span>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${taskPriorities[task.priority]?.bgColor || 'bg-gray-100'} ${taskPriorities[task.priority]?.color || 'text-gray-800'}`}>
+                              {taskPriorities[task.priority]?.label || task.priority}
+                            </span>
+                            {task.dueDate && (
+                              <span className={`text-xs flex items-center gap-1 ${isDue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                <Calendar className="w-3 h-3" />
+                                {moment(task.dueDate).format('MMM D, YYYY')}
+                                {isDue && ' (Overdue)'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">No tasks assigned</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Employee Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Edit Employee</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setShowPassword(false);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={editFormData.name}
+                    onChange={handleEditInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={editFormData.email}
+                    onChange={handleEditInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    placeholder="john@example.com"
+                    required
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={editFormData.phone}
+                    onChange={handleEditInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    placeholder="+91 98765 43210"
+                    required
+                  />
+                </div>
+
+                {/* Department */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Department <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="department"
+                    value={editFormData.department}
+                    onChange={handleEditInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    placeholder="Sales, IT, HR, etc."
+                    required
+                  />
+                </div>
+
+                {/* Salary */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Monthly Salary (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="salary"
+                    value={editFormData.salary}
+                    onChange={handleEditInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Password <span className="text-gray-500 text-xs">(Leave blank to keep current)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={editFormData.password}
+                      onChange={handleEditInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 pr-10"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Avatar URL (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Profile Photo URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  name="avatar"
+                  value={editFormData.avatar}
+                  onChange={handleEditInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                  placeholder="https://example.com/photo.jpg"
+                />
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setShowPassword(false);
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  Update Employee
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

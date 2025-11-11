@@ -1,16 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, Calendar, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Clock, MapPin, Calendar, CheckCircle, XCircle, AlertCircle, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import attendanceService from '../../services/attendanceService';
+import { useAuth } from '../../context/AuthContext';
+import AttendanceCalendarGrid from '../../components/attendance/AttendanceCalendarGrid';
+import AttendanceSummary from '../../components/attendance/AttendanceSummary';
+import SalaryCalculator from '../../components/attendance/SalaryCalculator';
 import moment from 'moment';
 
 const Attendance = () => {
+  const { user } = useAuth();
   const [todayAttendance, setTodayAttendance] = useState(null);
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [summaryData, setSummaryData] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(moment().month());
+  const [selectedYear, setSelectedYear] = useState(moment().year());
 
   // Update current time every second
   useEffect(() => {
@@ -25,7 +33,17 @@ const Attendance = () => {
   useEffect(() => {
     fetchTodayAttendance();
     fetchAttendanceHistory();
-  }, []);
+    if (user && user._id) {
+      fetchAttendanceSummary();
+    }
+  }, [user]);
+
+  // Fetch summary when month/year changes
+  useEffect(() => {
+    if (user && user._id) {
+      fetchAttendanceSummary();
+    }
+  }, [selectedMonth, selectedYear]);
 
   const fetchTodayAttendance = async () => {
     try {
@@ -43,6 +61,48 @@ const Attendance = () => {
     } catch (error) {
       console.error('Error fetching attendance history:', error);
     }
+  };
+
+  const fetchAttendanceSummary = async () => {
+    try {
+      const response = await attendanceService.getUserAttendanceSummary(
+        user._id,
+        selectedMonth + 1, // moment months are 0-indexed
+        selectedYear
+      );
+      console.log('Attendance Summary Response:', response);
+      console.log('Response data:', response.data);
+
+      const data = response.data.data || response.data;
+      console.log('Setting summaryData to:', data);
+
+      // Handle backwards compatibility: if backend returns 'attendance' key instead of 'stats'
+      if (data && data.attendance && !data.stats) {
+        data.stats = data.attendance;
+        console.log('Converted attendance to stats for backwards compatibility');
+      }
+
+      setSummaryData(data);
+    } catch (error) {
+      console.error('Error fetching attendance summary:', error);
+      toast.error('Failed to load attendance data');
+    }
+  };
+
+  const handleMonthChange = (direction) => {
+    let newMonth = selectedMonth;
+    let newYear = selectedYear;
+
+    if (direction === 'prev') {
+      newMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+      newYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+    } else {
+      newMonth = selectedMonth === 11 ? 0 : selectedMonth + 1;
+      newYear = selectedMonth === 11 ? selectedYear + 1 : selectedYear;
+    }
+
+    setSelectedMonth(newMonth);
+    setSelectedYear(newYear);
   };
 
   const handleCheckIn = async () => {
@@ -123,23 +183,23 @@ const Attendance = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Attendance</h1>
-          <p className="text-gray-600">Mark your daily attendance and view your history</p>
-        </div>
+        {/* Header with Clock */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Attendance</h1>
+            <p className="text-gray-600">Mark your daily attendance and view your history</p>
+          </div>
 
-        {/* Current Time and Date Card */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 mb-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm opacity-90 mb-1">Current Time</p>
-              <p className="text-4xl font-bold">{currentTime.toLocaleTimeString()}</p>
-              <p className="text-lg mt-2 opacity-90">
-                {moment(currentTime).format('dddd, MMMM DD, YYYY')}
-              </p>
+          {/* Small Clock in Top Right */}
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-3 text-white min-w-[200px]">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              <div>
+                <p className="text-xs opacity-90">Current Time</p>
+                <p className="text-lg font-bold">{currentTime.toLocaleTimeString()}</p>
+                <p className="text-xs opacity-90">{moment(currentTime).format('MMM DD, YYYY')}</p>
+              </div>
             </div>
-            <Clock className="w-16 h-16 opacity-50" />
           </div>
         </div>
 
@@ -282,9 +342,89 @@ const Attendance = () => {
           )}
         </div>
 
+        {/* Attendance Calendar and Stats */}
+        {console.log('Rendering with summaryData:', summaryData)}
+        {summaryData && (
+          <>
+            {/* Month Navigation */}
+            <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => handleMonthChange('prev')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  ← Previous
+                </button>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {moment().month(selectedMonth).year(selectedYear).format('MMMM YYYY')}
+                </h2>
+                <button
+                  onClick={() => handleMonthChange('next')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  disabled={selectedMonth === moment().month() && selectedYear === moment().year()}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+
+            {/* Two Column Layout: Calendar Left, Stats/Salary Right */}
+            <div className="flex gap-6 mb-6">
+              {/* Left Column - Calendar */}
+              <div className="flex-1">
+                {console.log('Calendar check:', { hasCalendar: !!summaryData.calendar, hasPeriod: !!summaryData.period })}
+                {summaryData.calendar && summaryData.period && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center">
+                      <Calendar className="w-5 h-5 mr-2 text-gray-900" />
+                      Attendance Calendar
+                    </h2>
+                    <AttendanceCalendarGrid
+                      calendarData={summaryData.calendar}
+                      period={summaryData.period}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column - Stats and Salary */}
+              <div className="w-96 space-y-6">
+                {/* Attendance Summary Stats */}
+                {console.log('Stats check:', { hasStats: !!summaryData.stats, hasPeriod: !!summaryData.period, stats: summaryData.stats })}
+                {summaryData.stats && summaryData.period && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center">
+                      <CheckCircle className="w-5 h-5 mr-2 text-gray-900" />
+                      Summary
+                    </h2>
+                    <AttendanceSummary
+                      stats={summaryData.stats}
+                      period={summaryData.period}
+                    />
+                  </div>
+                )}
+
+                {/* Salary Calculator */}
+                {summaryData.salary && summaryData.advances && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2 text-gray-900" />
+                      Salary
+                    </h2>
+                    <SalaryCalculator
+                      salaryData={summaryData.salary}
+                      advancesData={summaryData.advances}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Attendance History */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Attendance History</h2>
+          <h2 className="text-xl font-semibold mb-4">Recent Attendance History</h2>
 
           {attendanceHistory.length > 0 ? (
             <div className="space-y-3">

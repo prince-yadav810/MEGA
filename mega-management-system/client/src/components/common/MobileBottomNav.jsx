@@ -8,7 +8,8 @@ import {
   BarChart3,
   Settings,
   UserCog,
-  LogOut
+  LogOut,
+  ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -16,7 +17,7 @@ import toast from 'react-hot-toast';
 const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -34,6 +35,14 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       name: 'Workspace',
       icon: LayoutDashboard,
       path: '/workspace/table'
+    },
+    {
+      id: 'attendance',
+      name: 'Attendance',
+      icon: ClipboardCheck,
+      path: '/attendance',
+      // Only employees can access Attendance tab
+      roles: ['employee']
     },
     {
       id: 'quotations',
@@ -54,16 +63,12 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       path: '/products'
     },
     {
-      id: 'analytics',
-      name: 'Analytics',
-      icon: BarChart3,
-      path: '/analytics'
-    },
-    {
       id: 'users',
       name: 'Team',
       icon: UserCog,
-      path: '/users'
+      path: '/users',
+      // Only managers/admins can access Team tab
+      roles: ['manager', 'admin']
     },
     {
       id: 'settings',
@@ -72,6 +77,14 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       path: '/settings'
     }
   ];
+
+  // Filter navigation items based on user role
+  const filteredNavigationItems = navigationItems.filter(item => {
+    if (item.roles && user?.role) {
+      return item.roles.includes(user.role);
+    }
+    return true;
+  });
 
   const isActive = (path) => {
     if (path === '/workspace') {
@@ -83,19 +96,19 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-1 z-50">
       <div className="flex justify-between items-center max-w-md mx-auto">
-        {navigationItems.slice(0, 5).map((item) => {
+        {filteredNavigationItems.slice(0, 5).map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
-          
+
           return (
             <Link
               key={item.id}
               to={item.path}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => setActiveTab && setActiveTab(item.id)}
               className={`
                 flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-200 min-w-0 flex-1
-                ${active 
-                  ? 'text-primary-600 bg-primary-50' 
+                ${active
+                  ? 'text-primary-600 bg-primary-50'
                   : 'text-gray-500 hover:text-gray-700'
                 }
               `}
@@ -110,41 +123,58 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
             </Link>
           );
         })}
-        
-        {/* More menu for remaining items */}
-        <div className="flex flex-col items-center py-2 px-3 rounded-lg min-w-0">
-          <div className="flex space-x-1">
-            {navigationItems.slice(5).map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
 
-              return (
-                <Link
-                  key={item.id}
-                  to={item.path}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`
-                    p-1 rounded transition-colors
-                    ${active
-                      ? 'text-primary-600 bg-primary-100'
-                      : 'text-gray-500 hover:text-gray-700'
-                    }
-                  `}
-                >
-                  <Icon className="h-4 w-4" />
-                </Link>
-              );
-            })}
-            {/* Logout Button */}
+        {/* More menu for remaining items */}
+        {filteredNavigationItems.length > 5 ? (
+          <div className="flex flex-col items-center py-2 px-3 rounded-lg min-w-0">
+            <div className="flex space-x-1">
+              {filteredNavigationItems.slice(5).map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+
+                return (
+                  <Link
+                    key={item.id}
+                    to={item.path}
+                    onClick={() => setActiveTab && setActiveTab(item.id)}
+                    className={`
+                      p-1 rounded transition-colors
+                      ${active
+                        ? 'text-primary-600 bg-primary-100'
+                        : 'text-gray-500 hover:text-gray-700'
+                      }
+                    `}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </Link>
+                );
+              })}
+
+              {/* Logout Button */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1 rounded transition-colors text-red-600 hover:bg-red-50"
+                aria-label="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+            <span className="text-xs font-medium text-gray-500 mt-1">More</span>
+          </div>
+        ) : (
+          // If there are 5 or fewer items, optionally show logout as a small icon on the right
+          <div className="flex items-center ml-2">
             <button
+              type="button"
               onClick={handleLogout}
-              className="p-1 rounded transition-colors text-red-600 hover:bg-red-50"
+              className="p-2 rounded transition-colors text-red-600 hover:bg-red-50"
+              aria-label="Logout"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-5 w-5" />
             </button>
           </div>
-          <span className="text-xs font-medium text-gray-500 mt-1">More</span>
-        </div>
+        )}
       </div>
     </div>
   );
