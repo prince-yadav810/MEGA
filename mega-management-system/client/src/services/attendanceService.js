@@ -83,6 +83,20 @@ const attendanceService = {
     }
   },
 
+  getUserAttendanceSummary: async (userId, month = null, year = null) => {
+    try {
+      const params = {};
+      if (month) params.month = month;
+      if (year) params.year = year;
+
+      const response = await api.get(`/attendance/user/${userId}/summary`, { params });
+      return response.data;
+    } catch (error) {
+      console.error('Get user attendance summary error:', error);
+      throw error.response?.data || error;
+    }
+  },
+
   getAllAttendance: async (filters = {}) => {
     try {
       const response = await api.get('/attendance', { params: filters });

@@ -432,3 +432,190 @@ exports.getAllAttendance = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get comprehensive attendance summary with salary calculations
+ * GET /api/attendance/user/:userId/summary
+ * Access: Manager, Admin (or own data for Employee)
+ */
+exports.getUserAttendanceSummary = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { month, year } = req.query;
+
+    // Check if user is accessing their own data or is a manager/admin
+    if (req.user.id !== userId && !['manager', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view this data'
+      });
+    }
+
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Default to current month/year if not provided
+    const targetMonth = month ? parseInt(month) : moment().month() + 1;
+    const targetYear = year ? parseInt(year) : moment().year();
+
+    // Calculate date range for the month
+    const startDate = moment(`${targetYear}-${targetMonth}-01`).startOf('month').toDate();
+    const endDate = moment(`${targetYear}-${targetMonth}-01`).endOf('month').toDate();
+
+    // Get attendance records for the month
+    const attendance = await Attendance.find({
+      user: userId,
+      date: {
+        $gte: startDate,
+        $lte: endDate
+      }
+    }).sort({ date: 1 });
+
+    // Calculate total days in month
+    const totalDaysInMonth = moment(`${targetYear}-${targetMonth}-01`).daysInMonth();
+
+    // Calculate working days (excluding Sundays)
+    let workingDays = 0;
+    for (let i = 1; i <= totalDaysInMonth; i++) {
+      const date = moment(`${targetYear}-${targetMonth}-${i}`);
+      if (date.day() !== 0) { // 0 is Sunday
+        workingDays++;
+      }
+    }
+
+    // Calculate statistics
+    const presentDays = attendance.filter(a => a.checkOutTime).length;
+    const halfDays = attendance.filter(a => a.checkInTime && !a.checkOutTime).length;
+    const absentDays = workingDays - presentDays - halfDays;
+    const lateDays = attendance.filter(a => {
+      if (!a.checkInTime) return false;
+      const checkInHour = moment(a.checkInTime).hour();
+      return checkInHour >= 10; // Consider late if check-in after 10 AM
+    }).length;
+
+    // Calculate total work hours
+    const totalWorkMinutes = attendance.reduce((sum, a) => sum + (a.workDuration || 0), 0);
+    const totalWorkHours = (totalWorkMinutes / 60).toFixed(2);
+    const avgWorkHours = presentDays > 0 ? (totalWorkMinutes / presentDays / 60).toFixed(2) : 0;
+    const attendanceRate = workingDays > 0 ? ((presentDays / workingDays) * 100).toFixed(2) : 0;
+
+    // Get advances for the month (or all pending advances)
+    const monthString = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+    const advancesThisMonth = user.advances.filter(adv => {
+      const advMonth = moment(adv.date).format('YYYY-MM');
+      return advMonth === monthString;
+    });
+
+    // Calculate total advances (approved but not yet deducted)
+    const totalAdvances = user.advances
+      .filter(adv => ['approved', 'paid'].includes(adv.status) && !adv.deductedFromSalary)
+      .reduce((sum, adv) => sum + adv.amount, 0);
+
+    // Calculate salary
+    const baseSalary = user.salary || 0;
+    const salaryPerDay = baseSalary / workingDays;
+    const earnedSalary = (salaryPerDay * presentDays).toFixed(2);
+    const deductions = totalAdvances;
+    const netSalary = (earnedSalary - deductions).toFixed(2);
+
+    // Format attendance calendar data (for each day of month)
+    const calendarData = [];
+    for (let i = 1; i <= totalDaysInMonth; i++) {
+      const date = moment(`${targetYear}-${targetMonth}-${i}`);
+      const dateString = date.format('YYYY-MM-DD');
+      const isSunday = date.day() === 0;
+
+      // Find attendance record for this day
+      const dayAttendance = attendance.find(a => moment(a.date).format('YYYY-MM-DD') === dateString);
+
+      // Find if advance was taken on this day
+      const advanceOnDay = user.advances.find(adv => moment(adv.date).format('YYYY-MM-DD') === dateString);
+
+      let status = 'absent';
+      if (isSunday) {
+        status = 'holiday';
+      } else if (dayAttendance) {
+        if (dayAttendance.checkOutTime) {
+          status = 'present';
+        } else if (dayAttendance.checkInTime) {
+          status = 'half-day';
+        }
+      }
+
+      calendarData.push({
+        date: dateString,
+        day: i,
+        dayOfWeek: date.format('ddd'),
+        status: status,
+        attendance: dayAttendance ? {
+          checkInTime: dayAttendance.checkInTime,
+          checkOutTime: dayAttendance.checkOutTime,
+          workDuration: dayAttendance.workDuration,
+          location: dayAttendance.location?.address || 'N/A'
+        } : null,
+        advance: advanceOnDay ? {
+          amount: advanceOnDay.amount,
+          reason: advanceOnDay.reason,
+          status: advanceOnDay.status
+        } : null
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          department: user.department,
+          avatar: user.avatar,
+          baseSalary: baseSalary
+        },
+        period: {
+          month: targetMonth,
+          year: targetYear,
+          monthName: moment(`${targetYear}-${targetMonth}-01`).format('MMMM'),
+          totalDaysInMonth,
+          workingDays
+        },
+        stats: {
+          presentDays,
+          absentDays,
+          halfDays,
+          lateDays,
+          attendanceRate: parseFloat(attendanceRate),
+          totalWorkHours: parseFloat(totalWorkHours),
+          avgWorkHours: parseFloat(avgWorkHours)
+        },
+        advances: {
+          monthlyAdvances: advancesThisMonth,
+          totalAdvancesThisMonth: advancesThisMonth.reduce((sum, adv) => sum + adv.amount, 0),
+          pendingAdvances: totalAdvances,
+          allAdvances: user.advances
+        },
+        salary: {
+          baseSalary,
+          salaryPerDay: parseFloat(salaryPerDay.toFixed(2)),
+          earnedSalary: parseFloat(earnedSalary),
+          deductions,
+          netSalary: parseFloat(netSalary)
+        },
+        calendar: calendarData
+      }
+    });
+  } catch (error) {
+    console.error('Get attendance summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching attendance summary',
+      error: error.message
+    });
+  }
+};

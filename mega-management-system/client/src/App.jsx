@@ -15,8 +15,10 @@ import ProductCatalog from './pages/Products/ProductCatalog';
 import NotesReminders from './pages/Admin/NotesReminders';
 import Settings from './pages/Admin/Settings';
 import UserManagement from './pages/Admin/UserManagement';
+import EmployeeDetail from './pages/Admin/EmployeeDetail';
 import Login from './pages/Login';
 import PrivateRoute from './components/PrivateRoute';
+import RoleBasedRoute from './components/RoleBasedRoute';
 import { NotificationProvider } from './context/NotificationContext.js';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
@@ -70,13 +72,35 @@ function Layout() {
             <Route index element={<Navigate to="/workspace/table" replace />} />
             <Route path="workspace/*" element={<Workspace />} />
             <Route path="inbox" element={<Inbox />} />
-            <Route path="attendance" element={<Attendance />} />
+            <Route
+              path="attendance"
+              element={
+                <RoleBasedRoute allowedRoles={['employee']}>
+                  <Attendance />
+                </RoleBasedRoute>
+              }
+            />
             <Route path="quotations" element={<QuotationsList />} />
             <Route path="clients" element={<ClientsList />} />
             <Route path="products" element={<ProductCatalog />} />
             <Route path="notes-reminders" element={<NotesReminders />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="users" element={<UserManagement />} />
+            <Route
+              path="users"
+              element={
+                <RoleBasedRoute allowedRoles={['manager', 'admin']}>
+                  <UserManagement />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="users/:userId"
+              element={
+                <RoleBasedRoute allowedRoles={['manager', 'admin']}>
+                  <EmployeeDetail />
+                </RoleBasedRoute>
+              }
+            />
             <Route path="*" element={<Navigate to="/workspace/table" replace />} />
           </Routes>
         </main>
