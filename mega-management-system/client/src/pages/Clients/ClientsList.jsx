@@ -1,11 +1,10 @@
 // File Path: client/src/pages/Clients/ClientsList.jsx
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Users, Tag } from 'lucide-react';
 import ClientCard from '../../components/clients/ClientCard';
 import ClientForm from '../../components/forms/ClientForm';
-import ClientDetailsModal from '../../components/clients/ClientDetailsModal';
-import PaymentReminderForm from '../../components/clients/PaymentReminderForm';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
@@ -13,6 +12,7 @@ import clientService from '../../services/clientService';
 import toast from 'react-hot-toast';
 
 const ClientsList = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,9 +23,6 @@ const ClientsList = () => {
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isReminderFormOpen, setIsReminderFormOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState(null);
   const [editingClient, setEditingClient] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
 
@@ -137,11 +134,6 @@ const ClientsList = () => {
         setIsFormOpen(false);
         setEditingClient(null);
         loadClients();
-        
-        // Update selected client if details modal is open
-        if (selectedClient && (selectedClient._id === editingClient._id || selectedClient.id === editingClient.id)) {
-          setSelectedClient(response.data);
-        }
       }
     } catch (error) {
       console.error('Error updating client:', error);
@@ -152,44 +144,7 @@ const ClientsList = () => {
   };
 
   const handleClientClick = (client) => {
-    setSelectedClient(client);
-    setIsDetailsOpen(true);
-  };
-
-  const handleEditClick = (client) => {
-    setEditingClient(client);
-    setIsFormOpen(true);
-    setIsDetailsOpen(false);
-  };
-
-  const handleCreateReminder = (client) => {
-    setSelectedClient(client);
-    setIsReminderFormOpen(true);
-    setIsDetailsOpen(false);
-  };
-
-  const handleSubmitReminder = async (reminderData) => {
-    try {
-      setFormLoading(true);
-      const response = await clientService.createReminder(selectedClient._id || selectedClient.id, reminderData);
-      if (response.success) {
-        toast.success(response.message || 'Payment reminder created successfully');
-        setIsReminderFormOpen(false);
-        setIsDetailsOpen(true); // Reopen details modal
-      }
-    } catch (error) {
-      console.error('Error creating reminder:', error);
-      toast.error('Failed to create payment reminder');
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
-  const handleDeleteClient = async (clientId) => {
-    // Remove from local state
-    setClients(prev => prev.filter(c => (c._id || c.id) !== clientId));
-    setSelectedClient(null);
-    setIsDetailsOpen(false);
+    navigate(`/clients/${client._id || client.id}`);
   };
 
   const handleOpenAddForm = () => {
@@ -336,27 +291,6 @@ const ClientsList = () => {
         onClose={handleCloseForm}
         onSubmit={editingClient ? handleUpdateClient : handleCreateClient}
         initialData={editingClient}
-        isLoading={formLoading}
-      />
-
-      <ClientDetailsModal
-        isOpen={isDetailsOpen}
-        onClose={() => {
-          setIsDetailsOpen(false);
-          setSelectedClient(null);
-        }}
-        client={selectedClient}
-        onEdit={handleEditClick}
-        onCreateReminder={handleCreateReminder}
-        onRefresh={loadClients}
-        onDelete={handleDeleteClient}
-      />
-
-      <PaymentReminderForm
-        isOpen={isReminderFormOpen}
-        onClose={() => setIsReminderFormOpen(false)}
-        onSubmit={handleSubmitReminder}
-        client={selectedClient}
         isLoading={formLoading}
       />
     </div>

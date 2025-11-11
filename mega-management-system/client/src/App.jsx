@@ -11,6 +11,7 @@ import Inbox from './pages/Inbox/Inbox';
 import Attendance from './pages/Attendance/Attendance';
 import QuotationsList from './pages/Quotations/QuotationsList';
 import ClientsList from './pages/Clients/ClientsList';
+import ClientDetails from './pages/Clients/ClientDetails';
 import ProductCatalog from './pages/Products/ProductCatalog';
 import NotesReminders from './pages/Admin/NotesReminders';
 import Settings from './pages/Admin/Settings';
@@ -82,6 +83,7 @@ function Layout() {
             />
             <Route path="quotations" element={<QuotationsList />} />
             <Route path="clients" element={<ClientsList />} />
+            <Route path="clients/:id" element={<ClientDetails />} />
             <Route path="products" element={<ProductCatalog />} />
             <Route path="notes-reminders" element={<NotesReminders />} />
             <Route path="settings" element={<Settings />} />
