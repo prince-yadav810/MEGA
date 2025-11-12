@@ -3,6 +3,12 @@
 const Client = require('../models/Client');
 const PaymentReminder = require('../models/PaymentReminder');
 const { createNotification } = require('./notificationController');
+const fs = require('fs').promises;
+const googleVisionService = require('../services/googleVisionService');
+const geminiService = require('../services/geminiService');
+const duplicateDetectionService = require('../services/duplicateDetectionService');
+const { validateBusinessCardImages } = require('../utils/imageValidator');
+const { logBusinessCardExtraction } = require('../utils/apiUsageTracker');
 
 // @desc    Get all clients
 // @route   GET /api/clients
@@ -349,11 +355,11 @@ exports.getClientStats = async (req, res) => {
     const totalClients = await Client.countDocuments();
     const activeClients = await Client.countDocuments({ isActive: true });
     const inactiveClients = await Client.countDocuments({ isActive: false });
-    
+
     const clientsWithOutstanding = await Client.countDocuments({
       totalOutstanding: { $gt: 0 }
     });
-    
+
     const totalOutstandingAmount = await Client.aggregate([
       {
         $group: {
@@ -362,7 +368,7 @@ exports.getClientStats = async (req, res) => {
         }
       }
     ]);
-    
+
     res.json({
       success: true,
       data: {
@@ -379,6 +385,181 @@ exports.getClientStats = async (req, res) => {
       success: false,
       message: 'Server error while fetching client statistics',
       error: error.message
+    });
+  }
+};
+
+// @desc    Extract client data from business card images
+// @route   POST /api/clients/extract-from-card
+// @access  Private
+exports.extractFromCard = async (req, res) => {
+  const startTime = Date.now();
+  let frontImagePath = null;
+  let backImagePath = null;
+
+  try {
+    // Get uploaded files
+    const frontImage = req.files?.frontImage?.[0];
+    const backImage = req.files?.backImage?.[0];
+
+    // Validate images
+    const validation = validateBusinessCardImages(frontImage, backImage);
+    if (!validation.valid) {
+      // Clean up uploaded files
+      if (frontImage) await fs.unlink(frontImage.path).catch(() => {});
+      if (backImage) await fs.unlink(backImage.path).catch(() => {});
+
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid image files',
+        errors: validation.errors
+      });
+    }
+
+    frontImagePath = frontImage.path;
+    backImagePath = backImage?.path || null;
+
+    // Step 1: Extract text using Google Vision API
+    const textExtractionResult = await googleVisionService.extractTextFromBusinessCard(
+      frontImagePath,
+      backImagePath
+    );
+
+    if (!textExtractionResult.success) {
+      // Delete images immediately
+      await fs.unlink(frontImagePath).catch(() => {});
+      if (backImagePath) await fs.unlink(backImagePath).catch(() => {});
+
+      // Log failed extraction
+      await logBusinessCardExtraction({
+        userId: req.user.id,
+        success: false,
+        errorMessage: textExtractionResult.error,
+        frontImageSize: frontImage.size,
+        backImageSize: backImage?.size || 0,
+        processingTime: Date.now() - startTime,
+        ipAddress: req.ip
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to extract text from images',
+        error: textExtractionResult.error,
+        suggestion: 'Please ensure images are clear and contain text, or try manual entry.'
+      });
+    }
+
+    // Step 2: Parse extracted text using Gemini AI
+    const parsingResult = await geminiService.parseBusinessCardText(
+      textExtractionResult.combinedText
+    );
+
+    if (!parsingResult.success) {
+      // Delete images
+      await fs.unlink(frontImagePath).catch(() => {});
+      if (backImagePath) await fs.unlink(backImagePath).catch(() => {});
+
+      // Log failed parsing
+      await logBusinessCardExtraction({
+        userId: req.user.id,
+        success: false,
+        errorMessage: parsingResult.error,
+        frontImageSize: frontImage.size,
+        backImageSize: backImage?.size || 0,
+        processingTime: Date.now() - startTime,
+        extractedTextLength: textExtractionResult.combinedText.length,
+        ipAddress: req.ip
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to parse business card data',
+        error: parsingResult.error,
+        rawText: textExtractionResult.combinedText,
+        suggestion: 'AI parsing failed. You can use the extracted text below for manual entry.',
+        extractedText: {
+          front: textExtractionResult.frontText,
+          back: textExtractionResult.backText
+        }
+      });
+    }
+
+    // Step 3: Detect duplicates
+    const duplicates = await duplicateDetectionService.detectDuplicates(parsingResult.data);
+
+    // Step 4: Delete images immediately (no storage)
+    await fs.unlink(frontImagePath).catch((err) => {
+      console.error('Failed to delete front image:', err);
+    });
+
+    if (backImagePath) {
+      await fs.unlink(backImagePath).catch((err) => {
+        console.error('Failed to delete back image:', err);
+      });
+    }
+
+    // Step 5: Log successful extraction
+    const processingTime = Date.now() - startTime;
+    await logBusinessCardExtraction({
+      userId: req.user.id,
+      success: true,
+      errorMessage: '',
+      frontImageSize: frontImage.size,
+      backImageSize: backImage?.size || 0,
+      processingTime,
+      extractedTextLength: textExtractionResult.combinedText.length,
+      companyName: parsingResult.data.companyName,
+      ipAddress: req.ip
+    });
+
+    // Step 6: Return extracted data with confidence and duplicates
+    res.json({
+      success: true,
+      message: 'Business card data extracted successfully',
+      extractedData: parsingResult.data,
+      confidence: parsingResult.confidence,
+      duplicates: {
+        exactMatch: duplicates.exactMatch,
+        similarCompanies: duplicates.similarCompanies,
+        existingContact: duplicates.existingContact
+      },
+      requiresOverride: duplicateDetectionService.requiresOverride(duplicates),
+      warnings: duplicateDetectionService.generateWarningMessages(duplicates),
+      processingTime: processingTime,
+      extractedText: {
+        front: textExtractionResult.frontText,
+        back: textExtractionResult.backText
+      }
+    });
+  } catch (error) {
+    console.error('Extract from card error:', error);
+
+    // Clean up uploaded files
+    if (frontImagePath) {
+      await fs.unlink(frontImagePath).catch(() => {});
+    }
+    if (backImagePath) {
+      await fs.unlink(backImagePath).catch(() => {});
+    }
+
+    // Log error
+    if (req.files?.frontImage?.[0]) {
+      await logBusinessCardExtraction({
+        userId: req.user.id,
+        success: false,
+        errorMessage: error.message,
+        frontImageSize: req.files.frontImage[0].size,
+        backImageSize: req.files.backImage?.[0]?.size || 0,
+        processingTime: Date.now() - startTime,
+        ipAddress: req.ip
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while extracting business card data',
+      error: error.message,
+      suggestion: 'Please try again or use manual entry.'
     });
   }
 };

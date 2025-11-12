@@ -61,6 +61,7 @@ app.use('/api/clients', require('./src/routes/clients'));
 app.use('/api/products', require('./src/routes/products'));
 app.use('/api/notifications', require('./src/routes/notifications'));
 app.use('/api/attendance', require('./src/routes/attendance'));
+app.use('/api/api-usage', require('./src/routes/apiUsage')); // Business Card OCR API usage tracking
 
 // Health check
 app.get('/api/health', (req, res) => {
