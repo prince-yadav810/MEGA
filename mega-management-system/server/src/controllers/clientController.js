@@ -255,14 +255,6 @@ exports.deleteClient = async (req, res) => {
       });
     }
     
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to delete clients'
-      });
-    }
-    
     const clientName = client.companyName;
     await client.deleteOne();
 
