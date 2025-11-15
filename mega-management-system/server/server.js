@@ -8,7 +8,7 @@ const connectDB = require('./src/config/database');
 const { errorHandler } = require('./src/middleware/errorHandler');
 const http = require('http');
 const socketIo = require('socket.io');
-const fileUpload = require('express-fileupload');
+// const fileUpload = require('express-fileupload'); // REMOVED: Conflicts with multer
 const notesRoutes = require('./src/routes/notes');
 const remindersRoutes = require('./src/routes/reminders');
 
@@ -37,12 +37,8 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// File upload middleware
-app.use(fileUpload({
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
-  abortOnLimit: true,
-  responseOnLimit: 'File size limit exceeded'
-}));
+// File upload middleware - REMOVED express-fileupload to avoid conflict with multer
+// Multer is configured per-route in route files (clients.js, quotations.js, etc.)
 
 // Socket.io middleware
 app.use((req, res, next) => {
