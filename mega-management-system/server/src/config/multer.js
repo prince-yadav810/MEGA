@@ -1,5 +1,6 @@
 const multer = require('multer');
 const path = require('path');
+const { businessCardImageFilter } = require('../utils/imageValidator');
 
 // Configure storage
 const storage = multer.diskStorage({
@@ -55,10 +56,22 @@ const uploadExcel = multer({
   fileFilter: excelFilter
 });
 
+// Business card upload configuration (JPG/PNG only, max 5MB)
+const uploadBusinessCard = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+    files: 2 // Max 2 files (front + back)
+  },
+  fileFilter: businessCardImageFilter
+});
+
 module.exports = {
   uploadImage,
   uploadExcel,
+  uploadBusinessCard,
   storage,
   imageFilter,
-  excelFilter
+  excelFilter,
+  businessCardImageFilter
 };

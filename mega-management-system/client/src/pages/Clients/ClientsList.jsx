@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Users, Tag } from 'lucide-react';
 import ClientCard from '../../components/clients/ClientCard';
 import ClientForm from '../../components/forms/ClientForm';
+import AddClientModal from '../../components/clients/AddClientModal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card from '../../components/ui/Card';
@@ -286,13 +287,26 @@ const ClientsList = () => {
       </button>
 
       {/* Modals */}
-      <ClientForm
-        isOpen={isFormOpen}
-        onClose={handleCloseForm}
-        onSubmit={editingClient ? handleUpdateClient : handleCreateClient}
-        initialData={editingClient}
-        isLoading={formLoading}
-      />
+      {editingClient ? (
+        // Edit existing client - use old form
+        <ClientForm
+          isOpen={isFormOpen}
+          onClose={handleCloseForm}
+          onSubmit={handleUpdateClient}
+          initialData={editingClient}
+          isLoading={formLoading}
+        />
+      ) : (
+        // Add new client - use new modal with scan option
+        <AddClientModal
+          isOpen={isFormOpen}
+          onClose={handleCloseForm}
+          onSuccess={(newClient) => {
+            toast.success('Client created successfully');
+            loadClients();
+          }}
+        />
+      )}
     </div>
   );
 };

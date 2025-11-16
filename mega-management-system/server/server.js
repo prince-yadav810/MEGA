@@ -1,9 +1,9 @@
 // File path: server/server.js
-// REPLACE entire file with this
 
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const connectDB = require('./src/config/database');
 const { errorHandler } = require('./src/middleware/errorHandler');
 const http = require('http');
@@ -27,33 +27,40 @@ const io = socketIo(server, {
   }
 });
 
-// ⭐ IMPORTANT: CORS MUST BE FIRST - BEFORE ANY ROUTES
-app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
-  credentials: true
-}));
+// ⭐ CORS must load first
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true
+  })
+);
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// File upload middleware
-app.use(fileUpload({
-  useTempFiles: true,
-  tempFileDir: '/tmp/',
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
-  abortOnLimit: true,
-  responseOnLimit: 'File size limit exceeded',
-  createParentPath: true
-}));
+// ⭐ YOUR express-fileupload middleware
+app.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: '/tmp/',
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    abortOnLimit: true,
+    responseOnLimit: 'File size limit exceeded',
+    createParentPath: true
+  })
+);
 
-// Socket.io middleware
+// Attach socket.io to req
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// ⭐ ROUTES - After middleware
+// Static uploads folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ⭐ YOUR ROUTES
 app.use('/api/notes', notesRoutes);
 app.use('/api/reminders', remindersRoutes);
 app.use('/api/auth', require('./src/routes/auth'));
@@ -64,19 +71,23 @@ app.use('/api/clients', require('./src/routes/clients'));
 app.use('/api/products', require('./src/routes/products'));
 app.use('/api/notifications', require('./src/routes/notifications'));
 app.use('/api/attendance', require('./src/routes/attendance'));
+app.use('/api/api-usage', require('./src/routes/apiUsage'));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'MEGA Management Server is running' });
+  res.json({
+    status: 'OK',
+    message: 'MEGA Management Server is running'
+  });
 });
 
 // Error handler
 app.use(errorHandler);
 
-// Socket.io connection handling
+// Socket.io events
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
-  
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });

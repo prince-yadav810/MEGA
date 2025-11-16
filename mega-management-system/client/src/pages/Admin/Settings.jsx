@@ -85,6 +85,16 @@ const Settings = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           {renderTabContent()}
         </div>
+
+        {/* Account Section (kept simple per your version) */}
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Account</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Manage your account details and preferences.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

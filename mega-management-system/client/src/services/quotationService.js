@@ -69,11 +69,79 @@ export const uploadExcel = async (file, onUploadProgress) => {
   }
 };
 
+// Download quotation PDF
+export const downloadPdf = async (id, fileName) => {
+  try {
+    const response = await api.get(`/quotations/${id}/download`, {
+      responseType: 'blob' // Important for file download
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName || 'quotation.pdf');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    return { success: true, message: 'PDF downloaded successfully' };
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Update quotation filename
+export const updateFileName = async (id, fileName) => {
+  try {
+    const response = await api.patch(`/quotations/${id}/filename`, { fileName });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Update quotation status with optional note
+export const updateStatus = async (id, status, note = '') => {
+  try {
+    const response = await api.patch(`/quotations/${id}/status`, { status, note });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Update quotation priority
+export const updatePriority = async (id, priority) => {
+  try {
+    const response = await api.patch(`/quotations/${id}/priority`, { priority });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Create a task linked to quotation
+export const createLinkedTask = async (id, taskData) => {
+  try {
+    const response = await api.post(`/quotations/${id}/task`, taskData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 export default {
   getQuotations,
   getQuotation,
   createQuotation,
   updateQuotation,
   deleteQuotation,
-  uploadExcel
+  uploadExcel,
+  downloadPdf,
+  updateFileName,
+  updateStatus,
+  updatePriority,
+  createLinkedTask
 };

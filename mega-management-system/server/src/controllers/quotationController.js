@@ -1,14 +1,27 @@
 const Quotation = require('../models/Quotation');
-const xlsx = require('xlsx');
-const { createNotification } = require('./notificationController');
+const Task = require('../models/Task');
+const User = require('../models/User');
+const ExcelProcessor = require('../services/excelProcessor');
+const QuotationPdfService = require('../services/quotationPdfService');
+const { createNotification, notifyMultipleUsers } = require('./notificationController');
+const fs = require('fs');
+const path = require('path');
 
-// @desc    Get all quotations
-// @route   GET /api/quotations
-// @access  Private
+// Ensure uploads directory exists
+const UPLOADS_DIR = path.join(__dirname, '../../uploads/quotations');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+/**
+ * @desc    Get all quotations
+ * @route   GET /api/quotations
+ * @access  Private
+ */
 exports.getQuotations = async (req, res) => {
   try {
     const quotations = await Quotation.find()
-      .sort({ createdDate: -1 })
+      .sort({ date: -1 }) // Sort by quotation date, newest first
       .populate('createdBy', 'name email')
       .populate('updatedBy', 'name email');
 
@@ -26,14 +39,24 @@ exports.getQuotations = async (req, res) => {
   }
 };
 
-// @desc    Get single quotation
-// @route   GET /api/quotations/:id
-// @access  Private
+/**
+ * @desc    Get single quotation
+ * @route   GET /api/quotations/:id
+ * @access  Private
+ */
 exports.getQuotation = async (req, res) => {
   try {
     const quotation = await Quotation.findById(req.params.id)
       .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email');
+      .populate('updatedBy', 'name email')
+      .populate({
+        path: 'linkedTasks',
+        select: 'title status priority dueDate assignees',
+        populate: {
+          path: 'assignees',
+          select: 'name email'
+        }
+      });
 
     if (!quotation) {
       return res.status(404).json({
@@ -55,57 +78,181 @@ exports.getQuotation = async (req, res) => {
   }
 };
 
-// @desc    Create quotation
-// @route   POST /api/quotations
-// @access  Private
-exports.createQuotation = async (req, res) => {
+/**
+ * @desc    Upload Excel, generate PDF, and create quotation
+ * @route   POST /api/quotations/upload
+ * @access  Private
+ */
+exports.uploadExcel = async (req, res) => {
+  let tempFilePath = null;
+
   try {
+    console.log('📁 Excel upload request received');
+
+    // Check if file exists
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload an Excel file'
+      });
+    }
+
+    tempFilePath = req.file.path;
+    console.log('📄 File received:', req.file.originalname);
+
+    // Step 1: Extract data from Excel
+    console.log('🔍 Extracting data from Excel...');
+    const extractedData = ExcelProcessor.processQuotationExcel(tempFilePath);
+    console.log('✅ Data extracted successfully');
+
+    // Step 2: Generate PDF filename
+    const sanitizedRefNo = extractedData.refNo.replace(/[^a-z0-9]/gi, '_');
+    const sanitizedClient = extractedData.clientName.substring(0, 20).replace(/[^a-z0-9]/gi, '_');
+    const pdfFileName = `${sanitizedRefNo}_${sanitizedClient}.pdf`;
+    const pdfFilePath = path.join(UPLOADS_DIR, pdfFileName);
+
+    // Step 3: Generate PDF
+    console.log('📄 Generating PDF...');
+    await QuotationPdfService.generateQuotationPDF(extractedData, pdfFilePath);
+    console.log('✅ PDF generated successfully:', pdfFileName);
+
+    // Step 4: Save quotation to database
+    console.log('💾 Saving to database...');
     const quotation = await Quotation.create({
-      ...req.body,
+      pdfUrl: `/uploads/quotations/${pdfFileName}`,
+      fileName: pdfFileName,
+      refNo: extractedData.refNo,
+      date: extractedData.date,
+      clientName: extractedData.clientName,
+      items: extractedData.items,
+      subtotal: extractedData.subtotal,
+      gst: extractedData.gst,
+      grandTotal: extractedData.grandTotal,
+      paymentTerms: extractedData.paymentTerms,
+      offerValidity: extractedData.offerValidity,
       createdBy: req.user?._id
     });
+    console.log('✅ Quotation saved to database');
 
-    // Create notification for user
-    await createNotification({
-      userId: req.user.id,
-      type: 'success',
-      category: 'quotation',
-      title: 'Quotation Created',
-      message: `Quotation "${quotation.number}" for ${quotation.client} has been created successfully`,
-      entityType: 'quotation',
-      entityId: quotation._id,
-      actionUrl: '/quotations',
-      createdBy: req.user.name || 'System'
-    }, req.io);
+    // Step 5: Delete temporary Excel file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+      console.log('🗑️  Temporary Excel file deleted');
+    }
+
+    // Step 6: Create notification
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'success',
+        category: 'quotation',
+        title: 'Quotation Created',
+        message: `Quotation "${extractedData.refNo}" for ${extractedData.clientName} has been created successfully`,
+        entityType: 'quotation',
+        entityId: quotation._id,
+        actionUrl: '/quotations',
+        createdBy: req.user.name || 'System'
+      }, req.io);
+    }
 
     res.status(201).json({
       success: true,
+      message: 'Quotation created successfully',
       data: quotation
     });
+
   } catch (error) {
+    console.error('❌ Error processing quotation:', error);
+
+    // Clean up temp file on error
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+        console.log('🗑️  Cleaned up temporary file after error');
+      } catch (unlinkError) {
+        console.error('Error deleting temp file:', unlinkError);
+      }
+    }
+
     res.status(400).json({
       success: false,
-      message: 'Error creating quotation',
+      message: error.message || 'Error processing quotation',
       error: error.message
     });
   }
 };
 
-// @desc    Update quotation
-// @route   PUT /api/quotations/:id
-// @access  Private
-exports.updateQuotation = async (req, res) => {
+/**
+ * @desc    Download quotation PDF
+ * @route   GET /api/quotations/:id/download
+ * @access  Private
+ */
+exports.downloadPdf = async (req, res) => {
   try {
+    const quotation = await Quotation.findById(req.params.id);
+
+    if (!quotation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quotation not found'
+      });
+    }
+
+    const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
+
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'PDF file not found'
+      });
+    }
+
+    // Set headers for download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${quotation.fileName}"`);
+
+    // Stream the file
+    const fileStream = fs.createReadStream(pdfPath);
+    fileStream.pipe(res);
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error downloading PDF',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Update quotation filename
+ * @route   PATCH /api/quotations/:id/filename
+ * @access  Private
+ */
+exports.updateFileName = async (req, res) => {
+  try {
+    const { fileName } = req.body;
+
+    if (!fileName || !fileName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'File name is required'
+      });
+    }
+
+    // Ensure .pdf extension
+    let newFileName = fileName.trim();
+    if (!newFileName.endsWith('.pdf')) {
+      newFileName += '.pdf';
+    }
+
     const quotation = await Quotation.findByIdAndUpdate(
       req.params.id,
       {
-        ...req.body,
+        fileName: newFileName,
         updatedBy: req.user?._id
       },
-      {
-        new: true,
-        runValidators: true
-      }
+      { new: true, runValidators: true }
     );
 
     if (!quotation) {
@@ -115,38 +262,29 @@ exports.updateQuotation = async (req, res) => {
       });
     }
 
-    // Create notification for user
-    await createNotification({
-      userId: req.user.id,
-      type: 'success',
-      category: 'quotation',
-      title: 'Quotation Updated',
-      message: `Quotation "${quotation.number}" for ${quotation.client} has been updated successfully`,
-      entityType: 'quotation',
-      entityId: quotation._id,
-      actionUrl: '/quotations',
-      createdBy: req.user.name || 'System'
-    }, req.io);
-
     res.status(200).json({
       success: true,
+      message: 'Filename updated successfully',
       data: quotation
     });
+
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: 'Error updating quotation',
+      message: 'Error updating filename',
       error: error.message
     });
   }
 };
 
-// @desc    Delete quotation
-// @route   DELETE /api/quotations/:id
-// @access  Private
+/**
+ * @desc    Delete quotation and PDF file
+ * @route   DELETE /api/quotations/:id
+ * @access  Private
+ */
 exports.deleteQuotation = async (req, res) => {
   try {
-    const quotation = await Quotation.findByIdAndDelete(req.params.id);
+    const quotation = await Quotation.findById(req.params.id);
 
     if (!quotation) {
       return res.status(404).json({
@@ -155,23 +293,36 @@ exports.deleteQuotation = async (req, res) => {
       });
     }
 
-    // Create notification for user
-    await createNotification({
-      userId: req.user.id,
-      type: 'warning',
-      category: 'quotation',
-      title: 'Quotation Deleted',
-      message: `Quotation "${quotation.number}" for ${quotation.client} has been deleted from the system`,
-      entityType: 'quotation',
-      entityId: null,
-      actionUrl: '/quotations',
-      createdBy: req.user.name || 'System'
-    }, req.io);
+    // Delete PDF file from filesystem
+    const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
+    if (fs.existsSync(pdfPath)) {
+      fs.unlinkSync(pdfPath);
+      console.log('🗑️  PDF file deleted:', pdfPath);
+    }
+
+    // Delete from database
+    await Quotation.findByIdAndDelete(req.params.id);
+
+    // Create notification
+    if (req.user) {
+      await createNotification({
+        userId: req.user.id,
+        type: 'warning',
+        category: 'quotation',
+        title: 'Quotation Deleted',
+        message: `Quotation "${quotation.refNo}" for ${quotation.clientName} has been deleted from the system`,
+        entityType: 'quotation',
+        entityId: null,
+        actionUrl: '/quotations',
+        createdBy: req.user.name || 'System'
+      }, req.io);
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Quotation deleted successfully'
+      message: 'Quotation and PDF deleted successfully'
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -181,201 +332,214 @@ exports.deleteQuotation = async (req, res) => {
   }
 };
 
-// @desc    Upload Excel and import quotations
-// @route   POST /api/quotations/upload
-// @access  Private
-exports.uploadExcel = async (req, res) => {
+/**
+ * @desc    Update quotation status
+ * @route   PATCH /api/quotations/:id/status
+ * @access  Private
+ */
+exports.updateStatus = async (req, res) => {
   try {
-    console.log('Upload request received');
-    console.log('Files:', req.files);
+    const { status, note } = req.body;
 
-    if (!req.files || !req.files.file) {
-      console.log('No file in request');
+    if (!status || !['on_hold', 'approved', 'rejected'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Please upload an Excel file'
+        message: 'Valid status is required (on_hold, approved, rejected)'
       });
     }
 
-    const file = req.files.file;
-    console.log('File details:', {
-      name: file.name,
-      mimetype: file.mimetype,
-      size: file.size
-    });
+    const quotation = await Quotation.findByIdAndUpdate(
+      req.params.id,
+      {
+        status,
+        statusNote: note || '',
+        updatedBy: req.user?._id
+      },
+      { new: true, runValidators: true }
+    );
 
-    // Check if file is Excel (also allow CSV for flexibility)
-    const validTypes = [
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/csv',
-      'application/csv'
-    ];
-
-    if (!validTypes.includes(file.mimetype) && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls') && !file.name.endsWith('.csv')) {
-      console.log('Invalid file type:', file.mimetype);
-      return res.status(400).json({
+    if (!quotation) {
+      return res.status(404).json({
         success: false,
-        message: `Please upload a valid Excel file (.xls, .xlsx, or .csv). Received: ${file.mimetype}`
+        message: 'Quotation not found'
       });
     }
 
-    // Read Excel file
-    console.log('Reading Excel file...');
-    const workbook = xlsx.read(file.data, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    console.log('Sheet name:', sheetName);
+    // Notify all employees and admin about status change
+    try {
+      const allUsers = await User.find({ isActive: true }).select('_id');
+      const userIds = allUsers.map(u => u._id);
 
-    const worksheet = workbook.Sheets[sheetName];
-    const jsonData = xlsx.utils.sheet_to_json(worksheet);
-    console.log('Parsed rows:', jsonData.length);
-    console.log('First row sample:', jsonData[0]);
-
-    if (!jsonData || jsonData.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Excel file is empty or improperly formatted'
-      });
-    }
-
-    // Parse and validate Excel data
-    const quotations = [];
-    const errors = [];
-
-    for (let i = 0; i < jsonData.length; i++) {
-      const row = jsonData[i];
-      const rowNumber = i + 2; // Excel row number (accounting for header)
-
-      try {
-        // Extract data from Excel columns
-        // Expected columns: Quote Number, Client, Title/Details, Amount, Status, Valid Until
-        const quotationData = {
-          number: row['Quote Number'] || row['Quotation Number'] || row['Number'] || '',
-          client: row['Client'] || row['Client Name'] || '',
-          title: row['Title'] || row['Details'] || row['Quotation Details'] || row['Description'] || '',
-          amount: row['Amount'] || row['Total Amount'] || '',
-          status: (row['Status'] || 'pending').toLowerCase(),
-          validUntil: parseExcelDate(row['Valid Until'] || row['Valid Till'] || row['Expiry Date']),
-          items: parseInt(row['Items'] || row['Item Count'] || 0),
-          createdDate: parseExcelDate(row['Created Date'] || row['Date']) || new Date(),
-          createdBy: req.user?._id
+      if (userIds.length > 0) {
+        const statusMessages = {
+          on_hold: 'put on hold',
+          approved: 'approved',
+          rejected: 'rejected'
         };
 
-        // Validate required fields
-        if (!quotationData.number) {
-          errors.push({ row: rowNumber, error: 'Quote Number is required' });
-          continue;
-        }
-        if (!quotationData.client) {
-          errors.push({ row: rowNumber, error: 'Client is required' });
-          continue;
-        }
-        if (!quotationData.title) {
-          errors.push({ row: rowNumber, error: 'Title/Details is required' });
-          continue;
-        }
-        if (!quotationData.amount) {
-          errors.push({ row: rowNumber, error: 'Amount is required' });
-          continue;
-        }
-        if (!quotationData.validUntil) {
-          errors.push({ row: rowNumber, error: 'Valid Until date is required' });
-          continue;
-        }
-
-        // Validate status
-        const validStatuses = ['pending', 'approved', 'rejected', 'expired'];
-        if (!validStatuses.includes(quotationData.status)) {
-          quotationData.status = 'pending';
-        }
-
-        quotations.push(quotationData);
-      } catch (error) {
-        errors.push({ row: rowNumber, error: error.message });
+        await notifyMultipleUsers(
+          userIds,
+          {
+            type: status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'warning',
+            category: 'quotation',
+            title: 'Quotation Status Updated',
+            message: `Quotation "${quotation.refNo}" for ${quotation.clientName} has been ${statusMessages[status]}`,
+            entityType: 'quotation',
+            entityId: quotation._id,
+            actionUrl: `/quotations/${quotation._id}`,
+            createdBy: req.user?.name || 'System'
+          },
+          req.io
+        );
       }
-    }
-
-    // Save quotations to database
-    const savedQuotations = [];
-    const saveErrors = [];
-
-    for (let i = 0; i < quotations.length; i++) {
-      try {
-        // Check if quotation with same number already exists
-        const existing = await Quotation.findOne({ number: quotations[i].number });
-
-        if (existing) {
-          // Update existing quotation
-          const updated = await Quotation.findOneAndUpdate(
-            { number: quotations[i].number },
-            { ...quotations[i], updatedBy: req.user?._id },
-            { new: true, runValidators: true }
-          );
-          savedQuotations.push(updated);
-        } else {
-          // Create new quotation
-          const created = await Quotation.create(quotations[i]);
-          savedQuotations.push(created);
-        }
-      } catch (error) {
-        saveErrors.push({
-          quotation: quotations[i].number,
-          error: error.message
-        });
-      }
+    } catch (notifyError) {
+      console.error('Error sending notifications:', notifyError);
     }
 
     res.status(200).json({
       success: true,
-      message: `Successfully processed ${savedQuotations.length} quotations`,
-      data: {
-        total: jsonData.length,
-        saved: savedQuotations.length,
-        parseErrors: errors.length,
-        saveErrors: saveErrors.length,
-        quotations: savedQuotations
-      },
-      errors: errors.length > 0 || saveErrors.length > 0 ? {
-        parseErrors: errors,
-        saveErrors: saveErrors
-      } : undefined
+      message: 'Status updated successfully',
+      data: quotation
     });
 
   } catch (error) {
-    console.error('Excel upload error:', error);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      message: 'Error uploading Excel file',
-      error: error.message,
-      details: error.stack
+      message: 'Error updating status',
+      error: error.message
     });
   }
 };
 
-// Helper function to parse Excel date
-function parseExcelDate(excelDate) {
-  if (!excelDate) return null;
+/**
+ * @desc    Update quotation priority
+ * @route   PATCH /api/quotations/:id/priority
+ * @access  Private
+ */
+exports.updatePriority = async (req, res) => {
+  try {
+    const { priority } = req.body;
 
-  // If it's already a Date object
-  if (excelDate instanceof Date) {
-    return excelDate;
-  }
-
-  // If it's a string
-  if (typeof excelDate === 'string') {
-    const date = new Date(excelDate);
-    if (!isNaN(date.getTime())) {
-      return date;
+    if (!priority || !['low', 'high', 'extreme'].includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid priority is required (low, high, extreme)'
+      });
     }
-  }
 
-  // If it's an Excel serial number
-  if (typeof excelDate === 'number') {
-    // Excel date serial number (days since 1900-01-01)
-    const excelEpoch = new Date(1899, 11, 30);
-    return new Date(excelEpoch.getTime() + excelDate * 86400000);
-  }
+    const quotation = await Quotation.findByIdAndUpdate(
+      req.params.id,
+      {
+        priority,
+        updatedBy: req.user?._id
+      },
+      { new: true, runValidators: true }
+    );
 
-  return null;
-}
+    if (!quotation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quotation not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Priority updated successfully',
+      data: quotation
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error updating priority',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Create a task linked to quotation
+ * @route   POST /api/quotations/:id/task
+ * @access  Private
+ */
+exports.createLinkedTask = async (req, res) => {
+  try {
+    const quotation = await Quotation.findById(req.params.id);
+
+    if (!quotation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quotation not found'
+      });
+    }
+
+    const { title, description, priority, assignees, dueDate, estimatedTime, tags } = req.body;
+
+    if (!title) {
+      return res.status(400).json({
+        success: false,
+        message: 'Task title is required'
+      });
+    }
+
+    if (!dueDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Due date is required'
+      });
+    }
+
+    // Create the task
+    const task = await Task.create({
+      title: title.includes(quotation.refNo) ? title : `[${quotation.refNo}] ${title}`,
+      description: description || `Task linked to Quotation ${quotation.refNo} for ${quotation.clientName}`,
+      status: 'todo',
+      priority: priority || 'medium',
+      assignees: assignees || [],
+      dueDate,
+      estimatedTime: estimatedTime || '0h',
+      tags: tags || ['quotation'],
+      createdBy: req.user?._id
+    });
+
+    // Link task to quotation
+    quotation.linkedTasks.push(task._id);
+    quotation.updatedBy = req.user?._id;
+    await quotation.save();
+
+    // Populate task assignees for response
+    await task.populate('assignees', 'name email');
+
+    // Notify assignees
+    if (task.assignees && task.assignees.length > 0) {
+      await notifyMultipleUsers(
+        task.assignees.map(a => a._id || a),
+        {
+          type: 'success',
+          category: 'task',
+          title: 'New Task Assigned',
+          message: `You have been assigned to task: "${task.title}"`,
+          entityType: 'task',
+          entityId: task._id,
+          actionUrl: '/workspace/tasks',
+          createdBy: req.user?.name || 'System'
+        },
+        req.io
+      );
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Task created and linked successfully',
+      data: task
+    });
+
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error creating linked task',
+      error: error.message
+    });
+  }
+};

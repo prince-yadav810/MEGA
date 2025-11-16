@@ -4,6 +4,8 @@ const express = require('express');
 const router = express.Router();
 const clientController = require('../controllers/clientController');
 const paymentReminderController = require('../controllers/paymentReminderController');
+const { uploadBusinessCard } = require('../config/multer');
+const { ocrRateLimiter, addRateLimitHeaders } = require('../middleware/ocrRateLimiter');
 
 // Mock authentication middleware for development
 // TODO: Replace with actual auth middleware in production
@@ -23,6 +25,19 @@ router.route('/')
   .post(mockAuth, clientController.createClient);
 
 router.get('/stats', mockAuth, clientController.getClientStats);
+
+// Business card OCR route
+router.post(
+  '/extract-from-card',
+  mockAuth,
+  ocrRateLimiter,
+  addRateLimitHeaders,
+  uploadBusinessCard.fields([
+    { name: 'frontImage', maxCount: 1 },
+    { name: 'backImage', maxCount: 1 }
+  ]),
+  clientController.extractFromCard
+);
 
 router.route('/:id')
   .get(mockAuth, clientController.getClientById)

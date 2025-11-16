@@ -280,6 +280,28 @@ const clientService = {
       }
       throw new Error('Reminder not found');
     }
+  },
+
+  // Business Card OCR Operations
+
+  // Extract client data from business card images
+  extractFromCard: async (formData) => {
+    try {
+      console.log('Extracting data from business card images...');
+      const response = await api.post('/clients/extract-from-card', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        timeout: 30000 // 30 second timeout for OCR operations
+      });
+      console.log('✓ Business card data extracted successfully');
+      return response.data;
+    } catch (error) {
+      console.error('⚠️ Business card extraction failed:', error.message);
+
+      // Rethrow to allow proper error handling in component
+      throw error;
+    }
   }
 };
 
