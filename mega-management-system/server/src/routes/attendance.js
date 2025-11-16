@@ -6,6 +6,7 @@ const {
   checkOut,
   getTodayAttendance,
   getMyAttendance,
+  getMyAttendanceSummary,
   getUserAttendance,
   getUserAttendanceStats,
   getUserAttendanceSummary,
@@ -17,6 +18,7 @@ router.post('/check-in', protect, checkIn);
 router.put('/check-out', protect, checkOut);
 router.get('/today', protect, getTodayAttendance);
 router.get('/my-records', protect, getMyAttendance);
+router.get('/my-summary', protect, getMyAttendanceSummary);
 
 // Manager/Admin routes - restricted access
 router.get('/', protect, restrictTo('manager', 'admin'), getAllAttendance);

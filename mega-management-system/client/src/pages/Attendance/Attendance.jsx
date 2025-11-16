@@ -34,16 +34,12 @@ const Attendance = () => {
   useEffect(() => {
     fetchTodayAttendance();
     fetchAttendanceHistory();
-    if (user && user._id) {
-      fetchAttendanceSummary();
-    }
+    fetchAttendanceSummary();
   }, [user]);
 
   // Fetch summary when month/year changes
   useEffect(() => {
-    if (user && user._id) {
-      fetchAttendanceSummary();
-    }
+    fetchAttendanceSummary();
   }, [selectedMonth, selectedYear]);
 
   const fetchTodayAttendance = async () => {
@@ -66,8 +62,7 @@ const Attendance = () => {
 
   const fetchAttendanceSummary = async () => {
     try {
-      const response = await attendanceService.getUserAttendanceSummary(
-        user._id,
+      const response = await attendanceService.getMyAttendanceSummary(
         selectedMonth + 1, // moment months are 0-indexed
         selectedYear
       );

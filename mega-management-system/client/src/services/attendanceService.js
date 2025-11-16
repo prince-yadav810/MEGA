@@ -54,6 +54,20 @@ const attendanceService = {
     }
   },
 
+  getMyAttendanceSummary: async (month = null, year = null) => {
+    try {
+      const params = {};
+      if (month) params.month = month;
+      if (year) params.year = year;
+
+      const response = await api.get('/attendance/my-summary', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Get my attendance summary error:', error);
+      throw error.response?.data || error;
+    }
+  },
+
   // Manager/Admin APIs
   getUserAttendance: async (userId, startDate = null, endDate = null, limit = 30) => {
     try {
