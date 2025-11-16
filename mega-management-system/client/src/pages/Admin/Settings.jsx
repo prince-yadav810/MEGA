@@ -1,11 +1,26 @@
 import React, { useState } from 'react';
-import { User, Bell, Palette, Settings as SettingsIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Bell, Palette, Settings as SettingsIcon, LogOut } from 'lucide-react';
 import ProfileTab from '../../components/settings/ProfileTab';
 import NotificationsTab from '../../components/settings/NotificationsTab';
 import AppearanceTab from '../../components/settings/AppearanceTab';
+import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      toast.error('Logout failed');
+    }
+  };
 
   const tabs = [
     {
@@ -86,13 +101,22 @@ const Settings = () => {
           {renderTabContent()}
         </div>
 
-        {/* Account Section (kept simple per your version) */}
+        {/* Account Section with Logout */}
         <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Account</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Manage your account details and preferences.
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Account</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Sign out of your account
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center px-4 py-2 border border-red-300 rounded-lg text-red-600 bg-white hover:bg-red-50 transition-colors font-medium"
+            >
+              <LogOut className="h-5 w-5 mr-2" />
+              Logout
+            </button>
           </div>
         </div>
       </div>

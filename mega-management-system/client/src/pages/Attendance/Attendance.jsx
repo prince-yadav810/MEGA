@@ -343,20 +343,20 @@ const Attendance = () => {
         {summaryData && (
           <>
             {/* Month Navigation */}
-            <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => handleMonthChange('prev')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 border border-gray-200 transition-colors font-medium"
                 >
                   ← Previous
                 </button>
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900">
                   {moment().month(selectedMonth).year(selectedYear).format('MMMM YYYY')}
                 </h2>
                 <button
                   onClick={() => handleMonthChange('next')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 border border-gray-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={selectedMonth === moment().month() && selectedYear === moment().year()}
                 >
                   Next →
@@ -364,64 +364,52 @@ const Attendance = () => {
               </div>
             </div>
 
-            {/* Two Column Layout: Calendar Left, Stats/Salary Right */}
-            <div className="flex gap-6 mb-6">
-              {/* Left Column - Calendar */}
-              <div className="flex-1 space-y-6">
-                {console.log('Calendar check:', { hasCalendar: !!summaryData.calendar, hasPeriod: !!summaryData.period })}
+            {/* Two Column Layout: Calendar Left (smaller), Stats/Salary Right */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              {/* Left Column - Calendar (smaller) */}
+              <div className="lg:col-span-1">
                 {summaryData.calendar && summaryData.period && (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <Calendar className="w-5 h-5 mr-2 text-gray-900" />
-                      Attendance Calendar
-                    </h2>
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <AttendanceCalendarGrid
                       calendarData={summaryData.calendar}
                       period={summaryData.period}
                     />
                   </div>
                 )}
-
-                {/* Advance Payments */}
-                {summaryData.advances && (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2 text-gray-900" />
-                      Advance Payments
-                    </h2>
-                    <AdvancePaymentsList advancesData={summaryData.advances} />
-                  </div>
-                )}
               </div>
 
               {/* Right Column - Stats and Salary */}
-              <div className="w-96 space-y-6">
+              <div className="lg:col-span-2 space-y-4">
                 {/* Attendance Summary Stats */}
-                {console.log('Stats check:', { hasStats: !!summaryData.stats, hasPeriod: !!summaryData.period, stats: summaryData.stats })}
                 {summaryData.stats && summaryData.period && (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <CheckCircle className="w-5 h-5 mr-2 text-gray-900" />
-                      Summary
-                    </h2>
-                    <AttendanceSummary
-                      stats={summaryData.stats}
-                      period={summaryData.period}
-                    />
-                  </div>
+                  <AttendanceSummary
+                    stats={summaryData.stats}
+                    period={summaryData.period}
+                  />
                 )}
 
                 {/* Salary Calculator */}
                 {summaryData.salary && summaryData.advances && (
                   <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2 text-gray-900" />
-                      Salary
+                    <h2 className="text-lg font-semibold mb-4 flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+                      Salary Details
                     </h2>
                     <SalaryCalculator
                       salaryData={summaryData.salary}
                       advancesData={summaryData.advances}
                     />
+                  </div>
+                )}
+
+                {/* Advance Payments */}
+                {summaryData.advances && summaryData.advances.total > 0 && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-lg font-semibold mb-4 flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2 text-yellow-600" />
+                      Advance Payments
+                    </h2>
+                    <AdvancePaymentsList advancesData={summaryData.advances} />
                   </div>
                 )}
               </div>
