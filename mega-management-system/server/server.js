@@ -4,6 +4,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const connectDB = require('./src/config/database');
 const { errorHandler } = require('./src/middleware/errorHandler');
 const http = require('http');
@@ -45,6 +46,9 @@ app.use((req, res, next) => {
   req.io = io;
   next();
 });
+
+// Static file serving for uploads (PDFs, images, etc.)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ⭐ ROUTES - After middleware
 app.use('/api/notes', notesRoutes);
