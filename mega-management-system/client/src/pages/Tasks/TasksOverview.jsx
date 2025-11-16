@@ -41,9 +41,8 @@ const TasksOverview = ({ onViewChange }) => {
   });
   const [activeDropdown, setActiveDropdown] = useState(null); // { taskId, type: 'status' | 'priority', position: 'top' | 'bottom' }
   const [showCheckboxes, setShowCheckboxes] = useState(true);
-  const [editingProgress, setEditingProgress] = useState(null); // taskId of task being edited
-  const [progressValue, setProgressValue] = useState(''); // temporary progress value
   const [teamMembers, setTeamMembers] = useState([]);
+  const [expandedTaskText, setExpandedTaskText] = useState(null); // task object for text expansion modal
 
   useEffect(() => {
     fetchTasks();
@@ -59,15 +58,11 @@ const TasksOverview = ({ onViewChange }) => {
       if (!event.target.closest('.menu-dropdown-container')) {
         setOpenMenuTaskId(null);
       }
-      if (editingProgress && !event.target.closest('.progress-input-container')) {
-        setEditingProgress(null);
-        setProgressValue('');
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [editingProgress]);
+  }, []);
 
   const fetchTasks = async () => {
     try {
@@ -389,50 +384,6 @@ const TasksOverview = ({ onViewChange }) => {
     return spaceBelow < 200 && spaceAbove > spaceBelow ? 'top' : 'bottom';
   };
 
-  const handleProgressClick = (taskId, currentProgress) => {
-    setEditingProgress(taskId);
-    setProgressValue(currentProgress || '0');
-  };
-
-  const handleProgressChange = (e) => {
-    const value = e.target.value;
-    // Only allow numbers 0-100
-    if (value === '' || (/^\d+$/.test(value) && parseInt(value) >= 0 && parseInt(value) <= 100)) {
-      setProgressValue(value);
-    }
-  };
-
-  const handleProgressSave = async (taskId) => {
-    const progress = parseInt(progressValue);
-    if (isNaN(progress) || progress < 0 || progress > 100) {
-      toast.error('Please enter a value between 0 and 100');
-      return;
-    }
-
-    try {
-      const response = await taskService.updateTask(taskId, { progress });
-      if (response.success) {
-        setTasks(tasks.map(task =>
-          (task._id || task.id) === taskId ? { ...task, progress } : task
-        ));
-        setEditingProgress(null);
-        setProgressValue('');
-        toast.success('Progress updated successfully');
-      }
-    } catch (error) {
-      toast.error('Failed to update progress');
-    }
-  };
-
-  const handleProgressKeyDown = (e, taskId) => {
-    if (e.key === 'Enter') {
-      handleProgressSave(taskId);
-    } else if (e.key === 'Escape') {
-      setEditingProgress(null);
-      setProgressValue('');
-    }
-  };
-
   return (
     <div className="h-full bg-gray-50">
       {/* Header */}
@@ -718,19 +669,16 @@ const TasksOverview = ({ onViewChange }) => {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Progress
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedTasks.map((task) => {
+                {filteredAndSortedTasks.map((task, index) => {
                   const taskId = task._id || task.id;
                   return (
-                  <tr key={taskId} className="hover:bg-gray-50 group">
+                  <tr key={taskId} className={`hover:bg-gray-100 group ${index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
                     {showCheckboxes && (
                       <td className="px-6 py-4">
                         <input
@@ -743,8 +691,14 @@ const TasksOverview = ({ onViewChange }) => {
                     )}
                     <td className="px-6 py-4 w-1/5">
                       <div className="max-w-xs">
-                        <div className="text-sm font-medium text-gray-900 truncate">{task.title}</div>
-                        <div className="text-sm text-gray-500 truncate">{task.description}</div>
+                        <button
+                          onClick={() => setExpandedTaskText(task)}
+                          className="text-left w-full group/text"
+                          title="Click to view full text"
+                        >
+                          <div className="text-sm font-medium text-gray-900 truncate group-hover/text:text-primary-600 transition-colors">{task.title}</div>
+                          <div className="text-sm text-gray-500 truncate group-hover/text:text-gray-700 transition-colors">{task.description}</div>
+                        </button>
                         {task.client && (
                           <div className="text-xs text-primary-600 mt-1">{task.client}</div>
                         )}
@@ -873,109 +827,44 @@ const TasksOverview = ({ onViewChange }) => {
                         {formatDate(task.dueDate)}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-between mb-1">
-                        {editingProgress === taskId ? (
-                          <div className="flex items-center gap-2 progress-input-container">
-                            <input
-                              type="text"
-                              value={progressValue}
-                              onChange={handleProgressChange}
-                              onKeyDown={(e) => handleProgressKeyDown(e, taskId)}
-                              onBlur={() => handleProgressSave(taskId)}
-                              autoFocus
-                              placeholder="0-100"
-                              className="w-16 px-2 py-1 text-xs border-2 border-primary-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-center font-semibold bg-white shadow-sm"
-                            />
-                            <span className="text-xs font-semibold text-primary-600">%</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleProgressClick(taskId, task.progress || 0);
-                            }}
-                            className="text-xs text-gray-500 hover:text-primary-600 transition-colors cursor-pointer"
-                          >
-                            {task.progress || 0}%
-                          </button>
-                        )}
-                      </div>
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (editingProgress !== taskId) {
-                            handleProgressClick(taskId, task.progress || 0);
-                          }
-                        }}
-                        className="w-full bg-gray-200 rounded-full h-1.5 mt-1 cursor-pointer hover:h-2 transition-all duration-200"
-                      >
-                        <div
-                          className="bg-primary-500 h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.min(100, task.progress || 0)}%`
-                          }}
-                        ></div>
-                      </div>
-                    </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="relative menu-dropdown-container">
                         <button
-                          onClick={() => setEditingTask(task)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
-                          title="Edit"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuTaskId(openMenuTaskId === taskId ? null : taskId);
+                          }}
+                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Actions"
                         >
-                          <Edit className="h-4 w-4" />
+                          <MoreHorizontal className="h-5 w-5" />
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirmTask(task)}
-                          className="p-1 text-gray-400 hover:text-error-600"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                        <div className="relative menu-dropdown-container">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuTaskId(openMenuTaskId === taskId ? null : taskId);
-                            }}
-                            className="p-1 text-gray-400 hover:text-gray-600"
-                            title="More options"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                          {openMenuTaskId === taskId && (
-                            <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                              <div className="py-1" role="menu">
-                                <button
-                                  onClick={() => handleMarkCompleted(task)}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                  <span>Mark Completed</span>
-                                </button>
-                                <button
-                                  onClick={() => handleAssignTask(task)}
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                >
-                                  <User className="h-4 w-4" />
-                                  <span>Assign</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setDeleteConfirmTask(task);
-                                    setOpenMenuTaskId(null);
-                                  }}
-                                  className="w-full text-left px-4 py-2 text-sm text-error-600 hover:bg-error-50 flex items-center space-x-2"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
+                        {openMenuTaskId === taskId && (
+                          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                            <div className="py-1" role="menu">
+                              <button
+                                onClick={() => {
+                                  setEditingTask(task);
+                                  setOpenMenuTaskId(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                              >
+                                <Edit className="h-4 w-4" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDeleteConfirmTask(task);
+                                  setOpenMenuTaskId(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-error-600 hover:bg-error-50 flex items-center space-x-2"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span>Delete</span>
+                              </button>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1146,6 +1035,75 @@ const TasksOverview = ({ onViewChange }) => {
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task Text Expansion Modal */}
+      {expandedTaskText && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setExpandedTaskText(null)}
+            ></div>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              <div className="bg-white px-6 pt-6 pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-semibold text-gray-900">
+                    Task Details
+                  </h3>
+                  <button
+                    onClick={() => setExpandedTaskText(null)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Title
+                    </label>
+                    <p className="text-base text-gray-900 bg-gray-50 p-3 rounded-lg">
+                      {expandedTaskText.title}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <p className="text-base text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">
+                      {expandedTaskText.description || 'No description provided'}
+                    </p>
+                  </div>
+
+                  {expandedTaskText.client && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Client
+                      </label>
+                      <p className="text-sm text-primary-600 bg-primary-50 p-3 rounded-lg">
+                        {expandedTaskText.client}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-50 px-6 py-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setExpandedTaskText(null)}
+                  className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+                >
+                  Close
                 </button>
               </div>
             </div>

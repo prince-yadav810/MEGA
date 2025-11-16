@@ -28,6 +28,10 @@ const QuotationsList = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
 
   // Fetch quotations on component mount
   useEffect(() => {
@@ -77,9 +81,35 @@ const QuotationsList = () => {
   const counts = getCounts();
 
   /**
-   * Filter quotations based on search query
+   * Get unique client names for filter dropdown
+   */
+  const getUniqueClients = () => {
+    const clients = quotations.map((q) => q.clientName).filter(Boolean);
+    return [...new Set(clients)].sort();
+  };
+
+  const uniqueClients = getUniqueClients();
+
+  /**
+   * Filter quotations based on search query and filters
    */
   const filteredQuotations = quotations.filter((quotation) => {
+    // Apply status filter
+    if (statusFilter !== 'all' && quotation.status !== statusFilter) {
+      return false;
+    }
+
+    // Apply priority filter
+    if (priorityFilter !== 'all' && quotation.priority !== priorityFilter) {
+      return false;
+    }
+
+    // Apply client filter
+    if (clientFilter !== 'all' && quotation.clientName !== clientFilter) {
+      return false;
+    }
+
+    // Apply search query
     if (!searchQuery) return true;
 
     const query = searchQuery.toLowerCase();
@@ -100,19 +130,8 @@ const QuotationsList = () => {
       case 'date':
         comparison = new Date(a.date) - new Date(b.date);
         break;
-      case 'clientName':
-        comparison = (a.clientName || '').localeCompare(b.clientName || '');
-        break;
       case 'grandTotal':
         comparison = (a.grandTotal || 0) - (b.grandTotal || 0);
-        break;
-      case 'status':
-        const statusOrder = { on_hold: 1, approved: 2, rejected: 3 };
-        comparison = (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
-        break;
-      case 'priority':
-        const priorityOrder = { extreme: 1, high: 2, low: 3 };
-        comparison = (priorityOrder[a.priority] || 0) - (priorityOrder[b.priority] || 0);
         break;
       default:
         comparison = 0;
@@ -122,22 +141,19 @@ const QuotationsList = () => {
   });
 
   /**
-   * Get current sort description with count
+   * Clear all filters
    */
-  const getSortDescription = () => {
-    switch (sortBy) {
-      case 'status':
-        return `Status (${counts.on_hold} On Hold, ${counts.approved} Approved, ${counts.rejected} Rejected)`;
-      case 'priority':
-        return `Priority (${counts.extreme} Extreme, ${counts.high} High, ${counts.low} Low)`;
-      case 'clientName':
-        return 'Client Name';
-      case 'grandTotal':
-        return 'Amount';
-      default:
-        return 'Date';
-    }
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setPriorityFilter('all');
+    setClientFilter('all');
+    setSearchQuery('');
   };
+
+  /**
+   * Check if any filters are active
+   */
+  const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || clientFilter !== 'all' || searchQuery;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -175,7 +191,7 @@ const QuotationsList = () => {
               <span className="text-gray-500 font-normal">({quotations.length})</span>
             </h2>
 
-            {/* Sorting Controls */}
+            {/* Sort Controls */}
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
                 <ArrowUpDown className="h-4 w-4 text-gray-500" />
@@ -185,9 +201,6 @@ const QuotationsList = () => {
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
                 >
                   <option value="date">Date</option>
-                  <option value="status">Status</option>
-                  <option value="priority">Priority</option>
-                  <option value="clientName">Client</option>
                   <option value="grandTotal">Amount</option>
                 </select>
               </div>
@@ -201,12 +214,81 @@ const QuotationsList = () => {
             </div>
           </div>
 
-          {/* Sort Info */}
-          <div className="text-xs text-gray-500 mb-4">
-            Sorted by: {getSortDescription()}
+          {/* Filter Dropdowns */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            {/* Status Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+              >
+                <option value="all">All Status ({quotations.length})</option>
+                <option value="on_hold">On Hold ({counts.on_hold})</option>
+                <option value="approved">Approved ({counts.approved})</option>
+                <option value="rejected">Rejected ({counts.rejected})</option>
+              </select>
+            </div>
+
+            {/* Priority Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Priority
+              </label>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+              >
+                <option value="all">All Priority ({quotations.length})</option>
+                <option value="extreme">Extreme ({counts.extreme})</option>
+                <option value="high">High ({counts.high})</option>
+                <option value="low">Low ({counts.low})</option>
+              </select>
+            </div>
+
+            {/* Client Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Client
+              </label>
+              <select
+                value={clientFilter}
+                onChange={(e) => setClientFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+              >
+                <option value="all">All Clients ({uniqueClients.length})</option>
+                {uniqueClients.map((client) => (
+                  <option key={client} value={client}>
+                    {client}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Status/Priority Quick Filters */}
+          {/* Active Filters Info */}
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-sm text-blue-700">
+                Showing {sortedQuotations.length} of {quotations.length} quotations
+                {statusFilter !== 'all' && ` • Status: ${statusFilter.replace('_', ' ')}`}
+                {priorityFilter !== 'all' && ` • Priority: ${priorityFilter}`}
+                {clientFilter !== 'all' && ` • Client: ${clientFilter}`}
+              </div>
+              <button
+                onClick={clearFilters}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
+
+          {/* Status/Priority Quick Stats */}
           <div className="flex flex-wrap gap-2 mb-4">
             <div className="flex items-center space-x-1 px-2 py-1 bg-yellow-50 border border-yellow-200 rounded-full text-xs">
               <Clock className="h-3 w-3 text-yellow-600" />

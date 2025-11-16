@@ -1,7 +1,7 @@
 // File path: client/src/components/common/Sidebar.jsx
 
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileText,
@@ -13,28 +13,15 @@ import {
   Menu,
   ChevronLeft,
   Inbox,
-  LogOut,
   ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import toast from 'react-hot-toast';
 
 const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { unreadCount } = useNotifications();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Logged out successfully');
-      navigate('/login');
-    } catch (error) {
-      toast.error('Logout failed');
-    }
-  };
 
   const navigationItems = [
     {
@@ -229,30 +216,6 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
             </div>
           </div>
         )}
-
-        {/* Logout Button */}
-        <button
-          onClick={handleLogout}
-          className={`
-            w-full flex items-center p-3 rounded-lg transition-all duration-200 group
-            text-red-600 hover:bg-red-50
-            ${collapsed ? 'justify-center' : 'justify-start'}
-          `}
-        >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
-          {!collapsed && (
-            <span className="ml-3 text-sm font-medium">Logout</span>
-          )}
-
-          {/* Tooltip for collapsed state */}
-          {collapsed && (
-            <div className="absolute left-16 bg-gray-900 text-white text-xs rounded-md py-1 px-2
-                           opacity-0 invisible group-hover:opacity-100 group-hover:visible
-                           transition-all duration-200 whitespace-nowrap z-50">
-              Logout
-            </div>
-          )}
-        </button>
 
         {/* Version Info */}
         {!collapsed && (
