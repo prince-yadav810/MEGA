@@ -1,18 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, Calendar, Clock, DollarSign, LayoutGrid, Save } from 'lucide-react';
+import { Monitor, Calendar, Clock, DollarSign, LayoutGrid, Save, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import userService from '../../services/userService';
 
 const AppearanceTab = () => {
   const [settings, setSettings] = useState({
-    dateFormat: localStorage.getItem('dateFormat') || 'DD/MM/YYYY',
-    timeFormat: localStorage.getItem('timeFormat') || '12',
-    currency: localStorage.getItem('currency') || 'INR',
-    rowsPerPage: localStorage.getItem('rowsPerPage') || '25',
-    compactMode: localStorage.getItem('compactMode') === 'true',
-    defaultPage: localStorage.getItem('defaultPage') || 'workspace'
+    dateFormat: 'DD/MM/YYYY',
+    timeFormat: '12-hour',
+    currency: 'INR',
+    rowsPerPage: 25,
+    compactMode: false,
+    defaultPage: 'workspace'
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load preferences from backend on mount
+  useEffect(() => {
+    loadPreferences();
+  }, []);
+
+  const loadPreferences = async () => {
+    try {
+      setIsLoading(true);
+      const response = await userService.getPreferences();
+      
+      if (response.success && response.data) {
+        const prefs = response.data;
+        
+        // Map backend structure to component state
+        if (prefs.appearance) {
+          setSettings({
+            dateFormat: prefs.appearance.dateFormat || 'DD/MM/YYYY',
+            timeFormat: prefs.appearance.timeFormat || '12-hour',
+            currency: prefs.appearance.currency || 'INR',
+            rowsPerPage: prefs.appearance.rowsPerPage || 25,
+            compactMode: prefs.appearance.compactMode || false,
+            defaultPage: prefs.appearance.defaultPage || 'workspace'
+          });
+          
+          // Also sync to localStorage for immediate use
+          localStorage.setItem('dateFormat', prefs.appearance.dateFormat || 'DD/MM/YYYY');
+          localStorage.setItem('timeFormat', prefs.appearance.timeFormat || '12-hour');
+          localStorage.setItem('currency', prefs.appearance.currency || 'INR');
+          localStorage.setItem('rowsPerPage', String(prefs.appearance.rowsPerPage || 25));
+          localStorage.setItem('compactMode', String(prefs.appearance.compactMode || false));
+          localStorage.setItem('defaultPage', prefs.appearance.defaultPage || 'workspace');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load appearance preferences:', error);
+      // Don't show error toast on initial load, just use defaults
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleChange = (field, value) => {
     setSettings(prev => ({ ...prev, [field]: value }));
@@ -21,19 +64,52 @@ const AppearanceTab = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Save to localStorage
-      Object.keys(settings).forEach(key => {
-        localStorage.setItem(key, settings[key]);
-      });
+      // Prepare data for backend
+      const preferencesData = {
+        appearance: {
+          dateFormat: settings.dateFormat,
+          timeFormat: settings.timeFormat,
+          currency: settings.currency,
+          rowsPerPage: Number(settings.rowsPerPage),
+          compactMode: settings.compactMode,
+          defaultPage: settings.defaultPage
+        }
+      };
 
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success('Appearance settings saved successfully!');
+      // Save to backend
+      const response = await userService.updatePreferences(preferencesData);
+      
+      if (response.success) {
+        // Also save to localStorage for immediate use
+        localStorage.setItem('dateFormat', settings.dateFormat);
+        localStorage.setItem('timeFormat', settings.timeFormat);
+        localStorage.setItem('currency', settings.currency);
+        localStorage.setItem('rowsPerPage', String(settings.rowsPerPage));
+        localStorage.setItem('compactMode', String(settings.compactMode));
+        localStorage.setItem('defaultPage', settings.defaultPage);
+        
+        toast.success('Appearance settings saved successfully!');
+      } else {
+        toast.error(response.message || 'Failed to save settings');
+      }
     } catch (error) {
-      toast.error('Failed to save settings');
+      console.error('Error saving appearance preferences:', error);
+      toast.error(error.response?.data?.message || 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-600">Loading appearance preferences...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -74,8 +150,8 @@ const AppearanceTab = () => {
           onChange={(e) => handleChange('timeFormat', e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
-          <option value="12">12-hour (3:30 PM)</option>
-          <option value="24">24-hour (15:30)</option>
+          <option value="12-hour">12-hour (3:30 PM)</option>
+          <option value="24-hour">24-hour (15:30)</option>
         </select>
       </div>
 

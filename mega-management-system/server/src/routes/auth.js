@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login, getCurrentUser, logout } = require('../controllers/authController');
+const { login, getCurrentUser, logout, updateProfile, changePassword, uploadAvatar } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
 /**
@@ -23,5 +23,26 @@ router.get('/me', protect, getCurrentUser);
  * @access  Protected
  */
 router.post('/logout', protect, logout);
+
+/**
+ * @route   PUT /api/auth/profile
+ * @desc    Update user profile (name only)
+ * @access  Protected
+ */
+router.put('/profile', protect, updateProfile);
+
+/**
+ * @route   POST /api/auth/change-password
+ * @desc    Change user password
+ * @access  Protected
+ */
+router.post('/change-password', protect, changePassword);
+
+/**
+ * @route   POST /api/auth/upload-avatar
+ * @desc    Upload user avatar
+ * @access  Protected
+ */
+router.post('/upload-avatar', protect, uploadAvatar);
 
 module.exports = router;

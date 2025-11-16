@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { User, Mail, Calendar, Shield, Lock, Save, Eye, EyeOff, Check, AlertCircle, Monitor, LayoutGrid, Palette } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, Mail, Calendar, Shield, Lock, Save, Eye, EyeOff, Check, AlertCircle, Camera, Upload } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../services/authService';
 import toast from 'react-hot-toast';
 
 const ProfileTab = () => {
@@ -11,6 +12,9 @@ const ProfileTab = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatar || null);
+  const fileInputRef = useRef(null);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -23,12 +27,6 @@ const ProfileTab = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
-  });
-
-  // Appearance settings state
-  const [appearanceSettings, setAppearanceSettings] = useState({
-    defaultPage: localStorage.getItem('defaultPage') || 'workspace',
-    rowsPerPage: localStorage.getItem('rowsPerPage') || '25'
   });
 
   // Password validation
@@ -66,35 +64,21 @@ const ProfileTab = () => {
     }
   };
 
-  const handleAppearanceChange = (field, value) => {
-    setAppearanceSettings(prev => ({ ...prev, [field]: value }));
-  };
-
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
-      // TODO: API call to update profile
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      toast.success('Profile updated successfully!');
-      setIsEditingProfile(false);
+      const response = await authService.updateProfile(profileForm.name);
+      if (response.success) {
+        toast.success(response.message || 'Profile updated successfully!');
+        setIsEditingProfile(false);
+        // Optionally refresh user data in context
+        window.location.reload(); // Simple way to refresh user data
+      } else {
+        toast.error(response.message || 'Failed to update profile');
+      }
     } catch (error) {
-      toast.error('Failed to update profile');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveAppearance = async () => {
-    setIsSaving(true);
-    try {
-      // Save to localStorage
-      localStorage.setItem('defaultPage', appearanceSettings.defaultPage);
-      localStorage.setItem('rowsPerPage', appearanceSettings.rowsPerPage);
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success('Appearance settings saved successfully!');
-    } catch (error) {
-      toast.error('Failed to save settings');
+      const errorMessage = error.response?.data?.message || 'Failed to update profile';
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -117,19 +101,78 @@ const ProfileTab = () => {
 
     setIsSaving(true);
     try {
-      // TODO: API call to change password
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      toast.success('Password changed successfully!');
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-      setIsChangingPassword(false);
+      const response = await authService.changePassword(
+        passwordForm.currentPassword,
+        passwordForm.newPassword
+      );
+      if (response.success) {
+        toast.success(response.message || 'Password changed successfully!');
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        setIsChangingPassword(false);
+      } else {
+        toast.error(response.message || 'Failed to change password');
+      }
     } catch (error) {
-      toast.error('Failed to change password');
+      const errorMessage = error.response?.data?.message || 'Failed to change password';
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast.error('File size too large. Maximum size is 5MB');
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to server
+    setIsUploadingAvatar(true);
+    try {
+      const response = await authService.uploadAvatar(file);
+      if (response.success) {
+        toast.success(response.message || 'Avatar uploaded successfully!');
+        // Optionally refresh user data
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        toast.error(response.message || 'Failed to upload avatar');
+        setAvatarPreview(user?.avatar || null);
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to upload avatar';
+      toast.error(errorMessage);
+      setAvatarPreview(user?.avatar || null);
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -144,10 +187,40 @@ const ProfileTab = () => {
         <div className="space-y-4">
           {/* Avatar Section */}
           <div className="flex items-center space-x-4 pb-4 border-b border-gray-200">
-            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+            <div className="relative group">
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt="User avatar"
+                  className="h-20 w-20 rounded-full object-cover border-2 border-blue-500"
+                />
+              ) : (
+                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+              )}
+              {isUploadingAvatar && (
+                <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                </div>
+              )}
+              <button
+                onClick={handleAvatarClick}
+                disabled={isUploadingAvatar}
+                className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors shadow-lg disabled:bg-blue-400"
+                title="Upload avatar"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
             </div>
-            <div>
+            <div className="flex-1">
               <h3 className="font-semibold text-gray-900">{user?.name}</h3>
               <p className="text-sm text-gray-600">{user?.email}</p>
               <div className="flex items-center mt-1">
@@ -156,6 +229,14 @@ const ProfileTab = () => {
                   {user?.role || 'User'}
                 </span>
               </div>
+              <button
+                onClick={handleAvatarClick}
+                disabled={isUploadingAvatar}
+                className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center disabled:text-blue-400"
+              >
+                <Upload className="h-3 w-3 mr-1" />
+                {isUploadingAvatar ? 'Uploading...' : 'Change avatar'}
+              </button>
             </div>
           </div>
 
@@ -244,72 +325,6 @@ const ProfileTab = () => {
                 </button>
               </>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Appearance Settings Section */}
-      <div className="pt-6 border-t border-gray-200">
-        <div className="flex items-center mb-4">
-          <Palette className="h-6 w-6 text-blue-600 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-900">
-            Appearance Preferences
-          </h2>
-        </div>
-
-        <div className="space-y-4">
-          {/* Default Landing Page */}
-          <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              <Monitor className="h-4 w-4 mr-2" />
-              Default Landing Page
-            </label>
-            <select
-              value={appearanceSettings.defaultPage}
-              onChange={(e) => handleAppearanceChange('defaultPage', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="workspace">Workspace</option>
-              <option value="quotations">Quotations</option>
-              <option value="products">Products</option>
-              <option value="analytics">Analytics</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Choose which page to show when you first login
-            </p>
-          </div>
-
-          {/* Rows Per Page */}
-          <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Rows Per Page (Tables)
-            </label>
-            <select
-              value={appearanceSettings.rowsPerPage}
-              onChange={(e) => handleAppearanceChange('rowsPerPage', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="10">10 rows</option>
-              <option value="25">25 rows</option>
-              <option value="50">50 rows</option>
-              <option value="100">100 rows</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Number of rows to display per page in data tables
-            </p>
-          </div>
-
-          {/* Save Button */}
-          <div className="pt-2">
-            <button
-              onClick={handleSaveAppearance}
-              disabled={isSaving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 flex items-center"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? 'Saving...' : 'Save Preferences'}
-            </button>
           </div>
         </div>
       </div>

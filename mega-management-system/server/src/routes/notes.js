@@ -13,4 +13,8 @@ router.put('/:id', protect, noteController.updateNote);
 router.patch('/:id/toggle-pin', protect, noteController.togglePin);
 router.delete('/:id', protect, noteController.deleteNote);
 
+// Attachment routes
+router.delete('/:noteId/attachments/:attachmentId', protect, noteController.deleteAttachment);
+router.patch('/:noteId/attachments/:attachmentId/rename', protect, noteController.renameAttachment);
+
 module.exports = router;

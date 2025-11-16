@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Bell, Mail, Volume2, Clock, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Mail, Volume2, Clock, Save, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import userService from '../../services/userService';
 
 const NotificationsTab = () => {
   const [settings, setSettings] = useState({
@@ -24,6 +25,51 @@ const NotificationsTab = () => {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load preferences from backend on mount
+  useEffect(() => {
+    loadPreferences();
+  }, []);
+
+  const loadPreferences = async () => {
+    try {
+      setIsLoading(true);
+      const response = await userService.getPreferences();
+      
+      if (response.success && response.data) {
+        const prefs = response.data;
+        
+        // Map backend structure to component state
+        if (prefs.notifications) {
+          setSettings({
+            emailNotifications: {
+              taskAssignments: prefs.notifications.email?.taskAssignments ?? true,
+              taskDueDate: prefs.notifications.email?.taskDueDate ?? true,
+              quotationUpdates: prefs.notifications.email?.quotationUpdates ?? true,
+              productStockAlerts: prefs.notifications.email?.productStockAlerts ?? false,
+              systemAnnouncements: prefs.notifications.email?.systemAnnouncements ?? true
+            },
+            inAppNotifications: {
+              desktopNotifications: prefs.notifications.inApp?.desktopNotifications ?? true,
+              soundAlerts: prefs.notifications.inApp?.soundAlerts ?? false
+            },
+            preferences: {
+              quietHoursEnabled: prefs.notifications.schedule?.quietHoursEnabled ?? false,
+              quietHoursStart: prefs.notifications.schedule?.quietHoursStart ?? '22:00',
+              quietHoursEnd: prefs.notifications.schedule?.quietHoursEnd ?? '08:00',
+              weekendNotifications: prefs.notifications.schedule?.weekendNotifications ?? false
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load notification preferences:', error);
+      // Don't show error toast on initial load, just use defaults
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleEmailToggle = (key) => {
     setSettings(prev => ({
@@ -68,11 +114,39 @@ const NotificationsTab = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // TODO: API call to save settings
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success('Notification settings saved successfully!');
+      // Map component state to backend structure
+      const preferencesData = {
+        notifications: {
+          email: {
+            taskAssignments: settings.emailNotifications.taskAssignments,
+            taskDueDate: settings.emailNotifications.taskDueDate,
+            quotationUpdates: settings.emailNotifications.quotationUpdates,
+            productStockAlerts: settings.emailNotifications.productStockAlerts,
+            systemAnnouncements: settings.emailNotifications.systemAnnouncements
+          },
+          inApp: {
+            desktopNotifications: settings.inAppNotifications.desktopNotifications,
+            soundAlerts: settings.inAppNotifications.soundAlerts
+          },
+          schedule: {
+            quietHoursEnabled: settings.preferences.quietHoursEnabled,
+            quietHoursStart: settings.preferences.quietHoursStart,
+            quietHoursEnd: settings.preferences.quietHoursEnd,
+            weekendNotifications: settings.preferences.weekendNotifications
+          }
+        }
+      };
+
+      const response = await userService.updatePreferences(preferencesData);
+      
+      if (response.success) {
+        toast.success('Notification settings saved successfully!');
+      } else {
+        toast.error(response.message || 'Failed to save settings');
+      }
     } catch (error) {
-      toast.error('Failed to save settings');
+      console.error('Error saving notification preferences:', error);
+      toast.error(error.response?.data?.message || 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -93,6 +167,17 @@ const NotificationsTab = () => {
       />
     </button>
   );
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-600">Loading notification preferences...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">

@@ -132,6 +132,28 @@ const userService = {
       console.error('Error fetching user tasks:', error);
       return { success: true, data: [] }; // Return empty array if tasks not available
     }
+  },
+
+  // Get user preferences
+  getPreferences: async () => {
+    try {
+      const response = await api.get('/users/preferences');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching preferences:', error);
+      throw error;
+    }
+  },
+
+  // Update user preferences
+  updatePreferences: async (preferences) => {
+    try {
+      const response = await api.put('/users/preferences', preferences);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      throw error;
+    }
   }
 };
 

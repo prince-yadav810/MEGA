@@ -4,7 +4,12 @@ const { protect, restrictTo } = require('../middleware/auth');
 const userController = require('../controllers/userController');
 
 // All user routes require authentication
-// Only managers/admins can access these routes
+
+// User preferences routes (accessible to all authenticated users)
+router.get('/preferences', protect, userController.getUserPreferences);
+router.put('/preferences', protect, userController.updateUserPreferences);
+
+// Admin routes - Only managers/admins can access these routes
 
 // Get all users (team members)
 router.get('/', protect, restrictTo('manager', 'admin'), userController.getAllUsers);

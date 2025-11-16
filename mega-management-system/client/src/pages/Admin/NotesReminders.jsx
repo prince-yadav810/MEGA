@@ -2,7 +2,7 @@
 // REPLACE entire file with this
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Pin, Edit2, Trash2, X, Calendar, Clock, Repeat, Bell, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pin, Edit2, Trash2, X, Calendar, Clock, Repeat, Bell, Copy, Check, ChevronDown, ChevronUp, Upload, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Paperclip } from 'lucide-react';
 import noteService from '../../services/noteService';
 import reminderService from '../../services/reminderService';
 import { useNotifications } from '../../context/NotificationContext';
@@ -22,6 +22,15 @@ const NotesReminders = () => {
 
   // Note form state
   const [noteForm, setNoteForm] = useState({ heading: '', content: '' });
+  
+  // File management state (separate section)
+  const [files, setFiles] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState([]);
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false);
+  const [currentFile, setCurrentFile] = useState(null);
+  const [fileNote, setFileNote] = useState('');
+  const [renamingFile, setRenamingFile] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // Reminder form state
   const [reminderForm, setReminderForm] = useState({
@@ -46,11 +55,14 @@ const NotesReminders = () => {
 
   const colors = ['#FFE5E5', '#FFF4E5', '#E5F5FF', '#F0E5FF', '#E5FFE5', '#FFE5F5'];
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const allowedFileTypes = ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
 
   useEffect(() => {
     fetchData();
+    fetchFiles();
     const interval = setInterval(checkDueReminders, 60000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
@@ -67,6 +79,56 @@ const NotesReminders = () => {
       toast.error('Error loading data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFiles = async () => {
+    try {
+      // Fetch all notes and reminders with attachments to display in Files section
+      const [notesRes, remindersRes] = await Promise.all([
+        noteService.getAllNotes(),
+        reminderService.getAllReminders()
+      ]);
+      
+      const allFiles = [];
+      
+      // Extract files from notes
+      if (notesRes.success && notesRes.data) {
+        notesRes.data.forEach(note => {
+          if (note.attachments && note.attachments.length > 0) {
+            note.attachments.forEach(att => {
+              allFiles.push({
+                ...att,
+                sourceType: 'note',
+                sourceId: note._id,
+                sourceName: note.heading,
+                noteContent: note.content
+              });
+            });
+          }
+        });
+      }
+      
+      // Extract files from reminders
+      if (remindersRes.success && remindersRes.data) {
+        remindersRes.data.forEach(reminder => {
+          if (reminder.attachments && reminder.attachments.length > 0) {
+            reminder.attachments.forEach(att => {
+              allFiles.push({
+                ...att,
+                sourceType: 'reminder',
+                sourceId: reminder._id,
+                sourceName: reminder.title,
+                noteContent: ''
+              });
+            });
+          }
+        });
+      }
+      
+      setFiles(allFiles);
+    } catch (error) {
+      console.error('Error fetching files:', error);
     }
   };
 
@@ -88,6 +150,147 @@ const NotesReminders = () => {
     }
   };
 
+  // File helper functions
+  const getFileIcon = (fileType) => {
+    const type = fileType.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type)) {
+      return <ImageIcon className="h-5 w-5" />;
+    } else if (['pdf', 'doc', 'docx', 'txt'].includes(type)) {
+      return <FileText className="h-5 w-5" />;
+    } else if (['xls', 'xlsx'].includes(type)) {
+      return <FileSpreadsheet className="h-5 w-5" />;
+    }
+    return <File className="h-5 w-5" />;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  // File management functions
+  const handleFileUpload = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    
+    // Validate file types
+    const invalidFiles = selectedFiles.filter(file => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      return !allowedFileTypes.includes(ext);
+    });
+    
+    if (invalidFiles.length > 0) {
+      toast.error(`Invalid file type. Allowed: ${allowedFileTypes.join(', ')}`);
+      return;
+    }
+    
+    // Add to uploading queue
+    setUploadingFiles([...uploadingFiles, ...selectedFiles]);
+    toast.success(`${selectedFiles.length} file(s) selected. Click on each to add details and save.`);
+  };
+
+  const openFileModal = (file) => {
+    setCurrentFile(file);
+    setFileNote('');
+    setShowFileUploadModal(true);
+  };
+
+  const handleSaveFile = async () => {
+    if (!currentFile) return;
+    
+    try {
+      // Create a note with this file as attachment
+      const noteData = {
+        heading: currentFile.name,
+        content: fileNote || 'File attachment'
+      };
+      
+      const response = await noteService.createNote(noteData, [currentFile]);
+      
+      if (response.success) {
+        // Remove from uploading queue
+        setUploadingFiles(uploadingFiles.filter(f => f !== currentFile));
+        setShowFileUploadModal(false);
+        setCurrentFile(null);
+        setFileNote('');
+        
+        // Refresh files
+        await fetchFiles();
+        await fetchData();
+        
+        toast.success('File uploaded successfully');
+      }
+    } catch (error) {
+      toast.error('Error uploading file');
+    }
+  };
+
+  const handleDeleteFile = async (file) => {
+    if (!window.confirm('Are you sure you want to delete this file?')) return;
+
+    try {
+      let response;
+      if (file.sourceType === 'note') {
+        response = await noteService.deleteAttachment(file.sourceId, file._id);
+      } else {
+        response = await reminderService.deleteAttachment(file.sourceId, file._id);
+      }
+      
+      if (response.success) {
+        toast.success('File deleted successfully');
+        await fetchFiles();
+        await fetchData();
+      }
+    } catch (error) {
+      toast.error('Error deleting file');
+    }
+  };
+
+  const startRenameFile = (file) => {
+    setRenamingFile(file);
+    setRenameValue(file.filename);
+  };
+
+  const cancelRename = () => {
+    setRenamingFile(null);
+    setRenameValue('');
+  };
+
+  const handleRenameFile = async () => {
+    if (!renameValue.trim() || !renamingFile) {
+      toast.error('Filename cannot be empty');
+      return;
+    }
+
+    try {
+      let response;
+      if (renamingFile.sourceType === 'note') {
+        response = await noteService.renameAttachment(renamingFile.sourceId, renamingFile._id, renameValue);
+      } else {
+        response = await reminderService.renameAttachment(renamingFile.sourceId, renamingFile._id, renameValue);
+      }
+      
+      if (response.success) {
+        toast.success('File renamed successfully');
+        cancelRename();
+        await fetchFiles();
+        await fetchData();
+      }
+    } catch (error) {
+      toast.error('Error renaming file');
+    }
+  };
+
+  const downloadFile = (url) => {
+    window.open(url, '_blank');
+  };
+
+  const removeUploadingFile = (file) => {
+    setUploadingFiles(uploadingFiles.filter(f => f !== file));
+  };
+
   // Note handlers
   const handleCreateNote = async () => {
     if (!noteForm.heading.trim() || !noteForm.content.trim()) {
@@ -96,7 +299,7 @@ const NotesReminders = () => {
     }
 
     try {
-      const response = await noteService.createNote(noteForm);
+      const response = await noteService.createNote(noteForm, null);
       if (response.success) {
         setNotes([response.data, ...notes]);
         setNoteForm({ heading: '', content: '' });
@@ -115,7 +318,7 @@ const NotesReminders = () => {
     }
 
     try {
-      const response = await noteService.updateNote(editingNote._id, noteForm);
+      const response = await noteService.updateNote(editingNote._id, noteForm, null);
       if (response.success) {
         setNotes(notes.map(n => n._id === editingNote._id ? response.data : n));
         setNoteForm({ heading: '', content: '' });
@@ -195,7 +398,7 @@ const NotesReminders = () => {
         dataToSend.reminderDate = reminderForm.startDate;
       }
 
-      const response = await reminderService.createReminder(dataToSend);
+      const response = await reminderService.createReminder(dataToSend, null);
       if (response.success) {
         setReminders([response.data, ...reminders]);
         resetReminderForm();
@@ -219,7 +422,7 @@ const NotesReminders = () => {
         dataToSend.reminderDate = reminderForm.startDate;
       }
 
-      const response = await reminderService.updateReminder(editingReminder._id, dataToSend);
+      const response = await reminderService.updateReminder(editingReminder._id, dataToSend, null);
       if (response.success) {
         setReminders(reminders.map(r => r._id === editingReminder._id ? response.data : r));
         resetReminderForm();
@@ -960,6 +1163,255 @@ const NotesReminders = () => {
           </div>
         </div>
       )}
+
+      {/* File Upload Modal */}
+      {showFileUploadModal && currentFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Upload File</h3>
+              <button
+                onClick={() => {
+                  setShowFileUploadModal(false);
+                  setCurrentFile(null);
+                  setFileNote('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div className="text-primary-600">
+                  {getFileIcon(currentFile.name.split('.').pop())}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{currentFile.name}</p>
+                  <p className="text-xs text-gray-500">{formatFileSize(currentFile.size)}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Add a Note (Optional)
+                </label>
+                <textarea
+                  value={fileNote}
+                  onChange={(e) => setFileNote(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                  placeholder="Add a description or note about this file..."
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowFileUploadModal(false);
+                  setCurrentFile(null);
+                  setFileNote('');
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveFile}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Files Section */}
+      <div className="p-4 lg:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Files & Documents</h2>
+            <p className="text-sm text-gray-600 mt-1">Upload and manage your important files and credentials</p>
+          </div>
+          <div>
+            <input
+              type="file"
+              id="file-upload"
+              multiple
+              accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <label
+              htmlFor="file-upload"
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors cursor-pointer"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Upload Files</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Uploading Queue */}
+        {uploadingFiles.length > 0 && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-blue-900 mb-3">
+              Files Ready to Upload ({uploadingFiles.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {uploadingFiles.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-white border border-blue-200 rounded-lg hover:shadow-sm transition-shadow"
+                >
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    <div className="text-primary-600 flex-shrink-0">
+                      {getFileIcon(file.name.split('.').pop())}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                      <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-1 ml-2">
+                    <button
+                      onClick={() => openFileModal(file)}
+                      className="p-1.5 text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                      title="Add details and upload"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => removeUploadingFile(file)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Remove"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Uploaded Files */}
+        {files.length === 0 && uploadingFiles.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <Upload className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No files uploaded yet</h3>
+            <p className="text-gray-600 mb-4">
+              Start by uploading your important documents and files
+            </p>
+            <label
+              htmlFor="file-upload"
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors cursor-pointer"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Upload Your First File</span>
+            </label>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {files.map((file) => (
+              <div
+                key={file._id}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow group"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div className="text-primary-600 flex-shrink-0">
+                      {getFileIcon(file.fileType)}
+                    </div>
+                    {renamingFile && renamingFile._id === file._id ? (
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleRenameFile();
+                          }
+                        }}
+                        className="flex-1 px-2 py-1 text-sm border border-primary-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{file.filename}</p>
+                        <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {file.noteContent && (
+                  <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-700">
+                    <p className="line-clamp-2">{file.noteContent}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                  <span className="text-xs text-gray-500 capitalize">
+                    {file.sourceType}
+                  </span>
+                  <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {renamingFile && renamingFile._id === file._id ? (
+                      <>
+                        <button
+                          onClick={handleRenameFile}
+                          className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                          title="Save"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={cancelRename}
+                          className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          title="Cancel"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => downloadFile(file.url)}
+                          className="p-1.5 text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                          title="Download"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => startRenameFile(file)}
+                          className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          title="Rename"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFile(file)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 text-xs text-gray-400">
+                  {new Date(file.uploadedAt).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
