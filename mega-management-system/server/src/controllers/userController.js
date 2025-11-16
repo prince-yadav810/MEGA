@@ -329,3 +329,151 @@ exports.getUserTasks = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get current user preferences
+ * @route GET /api/user/preferences
+ */
+exports.getUserPreferences = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('preferences');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // If no preferences exist, return default values
+    const preferences = user.preferences || {
+      appearance: {
+        dateFormat: 'DD/MM/YYYY',
+        timeFormat: '12-hour',
+        currency: 'INR',
+        rowsPerPage: 25,
+        compactMode: false,
+        defaultPage: '/dashboard'
+      },
+      notifications: {
+        email: {
+          taskAssignments: true,
+          taskDueDate: true,
+          quotationUpdates: true,
+          productStockAlerts: true,
+          systemAnnouncements: true
+        },
+        inApp: {
+          desktopNotifications: true,
+          soundAlerts: false
+        },
+        schedule: {
+          quietHoursEnabled: false,
+          quietHoursStart: '22:00',
+          quietHoursEnd: '08:00',
+          weekendNotifications: false
+        }
+      }
+    };
+
+    res.status(200).json({
+      success: true,
+      data: preferences
+    });
+
+  } catch (error) {
+    console.error('Get preferences error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch preferences',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Update current user preferences
+ * @route PUT /api/user/preferences
+ */
+exports.updateUserPreferences = async (req, res) => {
+  try {
+    const { appearance, notifications } = req.body;
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Initialize preferences if they don't exist
+    if (!user.preferences) {
+      user.preferences = {
+        appearance: {},
+        notifications: {}
+      };
+    }
+
+    // Update appearance preferences if provided
+    if (appearance) {
+      user.preferences.appearance = {
+        ...user.preferences.appearance,
+        ...appearance
+      };
+    }
+
+    // Update notification preferences if provided
+    if (notifications) {
+      // Handle nested structure for notifications
+      if (notifications.email) {
+        if (!user.preferences.notifications.email) {
+          user.preferences.notifications.email = {};
+        }
+        user.preferences.notifications.email = {
+          ...user.preferences.notifications.email,
+          ...notifications.email
+        };
+      }
+
+      if (notifications.inApp) {
+        if (!user.preferences.notifications.inApp) {
+          user.preferences.notifications.inApp = {};
+        }
+        user.preferences.notifications.inApp = {
+          ...user.preferences.notifications.inApp,
+          ...notifications.inApp
+        };
+      }
+
+      if (notifications.schedule) {
+        if (!user.preferences.notifications.schedule) {
+          user.preferences.notifications.schedule = {};
+        }
+        user.preferences.notifications.schedule = {
+          ...user.preferences.notifications.schedule,
+          ...notifications.schedule
+        };
+      }
+    }
+
+    // Mark the preferences field as modified (required for nested objects in Mongoose)
+    user.markModified('preferences');
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Preferences updated successfully',
+      data: user.preferences
+    });
+
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update preferences',
+      error: error.message
+    });
+  }
+};

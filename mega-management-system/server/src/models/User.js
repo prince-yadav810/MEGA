@@ -85,7 +85,91 @@ const UserSchema = new mongoose.Schema({
       type: Date,
       default: null
     }
-  }]
+  }],
+  preferences: {
+    appearance: {
+      dateFormat: {
+        type: String,
+        enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
+        default: 'DD/MM/YYYY'
+      },
+      timeFormat: {
+        type: String,
+        enum: ['12-hour', '24-hour'],
+        default: '12-hour'
+      },
+      currency: {
+        type: String,
+        enum: ['INR', 'USD', 'EUR', 'GBP'],
+        default: 'INR'
+      },
+      rowsPerPage: {
+        type: Number,
+        enum: [10, 25, 50, 100],
+        default: 25
+      },
+      compactMode: {
+        type: Boolean,
+        default: false
+      },
+      defaultPage: {
+        type: String,
+        default: '/dashboard'
+      }
+    },
+    notifications: {
+      email: {
+        taskAssignments: {
+          type: Boolean,
+          default: true
+        },
+        taskDueDate: {
+          type: Boolean,
+          default: true
+        },
+        quotationUpdates: {
+          type: Boolean,
+          default: true
+        },
+        productStockAlerts: {
+          type: Boolean,
+          default: true
+        },
+        systemAnnouncements: {
+          type: Boolean,
+          default: true
+        }
+      },
+      inApp: {
+        desktopNotifications: {
+          type: Boolean,
+          default: true
+        },
+        soundAlerts: {
+          type: Boolean,
+          default: false
+        }
+      },
+      schedule: {
+        quietHoursEnabled: {
+          type: Boolean,
+          default: false
+        },
+        quietHoursStart: {
+          type: String,
+          default: '22:00'
+        },
+        quietHoursEnd: {
+          type: String,
+          default: '08:00'
+        },
+        weekendNotifications: {
+          type: Boolean,
+          default: false
+        }
+      }
+    }
+  }
 }, {
   timestamps: true
 });

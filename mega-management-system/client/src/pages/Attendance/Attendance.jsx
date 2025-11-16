@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import AttendanceCalendarGrid from '../../components/attendance/AttendanceCalendarGrid';
 import AttendanceSummary from '../../components/attendance/AttendanceSummary';
 import SalaryCalculator from '../../components/attendance/SalaryCalculator';
+import AdvancePaymentsList from '../../components/attendance/AdvancePaymentsList';
 import moment from 'moment';
 
 const Attendance = () => {
@@ -371,7 +372,7 @@ const Attendance = () => {
             {/* Two Column Layout: Calendar Left, Stats/Salary Right */}
             <div className="flex gap-6 mb-6">
               {/* Left Column - Calendar */}
-              <div className="flex-1">
+              <div className="flex-1 space-y-6">
                 {console.log('Calendar check:', { hasCalendar: !!summaryData.calendar, hasPeriod: !!summaryData.period })}
                 {summaryData.calendar && summaryData.period && (
                   <div className="bg-white rounded-lg shadow-md p-6">
@@ -383,6 +384,17 @@ const Attendance = () => {
                       calendarData={summaryData.calendar}
                       period={summaryData.period}
                     />
+                  </div>
+                )}
+
+                {/* Advance Payments */}
+                {summaryData.advances && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2 text-gray-900" />
+                      Advance Payments
+                    </h2>
+                    <AdvancePaymentsList advancesData={summaryData.advances} />
                   </div>
                 )}
               </div>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { User, Bell, Settings as SettingsIcon } from 'lucide-react';
+import { User, Bell, Palette, Settings as SettingsIcon } from 'lucide-react';
 import ProfileTab from '../../components/settings/ProfileTab';
 import NotificationsTab from '../../components/settings/NotificationsTab';
+import AppearanceTab from '../../components/settings/AppearanceTab';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -16,6 +17,11 @@ const Settings = () => {
       id: 'notifications',
       name: 'Notifications',
       icon: Bell
+    },
+    {
+      id: 'appearance',
+      name: 'Appearance',
+      icon: Palette
     }
   ];
 
@@ -25,6 +31,8 @@ const Settings = () => {
         return <ProfileTab />;
       case 'notifications':
         return <NotificationsTab />;
+      case 'appearance':
+        return <AppearanceTab />;
       default:
         return <ProfileTab />;
     }
