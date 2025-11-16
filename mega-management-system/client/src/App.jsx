@@ -10,6 +10,7 @@ import Workspace from './pages/Workspace';
 import Inbox from './pages/Inbox/Inbox';
 import Attendance from './pages/Attendance/Attendance';
 import QuotationsList from './pages/Quotations/QuotationsList';
+import QuotationDetail from './pages/Quotations/QuotationDetail';
 import ClientsList from './pages/Clients/ClientsList';
 import ClientDetails from './pages/Clients/ClientDetails';
 import ProductCatalog from './pages/Products/ProductCatalog';
@@ -82,6 +83,7 @@ function Layout() {
               }
             />
             <Route path="quotations" element={<QuotationsList />} />
+            <Route path="quotations/:id" element={<QuotationDetail />} />
             <Route path="clients" element={<ClientsList />} />
             <Route path="clients/:id" element={<ClientDetails />} />
             <Route path="products" element={<ProductCatalog />} />

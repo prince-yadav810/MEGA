@@ -1,55 +1,119 @@
 const mongoose = require('mongoose');
 
 const QuotationSchema = new mongoose.Schema({
-  number: {
+  // PDF Storage
+  pdfUrl: {
     type: String,
-    required: [true, 'Quotation number is required'],
+    required: [true, 'PDF URL is required'],
+    trim: true
+  },
+  fileName: {
+    type: String,
+    required: [true, 'File name is required'],
+    trim: true
+  },
+
+  // Extracted from Excel
+  refNo: {
+    type: String,
+    required: [true, 'Reference number is required'],
     unique: true,
     trim: true
   },
-  client: {
+  date: {
+    type: Date,
+    required: [true, 'Quotation date is required']
+  },
+  clientName: {
     type: String,
     required: [true, 'Client name is required'],
     trim: true
   },
-  title: {
-    type: String,
-    required: [true, 'Title is required'],
-    trim: true,
-    maxlength: [500, 'Title cannot be more than 500 characters']
-  },
-  amount: {
-    type: String,
-    required: [true, 'Amount is required'],
-    trim: true
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected', 'expired'],
-    default: 'pending'
-  },
-  validUntil: {
-    type: Date,
-    required: [true, 'Valid until date is required']
-  },
-  items: {
-    type: Number,
-    default: 0
-  },
-  promotionalProducts: [{
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product'
-    },
-    displayOrder: {
+
+  // Line Items from Excel
+  items: [{
+    srNo: {
       type: Number,
-      default: 0
+      required: true
+    },
+    description: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    quantity: {
+      type: Number,
+      required: true
+    },
+    unit: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    rate: {
+      type: Number,
+      required: true
+    },
+    gstPercent: {
+      type: Number,
+      required: true
+    },
+    amount: {
+      type: Number,
+      required: true
     }
   }],
-  createdDate: {
-    type: Date,
-    default: Date.now
+
+  // Calculations
+  subtotal: {
+    type: Number,
+    required: [true, 'Subtotal is required']
   },
+  gst: {
+    type: Number,
+    required: [true, 'GST amount is required']
+  },
+  grandTotal: {
+    type: Number,
+    required: [true, 'Grand total is required']
+  },
+
+  // Terms & Conditions (extracted from Excel)
+  paymentTerms: {
+    type: String,
+    trim: true,
+    default: 'PAYMENT IMMEDIATE'
+  },
+  offerValidity: {
+    type: String,
+    trim: true,
+    default: 'OFFER VALIDITY 1 WEEKS'
+  },
+
+  // Status & Priority tracking
+  status: {
+    type: String,
+    enum: ['on_hold', 'approved', 'rejected'],
+    default: 'on_hold'
+  },
+  statusNote: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  priority: {
+    type: String,
+    enum: ['low', 'high', 'extreme'],
+    default: 'low'
+  },
+
+  // Linked Tasks
+  linkedTasks: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Task'
+  }],
+
+  // User tracking
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -63,9 +127,10 @@ const QuotationSchema = new mongoose.Schema({
 });
 
 // Indexes for better query performance
-QuotationSchema.index({ number: 1 });
-QuotationSchema.index({ client: 1 });
+QuotationSchema.index({ refNo: 1 });
+QuotationSchema.index({ clientName: 1 });
 QuotationSchema.index({ status: 1 });
-QuotationSchema.index({ validUntil: 1 });
+QuotationSchema.index({ priority: 1 });
+QuotationSchema.index({ date: -1 }); // Sort by date descending
 
 module.exports = mongoose.model('Quotation', QuotationSchema);
