@@ -86,6 +86,26 @@ const ClientSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  callFrequency: {
+    type: Number,
+    default: 10 // Default call frequency in days
+  },
+  lastCallDate: {
+    type: Date,
+    default: null
+  },
+  nextCallDate: {
+    type: Date,
+    default: function() {
+      // Default next call date to created date + frequency if not specified
+      const date = new Date();
+      return date;
+    }
+  },
+  lastCallOutcome: {
+    type: String,
+    default: null
+  },
   lastContactedDate: {
     type: Date,
     default: null

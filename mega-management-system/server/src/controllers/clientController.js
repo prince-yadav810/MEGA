@@ -381,6 +381,40 @@ exports.getClientStats = async (req, res) => {
   }
 };
 
+// @desc    Update client call frequency
+// @route   PATCH /api/clients/:id/call-frequency
+// @access  Private
+exports.updateCallFrequency = async (req, res) => {
+  try {
+    const { frequency } = req.body;
+    
+    const client = await Client.findById(req.params.id);
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found'
+      });
+    }
+    
+    client.callFrequency = frequency;
+    await client.save();
+
+    res.json({
+      success: true,
+      message: 'Call frequency updated',
+      data: client
+    });
+  } catch (error) {
+    console.error('Update call frequency error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating call frequency',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Extract client data from business card images
 // @route   POST /api/clients/extract-from-card
 // @access  Private

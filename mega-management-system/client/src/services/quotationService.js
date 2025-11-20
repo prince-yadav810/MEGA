@@ -132,7 +132,7 @@ export const createLinkedTask = async (id, taskData) => {
   }
 };
 
-export default {
+const quotationService = {
   getQuotations,
   getQuotation,
   createQuotation,
@@ -145,3 +145,5 @@ export default {
   updatePriority,
   createLinkedTask
 };
+
+export default quotationService;

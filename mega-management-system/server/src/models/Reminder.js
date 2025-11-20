@@ -86,6 +86,10 @@ const reminderSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   createdByName: {
     type: String,
     default: 'Team Member'

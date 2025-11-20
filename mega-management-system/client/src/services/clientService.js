@@ -302,6 +302,41 @@ const clientService = {
       // Rethrow to allow proper error handling in component
       throw error;
     }
+  },
+
+  // Call Log Operations
+  
+  // Log a call
+  logCall: async (callData) => {
+    try {
+      const response = await api.post('/call-logs', callData);
+      return response.data;
+    } catch (error) {
+      console.error('Error logging call:', error);
+      throw error;
+    }
+  },
+
+  // Get client call logs
+  getClientLogs: async (clientId) => {
+    try {
+      const response = await api.get(`/call-logs/${clientId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching call logs:', error);
+      throw error;
+    }
+  },
+  
+  // Update call frequency
+  updateCallFrequency: async (clientId, frequency) => {
+    try {
+      const response = await api.patch(`/clients/${clientId}/call-frequency`, { frequency });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating call frequency:', error);
+      throw error;
+    }
   }
 };
 
