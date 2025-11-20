@@ -128,6 +128,20 @@ const attendanceService = {
     }
   },
 
+  // Admin: Manually update attendance for a user
+  updateAttendanceManually: async (userId, date, status) => {
+    try {
+      const response = await api.put(`/attendance/user/${userId}/manual`, {
+        date,
+        status
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Update attendance manually error:', error);
+      throw error.response?.data || error;
+    }
+  },
+
   getAllAttendance: async (filters = {}) => {
     try {
       const response = await api.get('/attendance', { params: filters });

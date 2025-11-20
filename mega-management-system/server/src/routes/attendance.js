@@ -10,7 +10,8 @@ const {
   getUserAttendance,
   getUserAttendanceStats,
   getUserAttendanceSummary,
-  getAllAttendance
+  getAllAttendance,
+  updateAttendanceManually
 } = require('../controllers/attendanceController');
 
 // Employee routes - accessible by all authenticated users
@@ -25,5 +26,8 @@ router.get('/', protect, restrictTo('manager', 'admin'), getAllAttendance);
 router.get('/user/:userId', protect, restrictTo('manager', 'admin'), getUserAttendance);
 router.get('/user/:userId/stats', protect, restrictTo('manager', 'admin'), getUserAttendanceStats);
 router.get('/user/:userId/summary', protect, getUserAttendanceSummary); // Accessible by user themselves or admin/manager
+
+// Admin only - manual attendance update
+router.put('/user/:userId/manual', protect, restrictTo('admin'), updateAttendanceManually);
 
 module.exports = router;

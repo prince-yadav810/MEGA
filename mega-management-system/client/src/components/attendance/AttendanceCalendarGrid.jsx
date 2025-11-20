@@ -2,7 +2,7 @@ import React from 'react';
 import { CheckCircle, XCircle, AlertCircle, Clock } from 'lucide-react';
 import moment from 'moment';
 
-const AttendanceCalendarGrid = ({ calendarData, period }) => {
+const AttendanceCalendarGrid = ({ calendarData, period, isAdmin = false, onDateClick }) => {
   // Get status icon
   const getStatusIcon = (status) => {
     switch (status) {
@@ -14,6 +14,8 @@ const AttendanceCalendarGrid = ({ calendarData, period }) => {
         return <AlertCircle className="w-3 h-3 text-yellow-600" />;
       case 'holiday':
         return <Clock className="w-3 h-3 text-gray-400" />;
+      case 'unmarked':
+        return null; // No icon for unmarked dates
       default:
         return null;
     }
@@ -30,6 +32,8 @@ const AttendanceCalendarGrid = ({ calendarData, period }) => {
         return 'bg-yellow-50 border-yellow-200';
       case 'holiday':
         return 'bg-gray-50 border-gray-200';
+      case 'unmarked':
+        return 'bg-gray-50 border-gray-200 opacity-60';
       default:
         return 'bg-white border-gray-200';
     }
@@ -111,18 +115,40 @@ const AttendanceCalendarGrid = ({ calendarData, period }) => {
               }
 
               const isToday = moment().format('YYYY-MM-DD') === day.date;
+              const isFutureDate = moment(day.date).isAfter(moment(), 'day');
+              const isUnmarked = day.status === 'unmarked';
+              const isClickable = isAdmin && !isFutureDate && !isUnmarked;
+
+              const handleClick = () => {
+                if (isClickable && onDateClick) {
+                  onDateClick(day);
+                }
+              };
 
               return (
                 <div
                   key={day.date}
+                  onClick={handleClick}
                   className={`
                     h-[48px] w-full rounded-md border flex flex-col items-center justify-center
-                    transition-all duration-200 hover:shadow-sm cursor-pointer
+                    transition-all duration-200
                     ${getStatusBg(day.status)}
                     ${isToday ? 'ring-1 ring-blue-400 ring-offset-1' : ''}
+                    ${isClickable ? 'hover:shadow-md cursor-pointer hover:scale-105' : 'cursor-not-allowed opacity-60'}
                   `}
+                  title={
+                    isFutureDate || isUnmarked
+                      ? 'Future dates cannot be edited'
+                      : isAdmin
+                      ? 'Click to edit attendance'
+                      : ''
+                  }
                 >
-                  <span className="text-[11px] font-medium text-gray-700 leading-none">{day.day}</span>
+                  <span className={`text-[11px] font-medium leading-none ${
+                    isFutureDate || isUnmarked ? 'text-gray-400' : 'text-gray-700'
+                  }`}>
+                    {day.day}
+                  </span>
                   <div className="mt-0.5">
                     {getStatusIcon(day.status)}
                   </div>

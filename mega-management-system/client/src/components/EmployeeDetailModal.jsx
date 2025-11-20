@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, CheckCircle, Clock, AlertCircle, Plus, ClipboardCheck, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, CheckCircle, Clock, AlertCircle, Plus, ClipboardCheck, Edit2, ChevronLeft, ChevronRight, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import userService from '../services/userService';
 import attendanceService from '../services/attendanceService';
 import toast from 'react-hot-toast';
@@ -20,8 +20,11 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
   const [advanceData, setAdvanceData] = useState({
     amount: '',
     reason: '',
-    status: 'pending'
+    status: 'paid'
   });
+  const [showAdvanceEditModal, setShowAdvanceEditModal] = useState(false);
+  const [editingAdvance, setEditingAdvance] = useState(null);
+  const [showAllAdvances, setShowAllAdvances] = useState(false);
 
   useEffect(() => {
     if (employee) {
@@ -80,7 +83,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
 
       if (response.success) {
         toast.success('Advance added successfully');
-        setAdvanceData({ amount: '', reason: '', status: 'pending' });
+        setAdvanceData({ amount: '', reason: '', status: 'paid' });
         setShowAdvanceForm(false);
         onUpdate(); // Refresh employee data
         // Refresh attendance summary to reflect new advance
@@ -88,6 +91,48 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to add advance');
+    }
+  };
+
+  // Handle edit advance click
+  const handleEditAdvance = (advance) => {
+    setEditingAdvance(advance);
+    setAdvanceData({
+      amount: advance.amount.toString(),
+      reason: advance.reason || '',
+      status: advance.status || 'paid'
+    });
+    setShowAdvanceEditModal(true);
+  };
+
+  // Handle update advance
+  const handleUpdateAdvance = async (e) => {
+    e.preventDefault();
+
+    if (!advanceData.amount || parseFloat(advanceData.amount) <= 0) {
+      toast.error('Please enter a valid advance amount');
+      return;
+    }
+
+    if (!editingAdvance) return;
+
+    try {
+      const response = await userService.updateAdvance(employee._id || employee.id, editingAdvance._id, {
+        amount: parseFloat(advanceData.amount),
+        reason: advanceData.reason,
+        status: advanceData.status
+      });
+
+      if (response.success) {
+        toast.success('Advance updated successfully');
+        setAdvanceData({ amount: '', reason: '', status: 'paid' });
+        setShowAdvanceEditModal(false);
+        setEditingAdvance(null);
+        onUpdate(); // Refresh employee data
+        fetchAttendanceSummary(selectedMonth, selectedYear); // Refresh attendance summary
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update advance');
     }
   };
 
@@ -286,32 +331,18 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
               {/* Add Advance Form */}
               {showAdvanceForm && (
                 <form onSubmit={handleAddAdvance} className="mb-4 p-4 bg-orange-50 rounded-lg space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Amount (₹) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={advanceData.amount}
-                        onChange={(e) => setAdvanceData({ ...advanceData, amount: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                        placeholder="Enter amount"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <select
-                        value={advanceData.status}
-                        onChange={(e) => setAdvanceData({ ...advanceData, status: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="paid">Paid</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Amount (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={advanceData.amount}
+                      onChange={(e) => setAdvanceData({ ...advanceData, amount: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      placeholder="Enter amount"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
@@ -328,7 +359,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
                       type="button"
                       onClick={() => {
                         setShowAdvanceForm(false);
-                        setAdvanceData({ amount: '', reason: '', status: 'pending' });
+                        setAdvanceData({ amount: '', reason: '', status: 'paid' });
                       }}
                       className="px-4 py-2 text-sm text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
                     >
@@ -345,36 +376,70 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
               )}
 
               {employee.advances && employee.advances.length > 0 ? (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {employee.advances.slice().reverse().map((advance, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900">₹{advance.amount.toLocaleString('en-IN')}</p>
-                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                            advance.status === 'paid' ? 'bg-green-100 text-green-800' :
-                            advance.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                            advance.status === 'deducted' ? 'bg-purple-100 text-purple-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {advance.status.charAt(0).toUpperCase() + advance.status.slice(1)}
-                          </span>
-                          {advance.deductedFromSalary && (
-                            <span className="text-xs text-gray-500">
-                              (Deducted: {advance.deductionMonth})
-                            </span>
-                          )}
+                <>
+                  <div className="space-y-2">
+                    {(() => {
+                      const reversedAdvances = [...employee.advances].reverse();
+                      const displayedAdvances = showAllAdvances ? reversedAdvances : reversedAdvances.slice(0, 5);
+                      return displayedAdvances.map((advance, index) => (
+                        <div key={advance._id || `advance-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900">₹{advance.amount.toLocaleString('en-IN')}</p>
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                advance.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                advance.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                                advance.status === 'deducted' ? 'bg-purple-100 text-purple-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {advance.status.charAt(0).toUpperCase() + advance.status.slice(1)}
+                              </span>
+                              {advance.deductedFromSalary && (
+                                <span className="text-xs text-gray-500">
+                                  (Deducted: {advance.deductionMonth})
+                                </span>
+                              )}
+                            </div>
+                            {advance.reason && (
+                              <p className="text-sm text-gray-600 mt-1">{advance.reason}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-sm text-gray-500">
+                              {new Date(advance.date).toLocaleDateString('en-IN')}
+                            </div>
+                            <button
+                              onClick={() => handleEditAdvance(advance)}
+                              className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit advance"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        {advance.reason && (
-                          <p className="text-sm text-gray-600 mt-1">{advance.reason}</p>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {new Date(advance.date).toLocaleDateString('en-IN')}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      ));
+                    })()}
+                  </div>
+                  {employee.advances.length > 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllAdvances(!showAllAdvances)}
+                      className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      {showAllAdvances ? (
+                        <>
+                          <ChevronUp className="w-4 h-4" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4" />
+                          Show All ({employee.advances.length})
+                        </>
+                      )}
+                    </button>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">No advances recorded</p>
               )}
@@ -455,6 +520,71 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
           </button>
         </div>
       </div>
+
+      {/* Advance Edit Modal */}
+      {showAdvanceEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Edit Advance</h2>
+              <button
+                onClick={() => {
+                  setShowAdvanceEditModal(false);
+                  setEditingAdvance(null);
+                  setAdvanceData({ amount: '', reason: '', status: 'paid' });
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateAdvance} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount (₹) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={advanceData.amount}
+                  onChange={(e) => setAdvanceData({ ...advanceData, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  placeholder="Enter amount"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                <input
+                  type="text"
+                  value={advanceData.reason}
+                  onChange={(e) => setAdvanceData({ ...advanceData, reason: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  placeholder="Reason for advance"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdvanceEditModal(false);
+                    setEditingAdvance(null);
+                    setAdvanceData({ amount: '', reason: '', status: 'paid' });
+                  }}
+                  className="px-4 py-2 text-sm text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm text-white bg-orange-600 rounded-lg hover:bg-orange-700"
+                >
+                  Update Advance
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

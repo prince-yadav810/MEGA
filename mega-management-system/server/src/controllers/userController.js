@@ -304,6 +304,69 @@ exports.addAdvance = async (req, res) => {
 };
 
 /**
+ * Update advance payment for a user
+ * @route PUT /api/users/:id/advances/:advanceId
+ */
+exports.updateAdvance = async (req, res) => {
+  try {
+    const { amount, reason, status } = req.body;
+    const { id, advanceId } = req.params;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid advance amount'
+      });
+    }
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Find the advance in the user's advances array
+    const advance = user.advances.id(advanceId);
+
+    if (!advance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advance not found'
+      });
+    }
+
+    // Update advance fields
+    advance.amount = amount;
+    advance.reason = reason || advance.reason;
+    if (status) {
+      advance.status = status;
+    }
+
+    await user.save();
+
+    // Return updated user without password
+    const userResponse = await User.findById(user._id).select('-password');
+
+    res.status(200).json({
+      success: true,
+      message: 'Advance updated successfully',
+      data: userResponse
+    });
+
+  } catch (error) {
+    console.error('Update advance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update advance',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get user tasks
  * @route GET /api/users/:id/tasks
  */

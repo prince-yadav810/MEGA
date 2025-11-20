@@ -123,6 +123,17 @@ const userService = {
     }
   },
 
+  // Update advance payment for user
+  updateAdvance: async (userId, advanceId, advanceData) => {
+    try {
+      const response = await api.put(`/users/${userId}/advances/${advanceId}`, advanceData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating advance:', error);
+      throw error;
+    }
+  },
+
   // Get user tasks
   getUserTasks: async (userId) => {
     try {
