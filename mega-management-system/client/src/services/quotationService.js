@@ -10,6 +10,18 @@ export const getQuotations = async () => {
   }
 };
 
+// Get quotations by client name
+export const getQuotationsByClient = async (clientName) => {
+  try {
+    const response = await api.get('/quotations', {
+      params: { clientName }
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 // Get single quotation
 export const getQuotation = async (id) => {
   try {
@@ -134,6 +146,7 @@ export const createLinkedTask = async (id, taskData) => {
 
 const quotationService = {
   getQuotations,
+  getQuotationsByClient,
   getQuotation,
   createQuotation,
   updateQuotation,

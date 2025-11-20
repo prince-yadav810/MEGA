@@ -14,13 +14,21 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 
 /**
- * @desc    Get all quotations
- * @route   GET /api/quotations
+ * @desc    Get all quotations (optionally filtered by clientName)
+ * @route   GET /api/quotations?clientName=...
  * @access  Private
  */
 exports.getQuotations = async (req, res) => {
   try {
-    const quotations = await Quotation.find()
+    // Build query object
+    const query = {};
+    
+    // Filter by clientName if provided (case-insensitive matching)
+    if (req.query.clientName) {
+      query.clientName = { $regex: req.query.clientName, $options: 'i' };
+    }
+
+    const quotations = await Quotation.find(query)
       .sort({ date: -1 }) // Sort by quotation date, newest first
       .populate('createdBy', 'name email')
       .populate('updatedBy', 'name email');
