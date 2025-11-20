@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   FileText,
   Search,
@@ -9,11 +10,13 @@ import {
   CheckCircle,
   XCircle,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  Package
 } from 'lucide-react';
 import { getQuotations } from '../../services/quotationService';
 import QuotationUploadModal from '../../components/quotations/QuotationUploadModal';
 import QuotationCard from '../../components/quotations/QuotationCard';
+import ProductCatalog from '../Products/ProductCatalog';
 import toast from 'react-hot-toast';
 
 /**
@@ -22,6 +25,9 @@ import toast from 'react-hot-toast';
  * Features: Upload Excel via modal, View quotations, Download PDFs, Sorting
  */
 const QuotationsList = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialViewMode = searchParams.get('view') === 'products' ? 'products' : 'quotations';
+  const [viewMode, setViewMode] = useState(initialViewMode); // 'quotations' or 'products'
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,6 +43,26 @@ const QuotationsList = () => {
   useEffect(() => {
     fetchQuotations();
   }, []);
+
+  // Update view mode when URL search params change
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    if (viewParam === 'products') {
+      setViewMode('products');
+    } else if (viewParam === null) {
+      setViewMode('quotations');
+    }
+  }, [searchParams]);
+
+  // Handler to toggle view mode and update URL
+  const handleViewModeChange = (newMode) => {
+    setViewMode(newMode);
+    if (newMode === 'products') {
+      setSearchParams({ view: 'products' });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   /**
    * Fetch all quotations
@@ -159,30 +185,66 @@ const QuotationsList = () => {
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-primary-100 rounded-lg">
-              <FileText className="h-8 w-8 text-primary-600" />
+              {viewMode === 'quotations' ? (
+                <FileText className="h-8 w-8 text-primary-600" />
+              ) : (
+                <Package className="h-8 w-8 text-primary-600" />
+              )}
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Quotations</h1>
-              <p className="text-gray-600">Upload and manage your quotations</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {viewMode === 'quotations' ? 'Quotations' : 'Products'}
+              </h1>
+              <p className="text-gray-600">
+                {viewMode === 'quotations' 
+                  ? 'Upload and manage your quotations' 
+                  : 'Manage your product inventory'}
+              </p>
             </div>
           </div>
 
-          {/* Upload Button */}
-          <button
-            onClick={() => setIsUploadModalOpen(true)}
-            className="hidden sm:inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium shadow-sm"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Upload Excel
-          </button>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            {viewMode === 'quotations' ? (
+              <>
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium shadow-sm w-full sm:w-auto"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Upload Excel
+                </button>
+                <button
+                  onClick={() => handleViewModeChange('products')}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium shadow-sm w-full sm:w-auto"
+                >
+                  <Package className="h-5 w-5 mr-2" />
+                  View Products
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => handleViewModeChange('quotations')}
+                className="inline-flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium shadow-sm w-full sm:w-auto"
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                View Quotations
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Quotations List Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      {/* Conditional Rendering: Quotations or Products */}
+      {viewMode === 'products' ? (
+        <ProductCatalog />
+      ) : (
+        <>
+          {/* Quotations List Section */}
+          <div className="bg-white rounded-lg shadow-md p-6">
         {/* Header with Count and Controls */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -362,12 +424,14 @@ const QuotationsList = () => {
       </div>
 
       {/* Mobile Floating Action Button */}
-      <button
-        onClick={() => setIsUploadModalOpen(true)}
-        className="sm:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 transition-colors flex items-center justify-center"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
+      {viewMode === 'quotations' && (
+        <button
+          onClick={() => setIsUploadModalOpen(true)}
+          className="sm:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 transition-colors flex items-center justify-center z-10"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      )}
 
       {/* Upload Modal */}
       <QuotationUploadModal
@@ -375,6 +439,8 @@ const QuotationsList = () => {
         onClose={() => setIsUploadModalOpen(false)}
         onUploadSuccess={handleUploadSuccess}
       />
+        </>
+      )}
     </div>
   );
 };

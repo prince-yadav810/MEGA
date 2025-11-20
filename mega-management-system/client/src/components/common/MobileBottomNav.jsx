@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   FileText,
   Users,
-  Package,
   BarChart3,
   Settings,
   UserCog,
@@ -42,12 +41,6 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       name: 'Clients',
       icon: Users,
       path: '/clients'
-    },
-    {
-      id: 'products',
-      name: 'Products',
-      icon: Package,
-      path: '/products'
     },
     {
       id: 'users',
