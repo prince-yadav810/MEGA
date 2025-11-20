@@ -7,13 +7,13 @@ const AttendanceCalendarGrid = ({ calendarData, period }) => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'present':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return <CheckCircle className="w-3 h-3 text-green-600" />;
       case 'absent':
-        return <XCircle className="w-4 h-4 text-red-600" />;
+        return <XCircle className="w-3 h-3 text-red-600" />;
       case 'half-day':
-        return <AlertCircle className="w-4 h-4 text-yellow-600" />;
+        return <AlertCircle className="w-3 h-3 text-yellow-600" />;
       case 'holiday':
-        return <Clock className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-3 h-3 text-gray-400" />;
       default:
         return null;
     }
@@ -68,26 +68,26 @@ const AttendanceCalendarGrid = ({ calendarData, period }) => {
   const weeks = getWeeks();
 
   return (
-    <div className="select-none">
+    <div className="select-none w-full max-w-full">
       {/* Header */}
-      <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
+      <div className="text-center mb-3">
+        <h3 className="text-sm font-semibold text-gray-900">
           {period.monthName} {period.year}
         </h3>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mb-4 text-xs">
+      <div className="flex items-center justify-center gap-3 mb-3 text-[10px]">
         <div className="flex items-center gap-1">
-          <CheckCircle className="w-3 h-3 text-green-600" />
+          <CheckCircle className="w-2.5 h-2.5 text-green-600" />
           <span className="text-gray-600">Present</span>
         </div>
         <div className="flex items-center gap-1">
-          <AlertCircle className="w-3 h-3 text-yellow-600" />
+          <AlertCircle className="w-2.5 h-2.5 text-yellow-600" />
           <span className="text-gray-600">Half Day</span>
         </div>
         <div className="flex items-center gap-1">
-          <XCircle className="w-3 h-3 text-red-600" />
+          <XCircle className="w-2.5 h-2.5 text-red-600" />
           <span className="text-gray-600">Absent</span>
         </div>
       </div>
@@ -95,19 +95,19 @@ const AttendanceCalendarGrid = ({ calendarData, period }) => {
       {/* Weekday Headers */}
       <div className="grid grid-cols-7 gap-1 mb-2">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+          <div key={day} className="text-center text-[11px] font-medium text-gray-500 py-1">
             {day}
           </div>
         ))}
       </div>
 
       {/* Calendar Grid */}
-      <div className="space-y-1">
+      <div className="space-y-1 w-full">
         {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="grid grid-cols-7 gap-1">
+          <div key={weekIndex} className="grid grid-cols-7 gap-1 w-full">
             {week.map((day, dayIndex) => {
               if (!day) {
-                return <div key={`empty-${dayIndex}`} className="aspect-square"></div>;
+                return <div key={`empty-${dayIndex}`} className="h-[48px] w-full"></div>;
               }
 
               const isToday = moment().format('YYYY-MM-DD') === day.date;
@@ -116,13 +116,13 @@ const AttendanceCalendarGrid = ({ calendarData, period }) => {
                 <div
                   key={day.date}
                   className={`
-                    aspect-square rounded-lg border p-1 flex flex-col items-center justify-center
-                    transition-all duration-200 hover:shadow-sm
+                    h-[48px] w-full rounded-md border flex flex-col items-center justify-center
+                    transition-all duration-200 hover:shadow-sm cursor-pointer
                     ${getStatusBg(day.status)}
-                    ${isToday ? 'ring-2 ring-blue-400' : ''}
+                    ${isToday ? 'ring-1 ring-blue-400 ring-offset-1' : ''}
                   `}
                 >
-                  <span className="text-xs font-medium text-gray-700">{day.day}</span>
+                  <span className="text-[11px] font-medium text-gray-700 leading-none">{day.day}</span>
                   <div className="mt-0.5">
                     {getStatusIcon(day.status)}
                   </div>

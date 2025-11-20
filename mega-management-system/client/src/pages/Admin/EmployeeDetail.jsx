@@ -6,8 +6,9 @@ import attendanceService from '../../services/attendanceService';
 import toast from 'react-hot-toast';
 import { taskStatuses, taskPriorities } from '../../utils/sampleData';
 import AttendanceCalendarGrid from '../../components/attendance/AttendanceCalendarGrid';
-import AttendanceSummary from '../../components/attendance/AttendanceSummary';
+import SimplifiedAttendanceStats from '../../components/attendance/SimplifiedAttendanceStats';
 import SalaryCalculator from '../../components/attendance/SalaryCalculator';
+import CompactAdvancePayments from '../../components/attendance/CompactAdvancePayments';
 import moment from 'moment';
 
 export default function EmployeeDetail() {
@@ -285,9 +286,11 @@ export default function EmployeeDetail() {
       {/* Body */}
       <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Contact Information */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Mail className="w-5 h-5 text-gray-600" />
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4 mb-6">
+          <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-2.5 rounded-lg shadow-sm">
+              <Mail className="w-5 h-5 text-blue-600" />
+            </div>
             Contact Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -304,87 +307,114 @@ export default function EmployeeDetail() {
           </div>
         </div>
 
-        {/* Month Navigation */}
-        <div className="flex items-center justify-between mb-6 bg-white rounded-lg border border-gray-200 p-4">
-          <button
-            onClick={handlePreviousMonth}
-            className="flex items-center gap-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Previous</span>
-          </button>
-          <div className="text-center">
-            <h3 className="text-xl font-bold text-gray-900">
-              {moment(`${selectedYear}-${selectedMonth}-01`).format('MMMM YYYY')}
-            </h3>
-            <p className="text-sm text-gray-600">Attendance & Salary Details</p>
+        {/* Month Navigation - Integrated with Calendar */}
+        <div className="mb-4">
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 rounded-2xl border border-blue-200/60 shadow-md p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handlePreviousMonth}
+                className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-blue-100 border border-blue-200 transition-all duration-200 font-semibold hover:shadow-md hover:scale-105"
+              >
+                <ChevronLeft className="w-4 h-4 inline mr-1" />
+                <span className="text-sm font-semibold">Previous</span>
+              </button>
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {moment(`${selectedYear}-${selectedMonth}-01`).format('MMMM YYYY')}
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">Attendance & Salary Details</p>
+              </div>
+              <button
+                onClick={handleNextMonth}
+                disabled={selectedMonth === moment().month() + 1 && selectedYear === moment().year()}
+                className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-blue-100 border border-blue-200 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:scale-105"
+              >
+                <span className="text-sm font-semibold">Next</span>
+                <ChevronRight className="w-4 h-4 inline ml-1" />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleNextMonth}
-            disabled={selectedMonth === moment().month() + 1 && selectedYear === moment().year()}
-            className="flex items-center gap-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="text-sm font-medium">Next</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
 
         {loadingAttendance ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center mb-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-12 text-center mb-6">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-            <p className="mt-4 text-gray-600">Loading attendance data...</p>
+            <p className="mt-4 text-gray-600 font-medium">Loading attendance data...</p>
           </div>
         ) : attendanceSummary ? (
           <>
-            {/* Attendance Summary & Salary Calculator Grid */}
+            {/* Compact Advance Payments - Below Month Navigation, Above Calendar/Stats */}
+            {attendanceSummary.advances && attendanceSummary.advances.total > 0 && (
+              <div className="mb-6">
+                <CompactAdvancePayments advancesData={attendanceSummary.advances} />
+              </div>
+            )}
+
+            {/* Calendar and Stats - 50-50 Split */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Left - Calendar */}
+              {attendanceSummary.calendar && attendanceSummary.period && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-5 backdrop-blur-sm">
+                  <AttendanceCalendarGrid
+                    calendarData={attendanceSummary.calendar}
+                    period={attendanceSummary.period}
+                  />
+                </div>
+              )}
+
+              {/* Right - Simplified Attendance Stats */}
               {attendanceSummary.stats && attendanceSummary.period && (
-                <AttendanceSummary
+                <SimplifiedAttendanceStats
                   stats={attendanceSummary.stats}
                   period={attendanceSummary.period}
                 />
               )}
-              {attendanceSummary.salary && attendanceSummary.advances && (
+            </div>
+
+            {/* Salary Details - Full Width Below */}
+            {attendanceSummary.salary && attendanceSummary.advances && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6 backdrop-blur-sm">
+                <h2 className="text-lg font-bold mb-4 flex items-center text-gray-900">
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-2.5 rounded-lg mr-3 shadow-sm">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                  </div>
+                  Salary Details
+                </h2>
                 <SalaryCalculator
                   salaryData={attendanceSummary.salary}
                   advancesData={attendanceSummary.advances}
-                />
-              )}
-            </div>
-
-            {/* Attendance Calendar Grid */}
-            {attendanceSummary.calendar && attendanceSummary.period && (
-              <div className="mb-6">
-                <AttendanceCalendarGrid
-                  calendarData={attendanceSummary.calendar}
-                  period={attendanceSummary.period}
                 />
               </div>
             )}
           </>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center mb-6">
-            <p className="text-gray-600">No attendance data available for this month</p>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-12 text-center mb-6">
+            <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Calendar className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-600 font-medium">No attendance data available for this month</p>
           </div>
         )}
 
         {/* Advance Payment Management */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-gray-600" />
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4 mb-6">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-2.5 rounded-lg shadow-sm">
+              <DollarSign className="w-5 h-5 text-yellow-600" />
+            </div>
             Advance Payments
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Total Advances</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-600 mb-1 font-medium">Total Advances</p>
               <p className="text-2xl font-bold text-gray-900">₹{getTotalAdvances().toLocaleString('en-IN')}</p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Pending</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-yellow-50 to-white shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-600 mb-1 font-medium">Pending</p>
               <p className="text-2xl font-bold text-gray-900">₹{getPendingAdvances().toLocaleString('en-IN')}</p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">This Month</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-600 mb-1 font-medium">This Month</p>
               <p className="text-2xl font-bold text-gray-900">
                 ₹{attendanceSummary?.advances?.totalAdvancesThisMonth?.toLocaleString('en-IN') || 0}
               </p>
@@ -498,26 +528,28 @@ export default function EmployeeDetail() {
         </div>
 
         {/* Tasks Information */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-gray-600" />
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-2.5 rounded-lg shadow-sm">
+              <Briefcase className="w-5 h-5 text-purple-600" />
+            </div>
             Assigned Tasks
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Total Tasks</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-600 mb-1 font-medium">Total Tasks</p>
               <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Active</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-600 mb-1 font-medium">Active</p>
               <p className="text-2xl font-bold text-gray-900">{getActiveTasks()}</p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Due</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-red-50 to-white shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-600 mb-1 font-medium">Due</p>
               <p className="text-2xl font-bold text-red-600">{getDueTasks()}</p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Completed</p>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-green-50 to-white shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-600 mb-1 font-medium">Completed</p>
               <p className="text-2xl font-bold text-gray-900">
                 {tasks.filter(task => task.status === 'completed').length}
               </p>

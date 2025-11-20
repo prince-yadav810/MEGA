@@ -13,8 +13,8 @@ import {
 const AttendanceSummary = ({ stats, period }) => {
   if (!stats || !period) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="text-center text-gray-500">Loading summary...</div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="text-center text-gray-500 font-medium">Loading summary...</div>
       </div>
     );
   }
@@ -68,28 +68,28 @@ const AttendanceSummary = ({ stats, period }) => {
   return (
     <div className="space-y-4">
       {/* Attendance Rate Card - Hero Section */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className={`bg-gradient-to-r ${getAttendanceGradient(stats.attendanceRate)} p-4`}>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className={`bg-gradient-to-r ${getAttendanceGradient(stats.attendanceRate)} p-5 shadow-md`}>
           <div className="flex items-center justify-between">
             <div className="text-white">
-              <p className="text-sm font-medium opacity-90">Attendance Rate</p>
-              <p className="text-3xl font-bold">{stats.attendanceRate?.toFixed(1)}%</p>
+              <p className="text-sm font-semibold opacity-90 mb-1">Attendance Rate</p>
+              <p className="text-3xl font-bold tracking-tight">{stats.attendanceRate?.toFixed(1)}%</p>
             </div>
-            <div className="bg-white bg-opacity-20 p-3 rounded-full">
+            <div className="bg-white bg-opacity-20 p-3 rounded-xl shadow-sm backdrop-blur-sm">
               <Target className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
-        <div className="p-4">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-gray-600">Progress</span>
-            <span className="font-medium text-gray-900">
+        <div className="p-5">
+          <div className="flex items-center justify-between text-sm mb-3">
+            <span className="text-gray-600 font-medium">Progress</span>
+            <span className="font-semibold text-gray-900">
               {stats.presentDays} / {period.workingDays} days
             </span>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden shadow-inner">
             <div
-              className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${getAttendanceGradient(stats.attendanceRate)}`}
+              className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${getAttendanceGradient(stats.attendanceRate)} shadow-sm`}
               style={{ width: `${Math.min(stats.attendanceRate, 100)}%` }}
             ></div>
           </div>
@@ -103,15 +103,15 @@ const AttendanceSummary = ({ stats, period }) => {
           return (
             <div
               key={index}
-              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-all duration-200"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200"
             >
               <div className="flex items-center space-x-3">
-                <div className={`p-2.5 rounded-lg ${stat.bgColor}`}>
+                <div className={`p-2.5 rounded-lg ${stat.bgColor} shadow-sm`}>
                   <IconComponent className={`w-5 h-5 ${stat.textColor}`} />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500">{stat.label}</p>
-                  <p className={`text-xl font-bold ${stat.textColor}`}>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{stat.label}</p>
+                  <p className={`text-xl font-bold ${stat.textColor} mt-0.5`}>
                     {stat.value}
                   </p>
                 </div>
@@ -122,14 +122,16 @@ const AttendanceSummary = ({ stats, period }) => {
       </div>
 
       {/* Month Info */}
-      <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 flex items-center justify-between border border-gray-200 shadow-sm">
         <div className="flex items-center space-x-2">
-          <Calendar className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-700">
+          <div className="bg-white p-1.5 rounded-lg shadow-sm">
+            <Calendar className="w-4 h-4 text-gray-600" />
+          </div>
+          <span className="text-sm font-semibold text-gray-700">
             {period.monthName} {period.year}
           </span>
         </div>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs font-medium text-gray-600 bg-white px-2.5 py-1 rounded-full border border-gray-200">
           {period.workingDays} working days
         </span>
       </div>
