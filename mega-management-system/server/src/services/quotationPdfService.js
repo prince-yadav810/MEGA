@@ -55,45 +55,82 @@ class QuotationPdfService {
         const writeStream = fs.createWriteStream(outputPath);
         doc.pipe(writeStream);
 
-        // Generate PDF content on single page
+        // Generate PDF content with automatic page breaks
         this.addHeader(doc, data);
         this.addQuotationDetails(doc, data);
         const tableEndY = this.addItemsTable(doc, data);
-        this.addCalculations(doc, data, tableEndY);
-        this.addFooterSections(doc, data);
+        const calcEndY = this.addCalculations(doc, data, tableEndY);
+        this.addFooterSections(doc, data, calcEndY);
         this.addBottomFooter(doc);
-
-        // Prevent blank pages by ensuring we stay on first page
-        doc.switchToPage(0);
 
         // Finalize PDF
         doc.end();
 
         writeStream.on('finish', async () => {
           try {
-            // Post-process PDF to remove blank pages using pdf-lib
+            // Post-process PDF to remove blank pages
             const pdfBytes = fs.readFileSync(outputPath);
             const pdfDoc = await PDFLibDocument.load(pdfBytes);
             const pages = pdfDoc.getPages();
             
-            // Check if there are blank pages and remove them
-            // Keep only pages that have content (first page should always have content)
-            if (pages.length > 1) {
-              // Remove all pages except the first one
-              const pagesToRemove = [];
-              for (let i = pages.length - 1; i >= 1; i--) {
-                pagesToRemove.push(i);
+            // Find and remove blank pages (pages with only footer, minimal content)
+            const pagesToRemove = [];
+            
+            // Check each page (except first) to see if it's blank
+            for (let i = pages.length - 1; i >= 1; i--) {
+              try {
+                const page = pages[i];
+                const contentStream = page.node.get('Contents');
+                
+                // Check if page has substantial content
+                // A blank page would have minimal content (just footer)
+                let isBlank = false;
+                
+                if (contentStream) {
+                  // Check content stream size/length
+                  // If it's an array (multiple content streams), check length
+                  if (Array.isArray(contentStream)) {
+                    // If only 1-2 content streams, might be just footer
+                    // But be conservative - only mark as blank if we're very sure
+                    if (contentStream.length <= 1) {
+                      // Might be blank, but let's check the actual content
+                      // For now, we'll be conservative and not remove
+                      isBlank = false;
+                    }
+                  } else {
+                    // Single content stream - check if it's minimal
+                    // This is harder to determine, so we'll be conservative
+                    isBlank = false;
+                  }
+                } else {
+                  // No content stream - definitely blank
+                  isBlank = true;
+                }
+                
+                // Only remove if we're confident it's blank
+                // And only remove from the end (last pages that are likely blank)
+                if (isBlank && i === pages.length - 1) {
+                  // Only remove last page if it's clearly blank
+                  pagesToRemove.push(i);
+                }
+              } catch (error) {
+                // If we can't check, keep the page to be safe
+                continue;
               }
-              
-              // Remove pages in reverse order to maintain indices
-              pagesToRemove.forEach(pageIndex => {
-                pdfDoc.removePage(pageIndex);
-              });
-              
-              // Save the cleaned PDF
-              const cleanedPdfBytes = await pdfDoc.save();
-              fs.writeFileSync(outputPath, cleanedPdfBytes);
             }
+            
+            // Remove pages in reverse order (to maintain indices)
+            pagesToRemove.sort((a, b) => b - a).forEach(pageIndex => {
+              try {
+                pdfDoc.removePage(pageIndex);
+              } catch (error) {
+                // Ignore errors when removing pages
+              }
+            });
+            
+            // Save the cleaned PDF
+            const cleanedPdfBytes = await pdfDoc.save();
+            fs.writeFileSync(outputPath, cleanedPdfBytes);
             
             resolve(outputPath);
           } catch (error) {
@@ -359,12 +396,42 @@ class QuotationPdfService {
 
     // Table rows with alternating colors (gray and white like Excel)
     let yPosition = tableTop + headerHeight;
+    const pageHeight = doc.page.height;
+    const footerSpace = 180; // Space needed for calculations and footer sections
+    const minSpaceForRow = 30; // Minimum space needed for a row
 
     // Set font properties for height calculation
     doc.font('Helvetica')
       .fontSize(10);
 
     data.items.forEach((item, index) => {
+      // Check if we need a new page before adding this row
+      if (yPosition + minSpaceForRow > pageHeight - footerSpace) {
+        // Add new page
+        doc.addPage();
+        yPosition = 50; // Start from top margin
+        
+        // Redraw table header on new page
+        doc.rect(tableLeft, yPosition, pageWidth, headerHeight)
+          .fillColor(this.HEADER_DARK)
+          .fill();
+        
+        doc.fontSize(10)
+          .fillColor('white')
+          .font('Helvetica-Bold');
+        
+        const headerY = yPosition + 9;
+        doc.text('SR', columns.srNo.x + 10, headerY, { width: columns.srNo.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('DESCRIPTION', columns.description.x + 10, headerY, { width: columns.description.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('QTY', columns.quantity.x + 10, headerY, { width: columns.quantity.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('UNIT', columns.unit.x + 10, headerY, { width: columns.unit.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('RATE', columns.rate.x + 10, headerY, { width: columns.rate.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('GST%', columns.gst.x + 10, headerY, { width: columns.gst.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('AMOUNT', columns.amount.x + 5, headerY, { width: columns.amount.width - 15, align: 'right', characterSpacing: 0.5, lineBreak: false });
+        
+        yPosition += headerHeight;
+      }
+
       // Calculate the height needed for each cell's text
       const cellPadding = 8; // Top and bottom padding
       const minRowHeight = 23; // Minimum row height
@@ -392,6 +459,33 @@ class QuotationPdfService {
       
       // Calculate actual row height (max cell height + padding)
       const actualRowHeight = Math.max(maxCellHeight + (cellPadding * 2), minRowHeight);
+
+      // Check if this row would overflow the page
+      if (yPosition + actualRowHeight > pageHeight - footerSpace) {
+        // Add new page
+        doc.addPage();
+        yPosition = 50; // Start from top margin
+        
+        // Redraw table header on new page
+        doc.rect(tableLeft, yPosition, pageWidth, headerHeight)
+          .fillColor(this.HEADER_DARK)
+          .fill();
+        
+        doc.fontSize(10)
+          .fillColor('white')
+          .font('Helvetica-Bold');
+        
+        const headerY = yPosition + 9;
+        doc.text('SR', columns.srNo.x + 10, headerY, { width: columns.srNo.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('DESCRIPTION', columns.description.x + 10, headerY, { width: columns.description.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('QTY', columns.quantity.x + 10, headerY, { width: columns.quantity.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('UNIT', columns.unit.x + 10, headerY, { width: columns.unit.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('RATE', columns.rate.x + 10, headerY, { width: columns.rate.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('GST%', columns.gst.x + 10, headerY, { width: columns.gst.width, characterSpacing: 0.5, lineBreak: false });
+        doc.text('AMOUNT', columns.amount.x + 5, headerY, { width: columns.amount.width - 15, align: 'right', characterSpacing: 0.5, lineBreak: false });
+        
+        yPosition += headerHeight;
+      }
 
       // Alternating row background colors (gray and white)
       const rowBgColor = index % 2 === 0 ? '#f5f5f5' : 'white'; // Light gray and white
@@ -434,7 +528,20 @@ class QuotationPdfService {
    * Add calculations box (Subtotal, GST, Grand Total)
    */
   static addCalculations(doc, data, tableEndY) {
-    const yPosition = tableEndY + 10; // Use actual table end position + padding
+    const pageHeight = doc.page.height;
+    const calcHeight = 60; // Height needed for calculations section
+    const bottomMargin = 50; // Bottom margin
+    
+    // Check if we need a new page for calculations
+    let yPosition = tableEndY + 10;
+    
+    // Only add new page if calculations won't fit on current page
+    // Be conservative - only add page if absolutely necessary
+    if (yPosition + calcHeight > pageHeight - bottomMargin) {
+      doc.addPage();
+      yPosition = 50;
+    }
+    
     const boxLeft = 350;
     const boxWidth = 195;
 
@@ -471,10 +578,34 @@ class QuotationPdfService {
   /**
    * Add footer sections (Bank Details, Terms, Signature)
    */
-  static addFooterSections(doc, data) {
-    // Position at absolute bottom of page (above bottom footer)
+  static addFooterSections(doc, data, calcEndY) {
+    // Position footer sections after calculations, not at absolute bottom
     const pageHeight = doc.page.height;
-    const yStart = pageHeight - 125; // Adjusted for new footer
+    const footerHeight = 75; // Height of footer sections
+    const bottomFooterHeight = 40; // Height of bottom footer
+    const bottomMargin = 50;
+    
+    // Calculate Y position - ensure it fits on current page
+    let yStart = calcEndY + 20; // Position after calculations
+    
+    // Check if we're already on a new page (if calcEndY is near top, we just added a page)
+    const isNewPage = calcEndY < 100;
+    
+    // Only add new page if footer sections won't fit AND we're not already on a new page
+    if (yStart + footerHeight + bottomFooterHeight > pageHeight - bottomMargin) {
+      if (!isNewPage) {
+        // Only add new page if we're not already on a fresh page
+        doc.addPage();
+        yStart = 50;
+      } else {
+        // We're already on a new page, try to fit footer here
+        // Adjust position to fit if possible
+        const maxY = pageHeight - footerHeight - bottomFooterHeight - bottomMargin;
+        if (yStart > maxY) {
+          yStart = Math.max(50, maxY);
+        }
+      }
+    }
 
     doc.fontSize(9)
       .fillColor(this.TEXT_COLOR)
@@ -562,33 +693,42 @@ class QuotationPdfService {
   }
 
   /**
-   * Add bottom footer with GST number and contact
+   * Add bottom footer with GST number and contact (on all pages)
    */
   static addBottomFooter(doc) {
-    const pageHeight = doc.page.height;
+    const pageCount = doc.bufferedPageRange().count;
     const pageWidth = doc.page.width;
     const footerHeight = 40;
-    const footerY = pageHeight - footerHeight;
 
-    // Dark blue footer background
-    doc.rect(0, footerY, pageWidth, footerHeight)
-      .fillColor(this.HEADER_DARK)
-      .fill();
+    // Add footer to all pages
+    for (let i = 0; i < pageCount; i++) {
+      doc.switchToPage(i);
+      const pageHeight = doc.page.height;
+      const footerY = pageHeight - footerHeight;
 
-    // GST Number and Contact in footer
-    doc.fontSize(9)
-      .fillColor('white')
-      .font('Helvetica')
-      .text(`GST NO: ${this.GST_NUMBER} | Phone: ${this.COMPANY_PHONE} | Email: ${this.COMPANY_EMAIL}`, 0, footerY + 10, {
-        align: 'center',
-        width: pageWidth,
-        lineBreak: false,
-        characterSpacing: 0.3
-      });
+      // Dark blue footer background
+      doc.rect(0, footerY, pageWidth, footerHeight)
+        .fillColor(this.HEADER_DARK)
+        .fill();
 
-    // Page number
-    doc.fontSize(8)
-      .text('Page 1 of 1', 0, footerY + 24, { align: 'center', width: pageWidth, lineBreak: false });
+      // GST Number and Contact in footer
+      doc.fontSize(9)
+        .fillColor('white')
+        .font('Helvetica')
+        .text(`GST NO: ${this.GST_NUMBER} | Phone: ${this.COMPANY_PHONE} | Email: ${this.COMPANY_EMAIL}`, 0, footerY + 10, {
+          align: 'center',
+          width: pageWidth,
+          lineBreak: false,
+          characterSpacing: 0.3
+        });
+
+      // Page number (dynamic based on total pages)
+      doc.fontSize(8)
+        .text(`Page ${i + 1} of ${pageCount}`, 0, footerY + 24, { align: 'center', width: pageWidth, lineBreak: false });
+    }
+    
+    // Switch back to last page
+    doc.switchToPage(pageCount - 1);
   }
 
   /**
