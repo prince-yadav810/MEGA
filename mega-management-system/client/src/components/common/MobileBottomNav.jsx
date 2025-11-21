@@ -8,7 +8,10 @@ import {
   Settings,
   UserCog,
   ClipboardCheck,
-  Home
+  Home,
+  Package,
+  StickyNote,
+  Inbox
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -44,10 +47,28 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       path: '/quotations'
     },
     {
+      id: 'products',
+      name: 'Products',
+      icon: Package,
+      path: '/products'
+    },
+    {
       id: 'clients',
       name: 'Clients',
       icon: Users,
       path: '/clients'
+    },
+    {
+      id: 'inbox',
+      name: 'Inbox',
+      icon: Inbox,
+      path: '/inbox'
+    },
+    {
+      id: 'notes',
+      name: 'Notes',
+      icon: StickyNote,
+      path: '/notes-reminders'
     },
     {
       id: 'users',
@@ -80,69 +101,47 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
     if (path === '/workspace') {
       return location.pathname === '/workspace' || location.pathname.startsWith('/workspace');
     }
+    if (path === '/notes-reminders') {
+      return location.pathname === '/notes-reminders' || location.pathname.startsWith('/notes-reminders');
+    }
+    if (path === '/inbox') {
+      return location.pathname === '/inbox' || location.pathname.startsWith('/inbox');
+    }
     return location.pathname.startsWith(path);
   };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-1 z-50">
-      <div className="flex justify-between items-center max-w-md mx-auto">
-        {filteredNavigationItems.slice(0, 5).map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
+      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+        <div className="flex items-center gap-1 min-w-max">
+          {filteredNavigationItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
 
-          return (
-            <Link
-              key={item.id}
-              to={item.path}
-              onClick={() => setActiveTab && setActiveTab(item.id)}
-              className={`
-                flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-200 min-w-0 flex-1
-                ${active
-                  ? 'text-primary-600 bg-primary-50'
-                  : 'text-gray-500 hover:text-gray-700'
-                }
-              `}
-            >
-              <Icon className={`h-5 w-5 mb-1 ${active ? 'text-primary-600' : ''}`} />
-              <span className={`text-xs font-medium truncate ${active ? 'text-primary-700' : ''}`}>
-                {item.name}
-              </span>
-              {active && (
-                <div className="w-4 h-0.5 bg-primary-500 rounded-full mt-1" />
-              )}
-            </Link>
-          );
-        })}
-
-        {/* More menu for remaining items */}
-        {filteredNavigationItems.length > 5 ? (
-          <div className="flex flex-col items-center py-2 px-3 rounded-lg min-w-0">
-            <div className="flex space-x-1">
-              {filteredNavigationItems.slice(5).map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-
-                return (
-                  <Link
-                    key={item.id}
-                    to={item.path}
-                    onClick={() => setActiveTab && setActiveTab(item.id)}
-                    className={`
-                      p-1 rounded transition-colors
-                      ${active
-                        ? 'text-primary-600 bg-primary-100'
-                        : 'text-gray-500 hover:text-gray-700'
-                      }
-                    `}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </Link>
-                );
-              })}
-            </div>
-            <span className="text-xs font-medium text-gray-500 mt-1">More</span>
-          </div>
-        ) : null}
+            return (
+              <Link
+                key={item.id}
+                to={item.path}
+                onClick={() => setActiveTab && setActiveTab(item.id)}
+                className={`
+                  flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-200 min-w-[70px]
+                  ${active
+                    ? 'text-primary-600 bg-primary-50'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }
+                `}
+              >
+                <Icon className={`h-5 w-5 mb-1 ${active ? 'text-primary-600' : ''}`} />
+                <span className={`text-xs font-medium whitespace-nowrap ${active ? 'text-primary-700' : ''}`}>
+                  {item.name}
+                </span>
+                {active && (
+                  <div className="w-4 h-0.5 bg-primary-500 rounded-full mt-1" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
