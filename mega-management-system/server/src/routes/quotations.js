@@ -9,7 +9,9 @@ const {
   updateStatus,
   updatePriority,
   createLinkedTask,
-  deleteQuotation
+  deleteQuotation,
+  updateAdvertisementProducts,
+  regenerateQuotationPdf
 } = require('../controllers/quotationController');
 const { protect } = require('../middleware/auth');
 
@@ -37,6 +39,12 @@ router.patch('/:id/status', protect, updateStatus);
 
 // Update priority
 router.patch('/:id/priority', protect, updatePriority);
+
+// Update advertisement products
+router.put('/:id/advertisements', protect, updateAdvertisementProducts);
+
+// Regenerate PDF
+router.post('/:id/regenerate-pdf', protect, regenerateQuotationPdf);
 
 // Create linked task
 router.post('/:id/task', protect, createLinkedTask);

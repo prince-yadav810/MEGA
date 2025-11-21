@@ -18,7 +18,9 @@ import {
   FileText,
   Loader2,
   Building2,
-  IndianRupee
+  IndianRupee,
+  ShoppingBag,
+  RefreshCw
 } from 'lucide-react';
 import {
   getQuotation,
@@ -27,11 +29,14 @@ import {
   updateStatus,
   updatePriority,
   createLinkedTask,
-  deleteQuotation
+  deleteQuotation,
+  updateAdvertisementProducts,
+  regenerateQuotationPdf
 } from '../../services/quotationService';
 import userService from '../../services/userService';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
+import AdvertisementProductModal from '../../components/quotations/AdvertisementProductModal';
 
 /**
  * QuotationDetail Page
@@ -53,6 +58,7 @@ const QuotationDetail = () => {
   const [isEditingFileName, setIsEditingFileName] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [savingFileName, setSavingFileName] = useState(false);
+  const [pdfTimestamp, setPdfTimestamp] = useState(Date.now()); // For refreshing PDF preview
 
   // Status states
   const [newStatus, setNewStatus] = useState('');
@@ -75,6 +81,11 @@ const QuotationDetail = () => {
   });
   const [users, setUsers] = useState([]);
   const [savingTask, setSavingTask] = useState(false);
+
+  // Advertisement states
+  const [showAdModal, setShowAdModal] = useState(false);
+  const [savingAds, setSavingAds] = useState(false);
+  const [regeneratingPdf, setRegeneratingPdf] = useState(false);
 
   // Fetch quotation on mount
   useEffect(() => {
@@ -277,6 +288,43 @@ const QuotationDetail = () => {
     } finally {
       setSavingTask(false);
     }
+  };
+
+  /**
+   * Handle advertisement selection
+   */
+  const handleUpdateAdvertisements = async (productIds) => {
+    setSavingAds(true);
+    try {
+      // Update products
+      await updateAdvertisementProducts(quotation._id, productIds);
+      
+      // Regenerate PDF
+      setRegeneratingPdf(true);
+      const response = await regenerateQuotationPdf(quotation._id);
+      
+      setQuotation(response.data);
+      setPdfTimestamp(Date.now()); // Refresh PDF preview
+      toast.success('Advertisements updated and PDF regenerated successfully');
+    } catch (error) {
+      console.error('Error updating advertisements:', error);
+      toast.error(error.message || 'Failed to update advertisements');
+    } finally {
+      setSavingAds(false);
+      setRegeneratingPdf(false);
+    }
+  };
+
+  /**
+   * Handle remove single advertisement
+   */
+  const handleRemoveAdvertisement = async (productId) => {
+    if (!quotation.advertisementProducts) return;
+    
+    const currentIds = quotation.advertisementProducts.map(p => p._id);
+    const newIds = currentIds.filter(id => id !== productId);
+    
+    handleUpdateAdvertisements(newIds);
   };
 
   /**
@@ -588,6 +636,75 @@ const QuotationDetail = () => {
               <p className="text-sm text-gray-500 text-center py-4">No tasks linked yet</p>
             )}
           </div>
+
+          {/* Advertisement Management */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Advertisements</h2>
+              <button
+                onClick={() => setShowAdModal(true)}
+                disabled={savingAds || regeneratingPdf}
+                className="inline-flex items-center px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm disabled:opacity-50"
+              >
+                {savingAds || regeneratingPdf ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-1" />
+                )}
+                Manage Ads
+              </button>
+            </div>
+
+            {/* Advertisement List */}
+            {quotation.advertisementProducts && quotation.advertisementProducts.length > 0 ? (
+              <div className="space-y-3">
+                {quotation.advertisementProducts.map((product) => (
+                  <div key={product._id} className="flex items-center p-3 bg-gray-50 rounded-lg border">
+                    {/* Product Image Thumbnail */}
+                    <div className="h-10 w-10 bg-white rounded border mr-3 overflow-hidden flex-shrink-0">
+                      {product.images && product.images.length > 0 ? (
+                        <img 
+                          src={product.images.find(img => img.isPrimary)?.url || product.images[0].url} 
+                          alt={product.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-gray-300">
+                          <ShoppingBag className="h-5 w-5" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{product.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{product.category}</p>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleRemoveAdvertisement(product._id)}
+                      disabled={savingAds || regeneratingPdf}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded-full transition-colors ml-2"
+                      title="Remove advertisement"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500">
+                    <span className="font-medium">Note:</span> Adding/removing products will automatically regenerate the PDF.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">
+                No advertisement products added.
+                <br />
+                <span className="text-xs">Add products to show in "We Also Provide" section.</span>
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Right Column - PDF Preview */}
@@ -597,7 +714,7 @@ const QuotationDetail = () => {
             <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: '800px' }}>
               {quotation.pdfUrl ? (
                 <iframe
-                  src={`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}${quotation.pdfUrl}`}
+                  src={`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}${quotation.pdfUrl}?t=${pdfTimestamp}`}
                   title="Quotation PDF"
                   className="w-full h-full"
                   style={{ border: 'none' }}
@@ -730,6 +847,14 @@ const QuotationDetail = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Advertisement Product Modal */}
+      <AdvertisementProductModal
+        isOpen={showAdModal}
+        onClose={() => setShowAdModal(false)}
+        onSelect={handleUpdateAdvertisements}
+        initialSelectedIds={quotation.advertisementProducts?.map(p => p._id) || []}
+      />
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

@@ -60,7 +60,13 @@ class QuotationPdfService {
         this.addQuotationDetails(doc, data);
         const tableEndY = this.addItemsTable(doc, data);
         const calcEndY = this.addCalculations(doc, data, tableEndY);
-        this.addFooterSections(doc, data, calcEndY);
+        const footerEndY = this.addFooterSections(doc, data, calcEndY);
+        
+        // Add Advertisement Section if products exist
+        if (data.advertisementProducts && data.advertisementProducts.length > 0) {
+          this.addAdvertisementSection(doc, data, footerEndY);
+        }
+        
         this.addBottomFooter(doc);
 
         // Finalize PDF
@@ -120,13 +126,19 @@ class QuotationPdfService {
             }
             
             // Remove pages in reverse order (to maintain indices)
-            pagesToRemove.sort((a, b) => b - a).forEach(pageIndex => {
-              try {
-                pdfDoc.removePage(pageIndex);
-              } catch (error) {
-                // Ignore errors when removing pages
-              }
-            });
+            // Only remove if we have more than 1 page
+            if (pages.length > 1 && pagesToRemove.length > 0) {
+              pagesToRemove.sort((a, b) => b - a).forEach(pageIndex => {
+                try {
+                  // Safety check: never remove the first page (index 0)
+                  if (pageIndex > 0 && pageIndex < pages.length) {
+                    pdfDoc.removePage(pageIndex);
+                  }
+                } catch (error) {
+                  // Ignore errors when removing pages
+                }
+              });
+            }
             
             // Save the cleaned PDF
             const cleanedPdfBytes = await pdfDoc.save();
@@ -690,6 +702,153 @@ class QuotationPdfService {
       .fillColor('#666666')
       .fontSize(8)
       .text('Authorised Signatory', 420, yStart + 42, { lineBreak: false });
+
+    return yStart + footerHeight + 20;
+  }
+
+  /**
+   * Add advertisement section with product grid
+   */
+  static addAdvertisementSection(doc, data, startY) {
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    const margin = 50;
+    const contentWidth = pageWidth - (margin * 2);
+    const bottomMargin = 60; // Space for footer
+    
+    // Initial check if we need a new page for the title
+    let currentY = startY + 20;
+    
+    // Banner styling
+    const bannerHeight = 35;
+    
+    if (currentY + bannerHeight + 100 > pageHeight - bottomMargin) {
+      doc.addPage();
+      currentY = margin;
+    }
+    
+    // Add "We Also Provide" Banner
+    // Background
+    doc.rect(margin, currentY, contentWidth, bannerHeight)
+      .fillColor('#f8f9fa')
+      .fill();
+      
+    // Left accent
+    doc.rect(margin, currentY, 4, bannerHeight)
+      .fillColor(this.PRIMARY_COLOR)
+      .fill();
+      
+    // Text
+    doc.font('Helvetica-Bold')
+      .fontSize(14)
+      .fillColor(this.PRIMARY_COLOR)
+      .text('WE ALSO PROVIDE:', margin + 15, currentY + 10, { 
+        align: 'left',
+        characterSpacing: 1
+      });
+      
+    currentY += bannerHeight + 20;
+    
+    // Grid configuration - 3 Columns for better density
+    const columns = 3;
+    const gap = 15;
+    const cardWidth = (contentWidth - (gap * (columns - 1))) / columns;
+    const cardHeight = 180; // Fixed height for product card
+    
+    // Iterate through products
+    data.advertisementProducts.forEach((product, index) => {
+      // Check if we need a new page (check before starting a row)
+      if (currentY + cardHeight > pageHeight - bottomMargin) {
+        doc.addPage();
+        currentY = margin;
+        
+        // Add banner again on new page? Maybe just title
+        doc.font('Helvetica-Bold')
+          .fontSize(12)
+          .fillColor(this.PRIMARY_COLOR)
+          .text('We Also Provide (Continued):', margin, currentY);
+        currentY += 25;
+      }
+      
+      const colIndex = index % columns;
+      const x = margin + (colIndex * (cardWidth + gap));
+      
+      // Move Y down only after completing a row
+      if (index > 0 && index % columns === 0) {
+        currentY += cardHeight + gap;
+        
+        // Check page break again after row increment
+        if (currentY + cardHeight > pageHeight - bottomMargin) {
+          doc.addPage();
+          currentY = margin;
+        }
+      }
+      
+      // Draw Product Card
+      // Card background
+      doc.rect(x, currentY, cardWidth, cardHeight)
+        .fillColor('white')
+        .fill();
+        
+      // Card border (subtle)
+      doc.rect(x, currentY, cardWidth, cardHeight)
+        .strokeColor('#e0e0e0')
+        .lineWidth(0.5)
+        .stroke();
+        
+      // Product Image Area
+      const imageAreaHeight = 100;
+      doc.rect(x, currentY, cardWidth, imageAreaHeight)
+        .fillColor('#f8f9fa')
+        .fill();
+        
+      // Add "Image" placeholder icon/text
+      doc.fontSize(20)
+        .fillColor('#dddddd')
+        .text('🖼️', x, currentY + (imageAreaHeight / 2) - 15, {
+          width: cardWidth,
+          align: 'center'
+        });
+        
+      // Product Name (with truncation)
+      doc.font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor(this.TEXT_COLOR)
+        .text(product.name, x + 8, currentY + imageAreaHeight + 10, {
+          width: cardWidth - 16,
+          height: 24,
+          ellipsis: true,
+          align: 'left'
+        });
+        
+      // Product Category badge style
+      if (product.category) {
+        doc.font('Helvetica')
+          .fontSize(8)
+          .fillColor(this.PRIMARY_COLOR)
+          .text(product.category.toUpperCase(), x + 8, currentY + imageAreaHeight + 35, {
+            width: cardWidth - 16,
+            align: 'left'
+          });
+      }
+        
+      // Product Description (truncated)
+      if (product.description) {
+        doc.font('Helvetica')
+          .fontSize(8)
+          .fillColor('#666666')
+          .text(product.description.substring(0, 60).replace(/\n/g, ' ') + (product.description.length > 60 ? '...' : ''), 
+            x + 8, 
+            currentY + imageAreaHeight + 50, 
+            {
+              width: cardWidth - 16,
+              height: 30,
+              align: 'left',
+              ellipsis: true
+            }
+          );
+      }
+    });
   }
 
   /**

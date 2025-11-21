@@ -64,7 +64,8 @@ exports.getQuotation = async (req, res) => {
           path: 'assignees',
           select: 'name email'
         }
-      });
+      })
+      .populate('advertisementProducts');
 
     if (!quotation) {
       return res.status(404).json({
@@ -114,6 +115,23 @@ exports.uploadExcel = async (req, res) => {
     const extractedData = ExcelProcessor.processQuotationExcel(tempFilePath);
     console.log('✅ Data extracted successfully');
 
+    // Handle advertisement products
+    let advertisementProducts = [];
+    if (req.body.advertisementProducts) {
+      try {
+        advertisementProducts = JSON.parse(req.body.advertisementProducts);
+        // If it's an array of strings (IDs), we might need to fetch product details for PDF generation
+        if (Array.isArray(advertisementProducts) && advertisementProducts.length > 0) {
+          const Product = require('../models/Product');
+          const products = await Product.find({ _id: { $in: advertisementProducts } });
+          // Map products to match order of IDs if important, or just use found products
+          extractedData.advertisementProducts = products;
+        }
+      } catch (e) {
+        console.error('Error parsing advertisement products:', e);
+      }
+    }
+
     // Step 2: Generate PDF filename
     const sanitizedRefNo = extractedData.refNo.replace(/[^a-z0-9]/gi, '_');
     const sanitizedClient = extractedData.clientName.substring(0, 20).replace(/[^a-z0-9]/gi, '_');
@@ -139,6 +157,7 @@ exports.uploadExcel = async (req, res) => {
       grandTotal: extractedData.grandTotal,
       paymentTerms: extractedData.paymentTerms,
       offerValidity: extractedData.offerValidity,
+      advertisementProducts: advertisementProducts,
       createdBy: req.user?._id
     });
     console.log('✅ Quotation saved to database');
@@ -477,10 +496,86 @@ exports.updatePriority = async (req, res) => {
 };
 
 /**
- * @desc    Create a task linked to quotation
- * @route   POST /api/quotations/:id/task
+ * @desc    Update advertisement products
+ * @route   PUT /api/quotations/:id/advertisements
  * @access  Private
  */
+exports.updateAdvertisementProducts = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+
+    if (!Array.isArray(productIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'productIds must be an array'
+      });
+    }
+
+    const quotation = await Quotation.findByIdAndUpdate(
+      req.params.id,
+      {
+        advertisementProducts: productIds,
+        updatedBy: req.user?._id
+      },
+      { new: true }
+    ).populate('advertisementProducts');
+
+    if (!quotation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quotation not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Advertisement products updated successfully',
+      data: quotation
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error updating advertisement products',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Regenerate PDF with updated data
+ * @route   POST /api/quotations/:id/regenerate-pdf
+ * @access  Private
+ */
+exports.regenerateQuotationPdf = async (req, res) => {
+  try {
+    const quotation = await Quotation.findById(req.params.id)
+      .populate('advertisementProducts');
+
+    if (!quotation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quotation not found'
+      });
+    }
+
+    const pdfFilePath = path.join(UPLOADS_DIR, quotation.fileName);
+
+    // Generate new PDF
+    await QuotationPdfService.generateQuotationPDF(quotation, pdfFilePath);
+
+    res.status(200).json({
+      success: true,
+      message: 'PDF regenerated successfully',
+      data: quotation
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error regenerating PDF',
+      error: error.message
+    });
+  }
+};
 exports.createLinkedTask = async (req, res) => {
   try {
     const quotation = await Quotation.findById(req.params.id);

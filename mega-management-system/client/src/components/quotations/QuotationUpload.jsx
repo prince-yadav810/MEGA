@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileSpreadsheet, X, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, X, Loader2, AlertCircle, ShoppingBag } from 'lucide-react';
 import { uploadExcel } from '../../services/quotationService';
 import toast from 'react-hot-toast';
+import AdvertisementProductModal from './AdvertisementProductModal';
 
 /**
  * QuotationUpload Component
  * Allows users to upload Excel files to create quotations
- * Features: Drag-and-drop, progress tracking, validation
+ * Features: Drag-and-drop, progress tracking, validation, advertisement selection
  */
 const QuotationUpload = ({ onUploadSuccess }) => {
   const [file, setFile] = useState(null);
@@ -14,6 +15,11 @@ const QuotationUpload = ({ onUploadSuccess }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Advertisement states
+  const [showAdModal, setShowAdModal] = useState(false);
+  const [advertisementProducts, setAdvertisementProducts] = useState([]);
+  
   const fileInputRef = useRef(null);
 
   // File size limit (5MB)
@@ -115,13 +121,14 @@ const QuotationUpload = ({ onUploadSuccess }) => {
     setUploadProgress(0);
 
     try {
-      const response = await uploadExcel(file, (progressEvent) => {
+      const response = await uploadExcel(file, advertisementProducts, (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         setUploadProgress(percentCompleted);
       });
 
       toast.success('Quotation created successfully!');
       handleRemoveFile();
+      setAdvertisementProducts([]); // Reset selected products
 
       // Call parent callback
       if (onUploadSuccess) {
@@ -150,6 +157,26 @@ const QuotationUpload = ({ onUploadSuccess }) => {
 
   return (
     <div className="w-full">
+      {/* Advertisement Selection */}
+      <div className="mb-6 flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div>
+          <h3 className="text-sm font-medium text-gray-900">Advertisement Products</h3>
+          <p className="text-xs text-gray-500">
+            {advertisementProducts.length === 0 
+              ? 'Select products to show at the bottom of the quotation PDF' 
+              : `${advertisementProducts.length} products selected`}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAdModal(true)}
+          disabled={uploading}
+          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+        >
+          <ShoppingBag className="h-4 w-4 mr-2 text-gray-500" />
+          {advertisementProducts.length > 0 ? 'Change Selection' : 'Select Products'}
+        </button>
+      </div>
+
       {/* Upload Area */}
       <div
         className={`
@@ -281,6 +308,14 @@ const QuotationUpload = ({ onUploadSuccess }) => {
           <li>Total in Row 40, Column H</li>
         </ul>
       </div>
+
+      {/* Advertisement Modal */}
+      <AdvertisementProductModal
+        isOpen={showAdModal}
+        onClose={() => setShowAdModal(false)}
+        onSelect={setAdvertisementProducts}
+        initialSelectedIds={advertisementProducts}
+      />
     </div>
   );
 };

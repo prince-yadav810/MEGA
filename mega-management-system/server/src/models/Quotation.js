@@ -113,6 +113,12 @@ const QuotationSchema = new mongoose.Schema({
     ref: 'Task'
   }],
 
+  // Advertisement Products
+  advertisementProducts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  }],
+
   // User tracking
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

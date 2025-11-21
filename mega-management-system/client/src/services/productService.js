@@ -152,4 +152,6 @@ const productService = {
   },
 };
 
+export const getProducts = productService.getAllProducts;
+
 export default productService;

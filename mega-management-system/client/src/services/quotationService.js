@@ -63,10 +63,13 @@ export const deleteQuotation = async (id) => {
 };
 
 // Upload Excel file
-export const uploadExcel = async (file, onUploadProgress) => {
+export const uploadExcel = async (file, advertisementProducts = [], onUploadProgress) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
+    if (advertisementProducts && advertisementProducts.length > 0) {
+      formData.append('advertisementProducts', JSON.stringify(advertisementProducts));
+    }
 
     const response = await api.post('/quotations/upload', formData, {
       headers: {
@@ -144,6 +147,26 @@ export const createLinkedTask = async (id, taskData) => {
   }
 };
 
+// Update advertisement products
+export const updateAdvertisementProducts = async (id, productIds) => {
+  try {
+    const response = await api.put(`/quotations/${id}/advertisements`, { productIds });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Regenerate quotation PDF
+export const regenerateQuotationPdf = async (id) => {
+  try {
+    const response = await api.post(`/quotations/${id}/regenerate-pdf`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 const quotationService = {
   getQuotations,
   getQuotationsByClient,
@@ -156,7 +179,9 @@ const quotationService = {
   updateFileName,
   updateStatus,
   updatePriority,
-  createLinkedTask
+  createLinkedTask,
+  updateAdvertisementProducts,
+  regenerateQuotationPdf
 };
 
 export default quotationService;
