@@ -13,6 +13,14 @@ exports.checkIn = async (req, res) => {
     const { latitude, longitude, notes } = req.body;
     const userId = req.user.id;
 
+    // Prevent admin/manager from checking in
+    if (req.user.role === 'admin' || req.user.role === 'manager') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admins and managers do not need to mark attendance'
+      });
+    }
+
     // Validate coordinates
     if (!validateCoordinates(latitude, longitude)) {
       return res.status(400).json({
@@ -89,6 +97,14 @@ exports.checkOut = async (req, res) => {
   try {
     const { latitude, longitude, notes } = req.body;
     const userId = req.user.id;
+
+    // Prevent admin/manager from checking out
+    if (req.user.role === 'admin' || req.user.role === 'manager') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admins and managers do not need to mark attendance'
+      });
+    }
 
     // Validate coordinates
     if (!validateCoordinates(latitude, longitude)) {

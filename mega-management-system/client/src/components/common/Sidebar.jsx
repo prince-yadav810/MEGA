@@ -13,7 +13,8 @@ import {
   Menu,
   ChevronLeft,
   Inbox,
-  ClipboardCheck
+  ClipboardCheck,
+  Home
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -25,6 +26,12 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
   const { unreadCount } = useNotifications();
 
   const navigationItems = [
+    {
+      id: 'dashboard',
+      name: 'Dashboard',
+      icon: Home,
+      path: '/dashboard'
+    },
     {
       id: 'workspace',
       name: 'Workspace',
@@ -98,10 +105,13 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
   });
 
   const isActive = (path, itemId) => {
+    // For dashboard, exact match
+    if (itemId === 'dashboard') {
+      return location.pathname === '/dashboard' || location.pathname === '/';
+    }
     // For workspace, check if we're on any workspace route
     if (path === '/workspace') {
-      return location.pathname === '/' || 
-             location.pathname === '/workspace' || 
+      return location.pathname === '/workspace' || 
              location.pathname.startsWith('/workspace/');
     }
     // For quotations page, check view parameter to determine which tab is active

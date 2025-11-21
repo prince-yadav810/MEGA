@@ -74,6 +74,7 @@ app.use('/api/notifications', require('./src/routes/notifications'));
 app.use('/api/attendance', require('./src/routes/attendance'));
 app.use('/api/api-usage', require('./src/routes/apiUsage'));
 app.use('/api/call-logs', callLogRoutes);
+app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

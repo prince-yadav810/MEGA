@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } 
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/common/Sidebar';
 import MobileBottomNav from './components/common/MobileBottomNav';
+import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import Inbox from './pages/Inbox/Inbox';
 import Attendance from './pages/Attendance/Attendance';
@@ -32,7 +33,9 @@ function Layout() {
 
   useEffect(() => {
     const path = location.pathname;
-    if (path.startsWith('/workspace')) {
+    if (path === '/dashboard') {
+      setActiveTab('dashboard');
+    } else if (path.startsWith('/workspace')) {
       setActiveTab('workspace');
     } else if (path.startsWith('/inbox')) {
       setActiveTab('inbox');
@@ -73,7 +76,8 @@ function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto bg-gray-50">
           <Routes>
-            <Route index element={<Navigate to="/workspace/table" replace />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="workspace/*" element={<Workspace />} />
             <Route path="inbox" element={<Inbox />} />
             <Route

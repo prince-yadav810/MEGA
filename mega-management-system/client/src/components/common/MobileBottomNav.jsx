@@ -7,7 +7,8 @@ import {
   BarChart3,
   Settings,
   UserCog,
-  ClipboardCheck
+  ClipboardCheck,
+  Home
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,8 +18,14 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
 
   const navigationItems = [
     {
+      id: 'dashboard',
+      name: 'Home',
+      icon: Home,
+      path: '/dashboard'
+    },
+    {
       id: 'workspace',
-      name: 'Workspace',
+      name: 'Tasks',
       icon: LayoutDashboard,
       path: '/workspace/table'
     },
@@ -67,8 +74,11 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   });
 
   const isActive = (path) => {
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard' || location.pathname === '/';
+    }
     if (path === '/workspace') {
-      return location.pathname === '/' || location.pathname.startsWith('/workspace');
+      return location.pathname === '/workspace' || location.pathname.startsWith('/workspace');
     }
     return location.pathname.startsWith(path);
   };
