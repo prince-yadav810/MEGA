@@ -12,15 +12,14 @@ const {
   deleteQuotation
 } = require('../controllers/quotationController');
 const { protect } = require('../middleware/auth');
-const { uploadExcel: uploadExcelMiddleware } = require('../config/multer');
 
 // All quotation routes require authentication
 
 // Get all quotations
 router.get('/', protect, getQuotations);
 
-// Upload Excel and create quotation
-router.post('/upload', protect, uploadExcelMiddleware.single('file'), uploadExcel);
+// Upload Excel and create quotation (uses express-fileupload middleware from server.js)
+router.post('/upload', protect, uploadExcel);
 
 // Get, update status, and delete quotation by ID
 router.route('/:id')

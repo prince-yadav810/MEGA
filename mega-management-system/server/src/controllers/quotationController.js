@@ -97,16 +97,17 @@ exports.uploadExcel = async (req, res) => {
   try {
     console.log('📁 Excel upload request received');
 
-    // Check if file exists
-    if (!req.file) {
+    // Check if file exists (using express-fileupload)
+    if (!req.files || !req.files.file) {
       return res.status(400).json({
         success: false,
         message: 'Please upload an Excel file'
       });
     }
 
-    tempFilePath = req.file.path;
-    console.log('📄 File received:', req.file.originalname);
+    const uploadedFile = req.files.file;
+    tempFilePath = uploadedFile.tempFilePath;
+    console.log('📄 File received:', uploadedFile.name);
 
     // Step 1: Extract data from Excel
     console.log('🔍 Extracting data from Excel...');
@@ -206,24 +207,33 @@ exports.downloadPdf = async (req, res) => {
       });
     }
 
+    // Check if pdfUrl exists
+    if (!quotation.pdfUrl) {
+      return res.status(404).json({
+        success: false,
+        message: 'PDF URL not available for this quotation'
+      });
+    }
+
     const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
 
     if (!fs.existsSync(pdfPath)) {
       return res.status(404).json({
         success: false,
-        message: 'PDF file not found'
+        message: 'PDF file not found on server'
       });
     }
 
     // Set headers for download
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${quotation.fileName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${quotation.fileName || 'quotation.pdf'}"`);
 
     // Stream the file
     const fileStream = fs.createReadStream(pdfPath);
     fileStream.pipe(res);
 
   } catch (error) {
+    console.error('Download PDF error:', error);
     res.status(500).json({
       success: false,
       message: 'Error downloading PDF',
