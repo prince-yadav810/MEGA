@@ -40,6 +40,23 @@ const attendanceService = {
     }
   },
 
+  // Admin: Get all employees' today attendance
+  getAllAttendanceToday: async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await api.get('/attendance', {
+        params: {
+          startDate: today,
+          endDate: today
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Get all attendance today error:', error);
+      throw error.response?.data || error;
+    }
+  },
+
   getMyAttendance: async (startDate = null, endDate = null, limit = 30) => {
     try {
       const params = { limit };
@@ -107,6 +124,20 @@ const attendanceService = {
       return response.data;
     } catch (error) {
       console.error('Get user attendance summary error:', error);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Admin: Manually update attendance for a user
+  updateAttendanceManually: async (userId, date, status) => {
+    try {
+      const response = await api.put(`/attendance/user/${userId}/manual`, {
+        date,
+        status
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Update attendance manually error:', error);
       throw error.response?.data || error;
     }
   },

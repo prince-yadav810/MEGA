@@ -4,9 +4,9 @@ import toast from 'react-hot-toast';
 import attendanceService from '../../services/attendanceService';
 import { useAuth } from '../../context/AuthContext';
 import AttendanceCalendarGrid from '../../components/attendance/AttendanceCalendarGrid';
-import AttendanceSummary from '../../components/attendance/AttendanceSummary';
+import SimplifiedAttendanceStats from '../../components/attendance/SimplifiedAttendanceStats';
 import SalaryCalculator from '../../components/attendance/SalaryCalculator';
-import AdvancePaymentsList from '../../components/attendance/AdvancePaymentsList';
+import CompactAdvancePayments from '../../components/attendance/CompactAdvancePayments';
 import moment from 'moment';
 
 const Attendance = () => {
@@ -177,22 +177,26 @@ const Attendance = () => {
   const canCheckOut = todayAttendance && !todayAttendance.checkOutTime;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header with Clock */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Attendance</h1>
-            <p className="text-gray-600">Mark your daily attendance and view your history</p>
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-2">
+              Attendance
+            </h1>
+            <p className="text-gray-600 text-sm md:text-base">Mark your daily attendance and view your history</p>
           </div>
 
           {/* Small Clock in Top Right */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-3 text-white min-w-[200px]">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg p-4 text-white min-w-[200px] border border-blue-400/20">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-lg">
+                <Clock className="w-5 h-5" />
+              </div>
               <div>
-                <p className="text-xs opacity-90">Current Time</p>
-                <p className="text-lg font-bold">{currentTime.toLocaleTimeString()}</p>
+                <p className="text-xs opacity-90 font-medium">Current Time</p>
+                <p className="text-lg font-bold tracking-tight">{currentTime.toLocaleTimeString()}</p>
                 <p className="text-xs opacity-90">{moment(currentTime).format('MMM DD, YYYY')}</p>
               </div>
             </div>
@@ -200,28 +204,32 @@ const Attendance = () => {
         </div>
 
         {/* Today's Attendance Status */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <Calendar className="w-5 h-5 mr-2 text-blue-600" />
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200/60 p-6 backdrop-blur-sm">
+          <h2 className="text-xl font-bold mb-5 flex items-center text-gray-900">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-2.5 rounded-lg mr-3 shadow-sm">
+              <Calendar className="w-5 h-5 text-blue-600" />
+            </div>
             Today's Attendance
           </h2>
 
           {todayAttendance ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Check-in Info */}
-              <div className="border-l-4 border-green-500 bg-green-50 p-4 rounded">
+              <div className="border-l-4 border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                      <span className="font-semibold text-green-900">Checked In</span>
+                    <div className="flex items-center mb-3">
+                      <div className="bg-green-100 p-1.5 rounded-lg mr-2">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      </div>
+                      <span className="font-semibold text-green-900 text-lg">Checked In</span>
                     </div>
-                    <p className="text-sm text-gray-700 mb-1">
-                      <strong>Time:</strong> {formatTime(todayAttendance.checkInTime)}
+                    <p className="text-sm text-gray-700 mb-2">
+                      <strong className="font-semibold">Time:</strong> <span className="font-mono">{formatTime(todayAttendance.checkInTime)}</span>
                     </p>
-                    <div className="flex items-start text-sm text-gray-600">
-                      <MapPin className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" />
-                      <span>{todayAttendance.location?.address || 'Location unavailable'}</span>
+                    <div className="flex items-start text-sm text-gray-600 bg-white/60 rounded-md p-2">
+                      <MapPin className="w-4 h-4 mr-1.5 mt-0.5 flex-shrink-0 text-green-600" />
+                      <span className="flex-1">{todayAttendance.location?.address || 'Location unavailable'}</span>
                     </div>
                   </div>
                 </div>
@@ -229,39 +237,48 @@ const Attendance = () => {
 
               {/* Check-out Info */}
               {todayAttendance.checkOutTime ? (
-                <div className="border-l-4 border-red-500 bg-red-50 p-4 rounded">
+                <div className="border-l-4 border-red-500 bg-gradient-to-r from-red-50 to-rose-50 p-4 rounded-lg shadow-sm">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center mb-2">
-                        <XCircle className="w-5 h-5 text-red-600 mr-2" />
-                        <span className="font-semibold text-red-900">Checked Out</span>
+                      <div className="flex items-center mb-3">
+                        <div className="bg-red-100 p-1.5 rounded-lg mr-2">
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        </div>
+                        <span className="font-semibold text-red-900 text-lg">Checked Out</span>
                       </div>
-                      <p className="text-sm text-gray-700 mb-1">
-                        <strong>Time:</strong> {formatTime(todayAttendance.checkOutTime)}
+                      <p className="text-sm text-gray-700 mb-2">
+                        <strong className="font-semibold">Time:</strong> <span className="font-mono">{formatTime(todayAttendance.checkOutTime)}</span>
                       </p>
-                      <div className="flex items-start text-sm text-gray-600 mb-2">
-                        <MapPin className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" />
-                        <span>{todayAttendance.checkOutLocation?.address || 'Location unavailable'}</span>
+                      <div className="flex items-start text-sm text-gray-600 mb-3 bg-white/60 rounded-md p-2">
+                        <MapPin className="w-4 h-4 mr-1.5 mt-0.5 flex-shrink-0 text-red-600" />
+                        <span className="flex-1">{todayAttendance.checkOutLocation?.address || 'Location unavailable'}</span>
                       </div>
-                      <p className="text-sm font-medium text-gray-800">
-                        Work Duration: {formatDuration(todayAttendance.workDuration)}
-                      </p>
+                      <div className="bg-white/80 rounded-md p-2.5 border border-gray-200">
+                        <p className="text-sm font-semibold text-gray-800">
+                          Work Duration: <span className="text-blue-600 font-mono">{formatDuration(todayAttendance.workDuration)}</span>
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded">
+                <div className="border-l-4 border-yellow-500 bg-gradient-to-r from-yellow-50 to-amber-50 p-4 rounded-lg shadow-sm">
                   <div className="flex items-center">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
-                    <span className="text-yellow-900 font-medium">Awaiting Check-out</span>
+                    <div className="bg-yellow-100 p-1.5 rounded-lg mr-2">
+                      <AlertCircle className="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <span className="text-yellow-900 font-semibold">Awaiting Check-out</span>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600 mb-4">You haven't marked attendance today</p>
+            <div className="text-center py-10 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Clock className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 font-medium mb-1">No attendance marked today</p>
+              <p className="text-sm text-gray-500">Click "Check In" below to mark your attendance</p>
             </div>
           )}
 
@@ -269,22 +286,22 @@ const Attendance = () => {
           {(canCheckIn || canCheckOut) && (
             <div className="mt-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notes (Optional)
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Notes <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add any notes..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
                   rows="2"
                 />
               </div>
 
               {locationLoading && (
-                <div className="flex items-center justify-center text-blue-600 text-sm">
+                <div className="flex items-center justify-center text-blue-600 text-sm bg-blue-50 rounded-lg p-3 border border-blue-200">
                   <MapPin className="w-4 h-4 mr-2 animate-pulse" />
-                  Fetching your location...
+                  <span className="font-medium">Fetching your location...</span>
                 </div>
               )}
 
@@ -293,12 +310,12 @@ const Attendance = () => {
                   <button
                     onClick={handleCheckIn}
                     disabled={loading}
-                    className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center"
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3.5 px-6 rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 font-semibold flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none"
                   >
                     {loading ? (
                       <>
-                        <span className="animate-spin mr-2">⏳</span>
-                        Marking Attendance...
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        <span>Marking Attendance...</span>
                       </>
                     ) : (
                       <>
@@ -313,12 +330,12 @@ const Attendance = () => {
                   <button
                     onClick={handleCheckOut}
                     disabled={loading}
-                    className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3.5 px-6 rounded-lg hover:from-red-700 hover:to-rose-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 font-semibold flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none"
                   >
                     {loading ? (
                       <>
-                        <span className="animate-spin mr-2">⏳</span>
-                        Marking Check-out...
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        <span>Marking Check-out...</span>
                       </>
                     ) : (
                       <>
@@ -330,8 +347,8 @@ const Attendance = () => {
                 )}
               </div>
 
-              <p className="text-xs text-gray-500 text-center">
-                <MapPin className="w-3 h-3 inline mr-1" />
+              <p className="text-xs text-gray-500 text-center flex items-center justify-center gap-1">
+                <MapPin className="w-3.5 h-3.5" />
                 Your location will be recorded when you mark attendance
               </p>
             </div>
@@ -339,175 +356,175 @@ const Attendance = () => {
         </div>
 
         {/* Attendance Calendar and Stats */}
-        {console.log('Rendering with summaryData:', summaryData)}
         {summaryData && (
           <>
             {/* Month Navigation */}
-            <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => handleMonthChange('prev')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  ← Previous
-                </button>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {moment().month(selectedMonth).year(selectedYear).format('MMMM YYYY')}
+            <div className="mb-4">
+              <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 rounded-2xl border border-blue-200/60 shadow-md p-4 backdrop-blur-sm">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => handleMonthChange('prev')}
+                    className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-blue-100 border border-blue-200 transition-all duration-200 font-semibold hover:shadow-md hover:scale-105"
+                  >
+                    ← Previous
+                  </button>
+                  <div className="text-center">
+                    <h2 className="text-lg font-bold text-gray-900">
+                      {moment().month(selectedMonth).year(selectedYear).format('MMMM YYYY')}
+                    </h2>
+                    <p className="text-xs text-gray-600 mt-0.5">Attendance Overview</p>
+                  </div>
+                  <button
+                    onClick={() => handleMonthChange('next')}
+                    className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-blue-100 border border-blue-200 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:scale-105"
+                    disabled={selectedMonth === moment().month() && selectedYear === moment().year()}
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Compact Advance Payments - Below Month Navigation, Above Calendar/Stats */}
+            {summaryData.advances && summaryData.advances.total > 0 && (
+              <div className="mb-6">
+                <CompactAdvancePayments advancesData={summaryData.advances} />
+              </div>
+            )}
+
+            {/* Calendar and Stats - 50-50 Split */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Left - Calendar */}
+              {summaryData.calendar && summaryData.period && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-5 backdrop-blur-sm">
+                  <AttendanceCalendarGrid
+                    calendarData={summaryData.calendar}
+                    period={summaryData.period}
+                  />
+                </div>
+              )}
+
+              {/* Right - Simplified Attendance Stats */}
+              {summaryData.stats && summaryData.period && (
+                <SimplifiedAttendanceStats
+                  stats={summaryData.stats}
+                  period={summaryData.period}
+                />
+              )}
+            </div>
+
+            {/* Salary Details - Full Width Below */}
+            {summaryData.salary && summaryData.advances && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6 backdrop-blur-sm">
+                <h2 className="text-lg font-bold mb-4 flex items-center text-gray-900">
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-2.5 rounded-lg mr-3 shadow-sm">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                  </div>
+                  Salary Details
                 </h2>
-                <button
-                  onClick={() => handleMonthChange('next')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  disabled={selectedMonth === moment().month() && selectedYear === moment().year()}
-                >
-                  Next →
-                </button>
+                <SalaryCalculator
+                  salaryData={summaryData.salary}
+                  advancesData={summaryData.advances}
+                />
               </div>
-            </div>
-
-            {/* Two Column Layout: Calendar Left, Stats/Salary Right */}
-            <div className="flex gap-6 mb-6">
-              {/* Left Column - Calendar */}
-              <div className="flex-1 space-y-6">
-                {console.log('Calendar check:', { hasCalendar: !!summaryData.calendar, hasPeriod: !!summaryData.period })}
-                {summaryData.calendar && summaryData.period && (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <Calendar className="w-5 h-5 mr-2 text-gray-900" />
-                      Attendance Calendar
-                    </h2>
-                    <AttendanceCalendarGrid
-                      calendarData={summaryData.calendar}
-                      period={summaryData.period}
-                    />
-                  </div>
-                )}
-
-                {/* Advance Payments */}
-                {summaryData.advances && (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2 text-gray-900" />
-                      Advance Payments
-                    </h2>
-                    <AdvancePaymentsList advancesData={summaryData.advances} />
-                  </div>
-                )}
-              </div>
-
-              {/* Right Column - Stats and Salary */}
-              <div className="w-96 space-y-6">
-                {/* Attendance Summary Stats */}
-                {console.log('Stats check:', { hasStats: !!summaryData.stats, hasPeriod: !!summaryData.period, stats: summaryData.stats })}
-                {summaryData.stats && summaryData.period && (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <CheckCircle className="w-5 h-5 mr-2 text-gray-900" />
-                      Summary
-                    </h2>
-                    <AttendanceSummary
-                      stats={summaryData.stats}
-                      period={summaryData.period}
-                    />
-                  </div>
-                )}
-
-                {/* Salary Calculator */}
-                {summaryData.salary && summaryData.advances && (
-                  <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2 text-gray-900" />
-                      Salary
-                    </h2>
-                    <SalaryCalculator
-                      salaryData={summaryData.salary}
-                      advancesData={summaryData.advances}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </>
         )}
 
         {/* Attendance History */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Attendance History</h2>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6 backdrop-blur-sm">
+          <h2 className="text-xl font-bold mb-5 text-gray-900 flex items-center">
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-2.5 rounded-lg mr-3 shadow-sm">
+              <Calendar className="w-5 h-5 text-purple-600" />
+            </div>
+            Recent Attendance History
+          </h2>
 
           {attendanceHistory.length > 0 ? (
             <div className="space-y-3">
               {attendanceHistory.map((record) => (
                 <div
                   key={record._id}
-                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 hover:shadow-md transition-all duration-200 bg-white"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-semibold text-gray-900 text-base">
                       {formatDate(record.date)}
                     </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'present' ? 'bg-green-100 text-green-800' :
-                      record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                      record.status === 'half-day' ? 'bg-blue-100 text-blue-800' :
-                      'bg-red-100 text-red-800'
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                      record.status === 'present' ? 'bg-green-100 text-green-800 border border-green-200' :
+                      record.status === 'late' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                      record.status === 'half-day' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                      'bg-red-100 text-red-800 border border-red-200'
                     }`}>
                       {record.status.toUpperCase()}
                     </span>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-3 text-sm">
+                  <div className="grid md:grid-cols-2 gap-4 text-sm">
                     {/* Check-in */}
-                    <div>
-                      <p className="text-gray-600 mb-1">
-                        <strong>Check-in:</strong> {formatTime(record.checkInTime)}
+                    <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                      <p className="text-gray-700 mb-2 font-semibold flex items-center">
+                        <CheckCircle className="w-4 h-4 text-green-600 mr-1.5" />
+                        Check-in
                       </p>
-                      <div className="flex items-start text-xs text-gray-500">
-                        <MapPin className="w-3 h-3 mr-1 mt-0.5 flex-shrink-0" />
+                      <p className="text-gray-900 font-mono mb-2">{formatTime(record.checkInTime)}</p>
+                      <div className="flex items-start text-xs text-gray-600 bg-white/60 rounded p-2">
+                        <MapPin className="w-3 h-3 mr-1 mt-0.5 flex-shrink-0 text-green-600" />
                         <span className="line-clamp-2">{record.location?.address}</span>
                       </div>
                     </div>
 
                     {/* Check-out */}
-                    <div>
+                    <div className={`rounded-lg p-3 border ${record.checkOutTime ? 'bg-red-50 border-red-100' : 'bg-gray-50 border-gray-200'}`}>
                       {record.checkOutTime ? (
                         <>
-                          <p className="text-gray-600 mb-1">
-                            <strong>Check-out:</strong> {formatTime(record.checkOutTime)}
+                          <p className="text-gray-700 mb-2 font-semibold flex items-center">
+                            <XCircle className="w-4 h-4 text-red-600 mr-1.5" />
+                            Check-out
                           </p>
-                          <div className="flex items-start text-xs text-gray-500">
-                            <MapPin className="w-3 h-3 mr-1 mt-0.5 flex-shrink-0" />
+                          <p className="text-gray-900 font-mono mb-2">{formatTime(record.checkOutTime)}</p>
+                          <div className="flex items-start text-xs text-gray-600 bg-white/60 rounded p-2">
+                            <MapPin className="w-3 h-3 mr-1 mt-0.5 flex-shrink-0 text-red-600" />
                             <span className="line-clamp-2">
                               {record.checkOutLocation?.address || 'N/A'}
                             </span>
                           </div>
                         </>
                       ) : (
-                        <p className="text-gray-500 italic">Not checked out</p>
+                        <p className="text-gray-500 italic text-sm">Not checked out</p>
                       )}
                     </div>
                   </div>
 
-                  {record.workDuration > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <p className="text-sm text-gray-700">
-                        <strong>Work Duration:</strong> {formatDuration(record.workDuration)}
-                      </p>
-                    </div>
-                  )}
-
-                  {record.notes && (
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <p className="text-xs text-gray-600">
-                        <strong>Notes:</strong> {record.notes}
-                      </p>
+                  {(record.workDuration > 0 || record.notes) && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                      {record.workDuration > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-600" />
+                          <p className="text-sm text-gray-700">
+                            <strong className="font-semibold">Work Duration:</strong> <span className="font-mono text-blue-600">{formatDuration(record.workDuration)}</span>
+                          </p>
+                        </div>
+                      )}
+                      {record.notes && (
+                        <div className="bg-gray-50 rounded-md p-2 border border-gray-200">
+                          <p className="text-xs text-gray-600">
+                            <strong className="font-semibold">Notes:</strong> {record.notes}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600">No attendance history available</p>
+            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Calendar className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 font-medium">No attendance history available</p>
             </div>
           )}
         </div>

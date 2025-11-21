@@ -1,7 +1,8 @@
 import React from 'react';
-import { User, Mail, Phone, Briefcase, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import { Mail, Phone, IndianRupee, Clock, CheckCircle, XCircle } from 'lucide-react';
+import moment from 'moment';
 
-const EmployeeCard = ({ employee, onClick, dueTasks = 0 }) => {
+const EmployeeCard = ({ employee, onClick, todayAttendance = null }) => {
   // Get initials for avatar fallback
   const getInitials = (name) => {
     if (!name) return '?';
@@ -12,146 +13,121 @@ const EmployeeCard = ({ employee, onClick, dueTasks = 0 }) => {
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Get role badge color
-  const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'manager':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'employee':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+  // Format salary in Indian format
+  const formatSalary = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
-  // Get status badge
-  const getStatusBadge = () => {
-    if (employee.isActive) {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          Active
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-        Inactive
-      </span>
-    );
+  // Format time
+  const formatTime = (time) => {
+    if (!time) return '--:--';
+    return moment(time).format('hh:mm A');
   };
 
   return (
     <div
       onClick={() => onClick(employee)}
-      className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all duration-200 cursor-pointer hover:border-indigo-300 group"
+      className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden border border-gray-200 cursor-pointer transform hover:-translate-y-1"
     >
-      {/* Header Section */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-4">
+      {/* Header with gradient - like Quotation Card */}
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 p-4 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
           {/* Avatar */}
           <div className="relative">
             {employee.avatar ? (
               <img
                 src={employee.avatar}
                 alt={employee.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 group-hover:border-indigo-400 transition-colors"
+                className="w-12 h-12 rounded-full object-cover border-2 border-white border-opacity-30"
               />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold border-2 border-gray-200 group-hover:border-indigo-400 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-white bg-opacity-20 flex items-center justify-center text-white text-lg font-bold">
                 {getInitials(employee.name)}
               </div>
             )}
-            {/* Online Indicator */}
-            {employee.isActive && (
-              <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-            )}
           </div>
 
-          {/* Name and Role */}
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-              {employee.name}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleBadgeColor(employee.role)}`}>
-                {employee.role?.charAt(0).toUpperCase() + employee.role?.slice(1)}
-              </span>
-              {getStatusBadge()}
-            </div>
+          <div className="text-white">
+            <p className="font-semibold text-lg">{employee.name}</p>
+            <p className="text-xs text-primary-100">{employee.department || 'Employee'}</p>
           </div>
         </div>
       </div>
 
-      {/* Info Section */}
-      <div className="space-y-2 text-sm">
+      {/* Content */}
+      <div className="p-4 space-y-3">
         {/* Email */}
-        <div className="flex items-center text-gray-600">
-          <Mail className="w-4 h-4 mr-2 text-gray-400" />
-          <span className="truncate">{employee.email}</span>
+        <div className="flex items-start space-x-3">
+          <Mail className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-500 font-medium">Email</p>
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {employee.email}
+            </p>
+          </div>
         </div>
 
         {/* Phone */}
         {employee.phone && (
-          <div className="flex items-center text-gray-600">
-            <Phone className="w-4 h-4 mr-2 text-gray-400" />
-            <span>{employee.phone}</span>
-          </div>
-        )}
-
-        {/* Department */}
-        {employee.department && (
-          <div className="flex items-center text-gray-600">
-            <Briefcase className="w-4 h-4 mr-2 text-gray-400" />
-            <span>{employee.department}</span>
+          <div className="flex items-start space-x-3">
+            <Phone className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 font-medium">Phone</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {employee.phone}
+              </p>
+            </div>
           </div>
         )}
 
         {/* Salary */}
-        {employee.salary && (
-          <div className="flex items-center text-gray-600">
-            <DollarSign className="w-4 h-4 mr-2 text-gray-400" />
-            <span className="font-medium">
-              ₹{employee.salary.toLocaleString('en-IN')} / month
-            </span>
+        {employee.salary > 0 && (
+          <div className="flex items-start space-x-3">
+            <IndianRupee className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 font-medium">Monthly Salary</p>
+              <p className="text-lg font-bold text-green-600">
+                {formatSalary(employee.salary)}
+              </p>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Footer Section */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center">
-            <Calendar className="w-3.5 h-3.5 mr-1" />
-            <span>
-              Joined {new Date(employee.createdAt).toLocaleDateString('en-IN', {
-                month: 'short',
-                year: 'numeric'
-              })}
-            </span>
+      {/* Footer - Today's Attendance */}
+      <div className="px-4 pb-4 pt-2 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-gray-500">Today's Attendance</span>
+          <span className="text-xs text-gray-400">{moment().format('DD MMM YYYY')}</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {/* Check In */}
+          <div className="bg-green-50 rounded-lg p-2 border border-green-100">
+            <div className="flex items-center space-x-1 mb-1">
+              <CheckCircle className="h-3 w-3 text-green-600" />
+              <span className="text-xs font-medium text-green-700">Check In</span>
+            </div>
+            <p className="text-sm font-bold text-green-800">
+              {todayAttendance?.checkInTime ? formatTime(todayAttendance.checkInTime) : '--:--'}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            {dueTasks > 0 && (
-              <span className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                <AlertCircle className="w-3 h-3" />
-                {dueTasks} Due
-              </span>
-            )}
-            {employee.advances && employee.advances.length > 0 && (
-              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                {employee.advances.filter(adv => !adv.deductedFromSalary).length} Advance(s)
-              </span>
-            )}
+
+          {/* Check Out */}
+          <div className="bg-red-50 rounded-lg p-2 border border-red-100">
+            <div className="flex items-center space-x-1 mb-1">
+              <XCircle className="h-3 w-3 text-red-600" />
+              <span className="text-xs font-medium text-red-700">Check Out</span>
+            </div>
+            <p className="text-sm font-bold text-red-800">
+              {todayAttendance?.checkOutTime ? formatTime(todayAttendance.checkOutTime) : '--:--'}
+            </p>
           </div>
         </div>
-      </div>
-
-      {/* Hover Effect Indicator */}
-      <div className="mt-3 text-center">
-        <span className="text-xs text-indigo-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-          Click to view details →
-        </span>
       </div>
     </div>
   );

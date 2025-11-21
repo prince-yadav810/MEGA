@@ -1,16 +1,19 @@
-// File Path: client/src/pages/Clients/ClientDetails.jsx
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Building2, Mail, Phone, Globe, MapPin, Edit, Bell, FileText,
-  User, Star, Clock, CheckCircle, XCircle, PlayCircle, ArrowLeft, Trash2
+  User, Star, Clock, CheckCircle, XCircle, PlayCircle, ArrowLeft, Trash2, Settings, ChevronDown, ChevronUp
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import Input from '../../components/ui/Input';
+import Modal from '../../components/common/Modal';
 import ClientForm from '../../components/forms/ClientForm';
 import PaymentReminderForm from '../../components/clients/PaymentReminderForm';
+import CallLogModal from '../../components/clients/CallLogModal';
+import QuotationCard from '../../components/quotations/QuotationCard';
 import clientService from '../../services/clientService';
+import { getQuotationsByClient } from '../../services/quotationService';
 import toast from 'react-hot-toast';
 
 const ClientDetails = () => {
@@ -18,15 +21,43 @@ const ClientDetails = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [reminders, setReminders] = useState([]);
+  const [callLogs, setCallLogs] = useState([]);
+  const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isReminderFormOpen, setIsReminderFormOpen] = useState(false);
+  const [isCallLogOpen, setIsCallLogOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
+  const [showAllCalls, setShowAllCalls] = useState(false);
+  const [frequencyValue, setFrequencyValue] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const settingsRef = useRef(null);
 
   useEffect(() => {
-    loadClientDetails();
-    loadReminders();
+    if (id) {
+      loadClientDetails();
+      loadReminders();
+      loadCallLogs();
+    }
   }, [id]);
+
+  useEffect(() => {
+    if (client && client.companyName) {
+      loadQuotations();
+    }
+  }, [client]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target)) {
+        setIsSettingsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadClientDetails = async () => {
     try {
@@ -52,6 +83,30 @@ const ClientDetails = () => {
       }
     } catch (error) {
       console.error('Error loading reminders:', error);
+    }
+  };
+
+  const loadCallLogs = async () => {
+    try {
+      const response = await clientService.getClientLogs(id);
+      if (response.success) {
+        setCallLogs(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading call logs:', error);
+    }
+  };
+
+  const loadQuotations = async () => {
+    if (!client || !client.companyName) return;
+    
+    try {
+      const response = await getQuotationsByClient(client.companyName);
+      if (response.success) {
+        setQuotations(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading quotations:', error);
     }
   };
 
@@ -129,6 +184,11 @@ const ClientDetails = () => {
     }
   };
 
+  const handleCallLogged = () => {
+    loadCallLogs();
+    loadClientDetails(); // Refresh next call date
+  };
+
   const handleDelete = async () => {
     if (!window.confirm(`Are you sure you want to delete "${client.companyName}"? This action cannot be undone.`)) {
       return;
@@ -143,6 +203,32 @@ const ClientDetails = () => {
     } catch (error) {
       console.error('Error deleting client:', error);
       toast.error('Failed to delete client');
+    }
+  };
+
+  const handleUpdateFrequency = () => {
+    const currentFreq = client.callFrequency || 10;
+    setFrequencyValue(currentFreq.toString());
+    setIsFrequencyModalOpen(true);
+    setIsSettingsOpen(false);
+  };
+
+  const handleFrequencySubmit = async () => {
+    const frequency = parseInt(frequencyValue, 10);
+    if (isNaN(frequency) || frequency <= 0) {
+      toast.error('Please enter a valid number of days');
+      return;
+    }
+
+    try {
+      await clientService.updateCallFrequency(id, frequency);
+      toast.success('Call frequency updated');
+      loadClientDetails();
+      setIsFrequencyModalOpen(false);
+      setFrequencyValue('');
+    } catch (error) {
+      console.error('Error updating frequency:', error);
+      toast.error('Failed to update frequency');
     }
   };
 
@@ -200,14 +286,6 @@ const ClientDetails = () => {
           <div className="flex flex-wrap gap-3 justify-between">
             <div className="flex flex-wrap gap-3">
               <Button
-                variant="primary"
-                icon={Edit}
-                onClick={() => setIsFormOpen(true)}
-                size="sm"
-              >
-                Edit Client
-              </Button>
-              <Button
                 variant="success"
                 icon={Bell}
                 onClick={() => setIsReminderFormOpen(true)}
@@ -215,15 +293,67 @@ const ClientDetails = () => {
               >
                 Payment Reminder
               </Button>
+              <Button
+                variant="secondary"
+                icon={Phone}
+                onClick={() => setIsCallLogOpen(true)}
+                size="sm"
+              >
+                Log Call
+              </Button>
             </div>
-            <Button
-              variant="error"
-              icon={Trash2}
-              onClick={handleDelete}
-              size="sm"
-            >
-              Delete Client
-            </Button>
+            {/* Settings Dropdown */}
+            <div className="relative" ref={settingsRef}>
+              <Button
+                variant="outline"
+                icon={Settings}
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                size="sm"
+              >
+                Settings
+              </Button>
+              {isSettingsOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                  <ul className="py-1">
+                    <li>
+                      <button
+                        onClick={() => {
+                          setIsFormOpen(true);
+                          setIsSettingsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Client
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={() => {
+                          handleUpdateFrequency();
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      >
+                        <Clock className="w-4 h-4 mr-2" />
+                        Change Call Frequency
+                      </button>
+                    </li>
+                    <li className="border-t border-gray-200 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          handleDelete();
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Client
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -304,6 +434,21 @@ const ClientDetails = () => {
                     </span>
                   </div>
                 </div>
+
+                <div className="flex items-start space-x-3">
+                  <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Call Frequency</p>
+                    <p className="text-base text-gray-900">
+                      Every {client.callFrequency || 10} days
+                    </p>
+                    {client.nextCallDate && (
+                       <p className="text-sm text-gray-500">
+                         Next call: {new Date(client.nextCallDate).toLocaleDateString()}
+                       </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -329,6 +474,92 @@ const ClientDetails = () => {
                 </div>
               </div>
             )}
+          </Card.Content>
+        </Card>
+
+        {/* Call History */}
+        <Card>
+          <Card.Header>
+            <div className="flex items-center justify-between">
+              <Card.Title>Call History</Card.Title>
+              <div className="flex items-center gap-2">
+                {callLogs.length > 5 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={showAllCalls ? ChevronUp : ChevronDown}
+                    onClick={() => setShowAllCalls(!showAllCalls)}
+                  >
+                    {showAllCalls ? 'View Less' : 'View All'}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={Phone}
+                  onClick={() => setIsCallLogOpen(true)}
+                >
+                  Log Call
+                </Button>
+              </div>
+            </div>
+          </Card.Header>
+          <Card.Content>
+             {callLogs.length === 0 ? (
+               <div className="text-center py-8">
+                 <Phone className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                 <p className="text-gray-500">No calls logged yet.</p>
+                 <Button
+                   size="sm"
+                   variant="primary"
+                   className="mt-4"
+                   onClick={() => setIsCallLogOpen(true)}
+                 >
+                   Log First Call
+                 </Button>
+               </div>
+             ) : (
+               <div className="flow-root">
+                 <ul role="list" className="-mb-8">
+                   {(showAllCalls ? callLogs : callLogs.slice(0, 5)).map((log, logIdx, array) => (
+                       <li key={log._id || logIdx}>
+                         <div className="relative pb-8">
+                           {logIdx !== array.length - 1 ? (
+                             <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                           ) : null}
+                           <div className="relative flex space-x-3">
+                             <div>
+                               <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
+                                 log.outcome === 'Fruitful' ? 'bg-green-500' : 
+                                 log.outcome === 'Not Interested' ? 'bg-red-500' : 
+                                 log.outcome === 'Callback Requested' ? 'bg-blue-500' :
+                                 log.outcome === 'Need to Visit' ? 'bg-purple-500' :
+                                 'bg-gray-500'
+                               }`}>
+                                 <Phone className="h-5 w-5 text-white" aria-hidden="true" />
+                               </span>
+                             </div>
+                             <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                               <div>
+                                 <p className="text-sm text-gray-500">
+                                   <span className="font-medium text-gray-900">{log.outcome}</span>
+                                   {log.performedBy?.name && <span className="text-gray-500"> by {log.performedBy.name}</span>}
+                                 </p>
+                                 {log.notes && (
+                                   <p className="mt-1 text-sm text-gray-700">{log.notes}</p>
+                                 )}
+                               </div>
+                               <div className="text-right text-sm whitespace-nowrap text-gray-500">
+                                 <time dateTime={log.date}>{new Date(log.date).toLocaleDateString()}</time>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                       </li>
+                     ))}
+                 </ul>
+               </div>
+             )}
           </Card.Content>
         </Card>
 
@@ -509,20 +740,47 @@ const ClientDetails = () => {
           </Card.Content>
         </Card>
 
-        {/* Quotations Section - Coming Soon */}
+        {/* Quotations */}
         <Card>
           <Card.Header>
-            <Card.Title>Quotations</Card.Title>
-            <Card.Description>View all quotations for this client</Card.Description>
+            <div className="flex items-center justify-between">
+              <div>
+                <Card.Title>Quotations</Card.Title>
+                <Card.Description>
+                  {quotations.length} quotation{quotations.length !== 1 ? 's' : ''} for this client
+                </Card.Description>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                icon={FileText}
+                onClick={() => navigate('/quotations')}
+              >
+                View All
+              </Button>
+            </div>
           </Card.Header>
           <Card.Content>
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Coming Soon</h3>
-              <p className="text-gray-500">
-                Quotation management feature will be available soon
-              </p>
-            </div>
+            {quotations.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No quotations found for this client</p>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="mt-4"
+                  onClick={() => navigate('/quotations')}
+                >
+                  Go to Quotations
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {quotations.map((quotation) => (
+                  <QuotationCard key={quotation._id} quotation={quotation} />
+                ))}
+              </div>
+            )}
           </Card.Content>
         </Card>
       </div>
@@ -543,6 +801,55 @@ const ClientDetails = () => {
         client={client}
         isLoading={formLoading}
       />
+
+      <CallLogModal
+        isOpen={isCallLogOpen}
+        onClose={() => setIsCallLogOpen(false)}
+        client={client}
+        onSuccess={handleCallLogged}
+      />
+
+      {/* Call Frequency Modal */}
+      <Modal
+        isOpen={isFrequencyModalOpen}
+        onClose={() => {
+          setIsFrequencyModalOpen(false);
+          setFrequencyValue('');
+        }}
+        title="Update Call Frequency"
+        size="sm"
+        footer={
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsFrequencyModalOpen(false);
+                setFrequencyValue('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleFrequencySubmit}>
+              Update
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Set how often you want to call this client (in days).
+          </p>
+          <Input
+            label="Call Frequency (days)"
+            type="number"
+            min="1"
+            value={frequencyValue}
+            onChange={(e) => setFrequencyValue(e.target.value)}
+            placeholder="Enter number of days"
+            helper="Enter the number of days between calls"
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

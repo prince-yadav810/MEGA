@@ -2,10 +2,11 @@
 // REPLACE the entire file with this updated version
 
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/common/Sidebar';
 import MobileBottomNav from './components/common/MobileBottomNav';
+import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import Inbox from './pages/Inbox/Inbox';
 import Attendance from './pages/Attendance/Attendance';
@@ -13,7 +14,6 @@ import QuotationsList from './pages/Quotations/QuotationsList';
 import QuotationDetail from './pages/Quotations/QuotationDetail';
 import ClientsList from './pages/Clients/ClientsList';
 import ClientDetails from './pages/Clients/ClientDetails';
-import ProductCatalog from './pages/Products/ProductCatalog';
 import NotesReminders from './pages/Admin/NotesReminders';
 import Settings from './pages/Admin/Settings';
 import UserManagement from './pages/Admin/UserManagement';
@@ -29,21 +29,26 @@ function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('workspace');
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const path = location.pathname;
-    if (path.startsWith('/workspace')) {
+    if (path === '/dashboard') {
+      setActiveTab('dashboard');
+    } else if (path.startsWith('/workspace')) {
       setActiveTab('workspace');
     } else if (path.startsWith('/inbox')) {
       setActiveTab('inbox');
     } else if (path.startsWith('/attendance')) {
       setActiveTab('attendance');
     } else if (path.startsWith('/quotations')) {
-      setActiveTab('quotations');
+      // Check view parameter to determine if products or quotations tab should be active
+      const viewParam = searchParams.get('view');
+      setActiveTab(viewParam === 'products' ? 'products' : 'quotations');
     } else if (path.startsWith('/clients')) {
       setActiveTab('clients');
     } else if (path.startsWith('/products')) {
-      setActiveTab('products');
+      setActiveTab('products'); // Products route redirects to quotations?view=products
     } else if (path.startsWith('/notes-reminders')) {
       setActiveTab('notes-reminders');
     } else if (path.startsWith('/settings')) {
@@ -51,7 +56,7 @@ function Layout() {
     } else if (path.startsWith('/users')) {
       setActiveTab('users');
     }
-  }, [location]);
+  }, [location, searchParams]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
@@ -71,7 +76,8 @@ function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto bg-gray-50">
           <Routes>
-            <Route index element={<Navigate to="/workspace/table" replace />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="workspace/*" element={<Workspace />} />
             <Route path="inbox" element={<Inbox />} />
             <Route
@@ -86,7 +92,7 @@ function Layout() {
             <Route path="quotations/:id" element={<QuotationDetail />} />
             <Route path="clients" element={<ClientsList />} />
             <Route path="clients/:id" element={<ClientDetails />} />
-            <Route path="products" element={<ProductCatalog />} />
+            <Route path="products" element={<Navigate to="/quotations?view=products" replace />} />
             <Route path="notes-reminders" element={<NotesReminders />} />
             <Route path="settings" element={<Settings />} />
             <Route

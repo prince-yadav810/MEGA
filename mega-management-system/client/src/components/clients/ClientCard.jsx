@@ -1,20 +1,44 @@
 // File Path: client/src/components/clients/ClientCard.jsx
 
 import React from 'react';
-import { Building2, User, Phone, Mail, MapPin } from 'lucide-react';
+import { Building2, User, Phone, Mail, MapPin, Clock } from 'lucide-react';
 import Card from '../ui/Card';
 
 const ClientCard = ({ client, onClick }) => {
+
   // Get primary contact or first contact
   const primaryContact = client.contactPersons?.find(c => c.isPrimary) || client.contactPersons?.[0];
 
+  // Calculate call status
+  const getCallStatus = () => {
+    if (!client.nextCallDate) return { status: 'due', label: 'Call Due', color: 'bg-orange-100 text-orange-700 border-orange-200' };
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextCall = new Date(client.nextCallDate);
+    nextCall.setHours(0, 0, 0, 0);
+    
+    const diffTime = nextCall - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return { status: 'overdue', label: `Overdue ${Math.abs(diffDays)} days`, color: 'bg-red-100 text-red-700 border-red-200' };
+    if (diffDays === 0) return { status: 'due', label: 'Call Today', color: 'bg-green-100 text-green-700 border-green-200' };
+    
+    return { status: 'future', label: `Call in ${diffDays} days`, color: 'bg-blue-50 text-blue-600 border-blue-100' };
+  };
+
+  const callStatus = getCallStatus();
+
   return (
     <Card 
-      className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary-300"
+      className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary-300 relative"
       onClick={() => onClick(client)}
     >
-      {/* Company Name */}
-      <div className="flex items-start justify-between mb-4">
+      {/* Call Status Banner */}
+      <div className={`absolute top-0 left-0 right-0 h-1.5 rounded-t-xl ${callStatus.status === 'overdue' ? 'bg-red-500' : callStatus.status === 'due' ? 'bg-green-500' : 'bg-transparent'}`} />
+
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4 mt-2">
         <div className="flex items-center space-x-3">
           <div className="flex-shrink-0">
             <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -25,9 +49,14 @@ const ClientCard = ({ client, onClick }) => {
             <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
               {client.companyName}
             </h3>
-            {client.businessType && (
-              <p className="text-sm text-gray-500">{client.businessType}</p>
-            )}
+            <div className="flex items-center space-x-2 mt-1">
+              {client.businessType && (
+                <span className="text-sm text-gray-500">{client.businessType}</span>
+              )}
+              <span className={`text-xs px-2 py-0.5 rounded-full border ${callStatus.color}`}>
+                {callStatus.label}
+              </span>
+            </div>
           </div>
         </div>
         
@@ -43,6 +72,12 @@ const ClientCard = ({ client, onClick }) => {
         >
           {client.isActive ? 'Active' : 'Inactive'}
         </span>
+      </div>
+
+      {/* Call Frequency Info */}
+      <div className="flex items-center text-xs text-gray-500 mb-4">
+        <Clock className="w-3 h-3 mr-1" />
+        Every {client.callFrequency || 10} days
       </div>
 
       {/* Primary Contact Info */}
@@ -101,7 +136,7 @@ const ClientCard = ({ client, onClick }) => {
         </div>
       )}
 
-      {/* Additional Info */}
+      {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
         <div className="text-xs text-gray-500">
           {client.contactPersons?.length > 1 && (

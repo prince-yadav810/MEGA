@@ -29,6 +29,9 @@ router.delete('/:id', protect, restrictTo('manager', 'admin'), userController.de
 // Add advance payment to user
 router.post('/:id/advances', protect, restrictTo('manager', 'admin'), userController.addAdvance);
 
+// Update advance payment for user
+router.put('/:id/advances/:advanceId', protect, restrictTo('manager', 'admin'), userController.updateAdvance);
+
 // Get user tasks
 router.get('/:id/tasks', protect, restrictTo('manager', 'admin'), userController.getUserTasks);
 

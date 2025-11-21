@@ -39,12 +39,14 @@ router.post(
   clientController.extractFromCard
 );
 
+router.patch('/:id/call-frequency', mockAuth, clientController.updateCallFrequency);
+router.patch('/:id/toggle-active', mockAuth, clientController.toggleClientActive);
+
 router.route('/:id')
   .get(mockAuth, clientController.getClientById)
   .put(mockAuth, clientController.updateClient)
   .delete(mockAuth, clientController.deleteClient);
 
-router.patch('/:id/toggle-active', mockAuth, clientController.toggleClientActive);
 
 // Payment reminder routes
 router.get('/payment-reminders/all', mockAuth, paymentReminderController.getAllReminders);

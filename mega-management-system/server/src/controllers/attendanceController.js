@@ -13,6 +13,14 @@ exports.checkIn = async (req, res) => {
     const { latitude, longitude, notes } = req.body;
     const userId = req.user.id;
 
+    // Prevent admin/manager from checking in
+    if (req.user.role === 'admin' || req.user.role === 'manager') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admins and managers do not need to mark attendance'
+      });
+    }
+
     // Validate coordinates
     if (!validateCoordinates(latitude, longitude)) {
       return res.status(400).json({
@@ -89,6 +97,14 @@ exports.checkOut = async (req, res) => {
   try {
     const { latitude, longitude, notes } = req.body;
     const userId = req.user.id;
+
+    // Prevent admin/manager from checking out
+    if (req.user.role === 'admin' || req.user.role === 'manager') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admins and managers do not need to mark attendance'
+      });
+    }
 
     // Validate coordinates
     if (!validateCoordinates(latitude, longitude)) {
@@ -479,20 +495,26 @@ exports.getUserAttendanceSummary = async (req, res) => {
 
     // Calculate total days in month
     const totalDaysInMonth = moment(`${targetYear}-${targetMonth}-01`).daysInMonth();
+    const today = moment().startOf('day');
 
-    // Calculate working days (excluding Sundays)
+    // Calculate working days (excluding Sundays and future dates)
     let workingDays = 0;
+    let pastAndCurrentWorkingDays = 0;
     for (let i = 1; i <= totalDaysInMonth; i++) {
       const date = moment(`${targetYear}-${targetMonth}-${i}`);
       if (date.day() !== 0) { // 0 is Sunday
         workingDays++;
+        // Only count past and current dates for statistics
+        if (date.isSameOrBefore(today, 'day')) {
+          pastAndCurrentWorkingDays++;
+        }
       }
     }
 
-    // Calculate statistics
+    // Calculate statistics (only for past and current dates)
     const presentDays = attendance.filter(a => a.checkOutTime).length;
     const halfDays = attendance.filter(a => a.checkInTime && !a.checkOutTime).length;
-    const absentDays = workingDays - presentDays - halfDays;
+    const absentDays = pastAndCurrentWorkingDays - presentDays - halfDays;
     const lateDays = attendance.filter(a => {
       if (!a.checkInTime) return false;
       const checkInHour = moment(a.checkInTime).hour();
@@ -537,8 +559,13 @@ exports.getUserAttendanceSummary = async (req, res) => {
       // Find if advance was taken on this day
       const advanceOnDay = user.advances.find(adv => moment(adv.date).format('YYYY-MM-DD') === dateString);
 
+      // Check if date is in the future
+      const isFutureDate = date.isAfter(today, 'day');
+
       let status = 'absent';
-      if (isSunday) {
+      if (isFutureDate) {
+        status = 'unmarked';
+      } else if (isSunday) {
         status = 'holiday';
       } else if (dayAttendance) {
         if (dayAttendance.checkOutTime) {
@@ -658,20 +685,26 @@ exports.getMyAttendanceSummary = async (req, res) => {
 
     // Calculate total days in month
     const totalDaysInMonth = moment(`${targetYear}-${targetMonth}-01`).daysInMonth();
+    const today = moment().startOf('day');
 
-    // Calculate working days (excluding Sundays)
+    // Calculate working days (excluding Sundays and future dates)
     let workingDays = 0;
+    let pastAndCurrentWorkingDays = 0;
     for (let i = 1; i <= totalDaysInMonth; i++) {
       const date = moment(`${targetYear}-${targetMonth}-${i}`);
       if (date.day() !== 0) { // 0 is Sunday
         workingDays++;
+        // Only count past and current dates for statistics
+        if (date.isSameOrBefore(today, 'day')) {
+          pastAndCurrentWorkingDays++;
+        }
       }
     }
 
-    // Calculate statistics
+    // Calculate statistics (only for past and current dates)
     const presentDays = attendance.filter(a => a.checkOutTime).length;
     const halfDays = attendance.filter(a => a.checkInTime && !a.checkOutTime).length;
-    const absentDays = workingDays - presentDays - halfDays;
+    const absentDays = pastAndCurrentWorkingDays - presentDays - halfDays;
     const lateDays = attendance.filter(a => {
       if (!a.checkInTime) return false;
       const checkInHour = moment(a.checkInTime).hour();
@@ -716,8 +749,13 @@ exports.getMyAttendanceSummary = async (req, res) => {
       // Find if advance was taken on this day
       const advanceOnDay = (user.advances || []).find(adv => moment(adv.date).format('YYYY-MM-DD') === dateString);
 
+      // Check if date is in the future
+      const isFutureDate = date.isAfter(today, 'day');
+
       let status = 'absent';
-      if (isSunday) {
+      if (isFutureDate) {
+        status = 'unmarked';
+      } else if (isSunday) {
         status = 'holiday';
       } else if (dayAttendance) {
         if (dayAttendance.checkOutTime) {
@@ -794,6 +832,137 @@ exports.getMyAttendanceSummary = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching attendance summary',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Manually update attendance for a user (Admin only)
+ * PUT /api/attendance/user/:userId/manual
+ * Access: Admin
+ */
+exports.updateAttendanceManually = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { date, status } = req.body;
+
+    // Validate required fields
+    if (!date || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Date and status are required'
+      });
+    }
+
+    // Validate status
+    const validStatuses = ['present', 'absent', 'half-day'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be one of: present, absent, half-day'
+      });
+    }
+
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Parse the date and get start/end of day
+    const targetDate = moment(date).startOf('day').toDate();
+    const endOfDay = moment(date).endOf('day').toDate();
+    const today = moment().startOf('day');
+
+    // Prevent marking attendance for future dates
+    if (moment(date).isAfter(today, 'day')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot mark attendance for future dates'
+      });
+    }
+
+    // Find existing attendance record for this date
+    let attendance = await Attendance.findOne({
+      user: userId,
+      date: {
+        $gte: targetDate,
+        $lte: endOfDay
+      }
+    });
+
+    if (status === 'absent') {
+      // Delete attendance record if exists
+      if (attendance) {
+        await Attendance.findByIdAndDelete(attendance._id);
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'Attendance marked as absent',
+        data: null
+      });
+    }
+
+    // For present and half-day, create or update attendance record
+    const checkInTime = moment(date).set({ hour: 9, minute: 0, second: 0 }).toDate();
+    const checkOutTime = status === 'present' 
+      ? moment(date).set({ hour: 18, minute: 0, second: 0 }).toDate()
+      : null;
+
+    // Calculate work duration for present (full day)
+    const workDuration = status === 'present' 
+      ? 8 * 60 // 8 hours in minutes
+      : 4 * 60; // 4 hours for half-day
+
+    if (attendance) {
+      // Update existing record
+      attendance.status = status;
+      attendance.checkInTime = checkInTime;
+      attendance.checkOutTime = checkOutTime;
+      attendance.workDuration = workDuration;
+      await attendance.save();
+    } else {
+      // Create new record
+      // For manual attendance, we'll use default location (can be updated later if needed)
+      attendance = await Attendance.create({
+        user: userId,
+        date: targetDate,
+        checkInTime: checkInTime,
+        checkOutTime: checkOutTime,
+        status: status,
+        workDuration: workDuration,
+        location: {
+          coordinates: {
+            latitude: 0,
+            longitude: 0
+          },
+          address: 'Manually marked by admin',
+          city: '',
+          state: '',
+          country: '',
+          postalCode: ''
+        },
+        notes: 'Manually updated by admin'
+      });
+    }
+
+    // Populate user details
+    await attendance.populate('user', 'name email department');
+
+    res.status(200).json({
+      success: true,
+      message: `Attendance marked as ${status}`,
+      data: attendance
+    });
+  } catch (error) {
+    console.error('Manual attendance update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating attendance',
       error: error.message
     });
   }

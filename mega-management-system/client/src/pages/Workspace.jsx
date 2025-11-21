@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Dashboard from './Dashboard';
 import TasksOverview from './Tasks/TasksOverview';
 import TaskBoard from './Tasks/TaskBoard';
 import TaskCalendar from './Tasks/TaskCalendar';

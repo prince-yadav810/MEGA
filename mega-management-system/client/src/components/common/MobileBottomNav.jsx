@@ -1,38 +1,31 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileText,
   Users,
-  Package,
   BarChart3,
   Settings,
   UserCog,
-  LogOut,
-  ClipboardCheck
+  ClipboardCheck,
+  Home
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import toast from 'react-hot-toast';
 
 const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Logged out successfully');
-      navigate('/login');
-    } catch (error) {
-      toast.error('Logout failed');
-    }
-  };
+  const { user } = useAuth();
 
   const navigationItems = [
     {
+      id: 'dashboard',
+      name: 'Home',
+      icon: Home,
+      path: '/dashboard'
+    },
+    {
       id: 'workspace',
-      name: 'Workspace',
+      name: 'Tasks',
       icon: LayoutDashboard,
       path: '/workspace/table'
     },
@@ -55,12 +48,6 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       name: 'Clients',
       icon: Users,
       path: '/clients'
-    },
-    {
-      id: 'products',
-      name: 'Products',
-      icon: Package,
-      path: '/products'
     },
     {
       id: 'users',
@@ -87,8 +74,11 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   });
 
   const isActive = (path) => {
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard' || location.pathname === '/';
+    }
     if (path === '/workspace') {
-      return location.pathname === '/' || location.pathname.startsWith('/workspace');
+      return location.pathname === '/workspace' || location.pathname.startsWith('/workspace');
     }
     return location.pathname.startsWith(path);
   };
@@ -149,32 +139,10 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
                   </Link>
                 );
               })}
-
-              {/* Logout Button */}
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="p-1 rounded transition-colors text-red-600 hover:bg-red-50"
-                aria-label="Logout"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
             </div>
             <span className="text-xs font-medium text-gray-500 mt-1">More</span>
           </div>
-        ) : (
-          // If there are 5 or fewer items, optionally show logout as a small icon on the right
-          <div className="flex items-center ml-2">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="p-2 rounded transition-colors text-red-600 hover:bg-red-50"
-              aria-label="Logout"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

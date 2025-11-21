@@ -1,8 +1,6 @@
-// File Path: client/src/pages/Clients/ClientsList.jsx
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Users, Tag } from 'lucide-react';
+import { Plus, Search, Filter, Users } from 'lucide-react';
 import ClientCard from '../../components/clients/ClientCard';
 import ClientForm from '../../components/forms/ClientForm';
 import AddClientModal from '../../components/clients/AddClientModal';
@@ -18,7 +16,7 @@ const ClientsList = () => {
   const [filteredClients, setFilteredClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
+  const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive, due, overdue
   const [selectedTags, setSelectedTags] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
 
@@ -61,7 +59,6 @@ const ClientsList = () => {
     }
   };
 
-
   const filterClients = () => {
     let filtered = [...clients];
 
@@ -87,6 +84,25 @@ const ClientsList = () => {
       filtered = filtered.filter(client => client.isActive);
     } else if (filterStatus === 'inactive') {
       filtered = filtered.filter(client => !client.isActive);
+    } else if (filterStatus === 'due') {
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      filtered = filtered.filter(client => {
+        if (!client.nextCallDate) return true;
+        const nextCall = new Date(client.nextCallDate);
+        nextCall.setHours(0,0,0,0);
+        return nextCall <= today;
+      });
+    } else if (filterStatus === 'overdue') {
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      filtered = filtered.filter(client => {
+        // If never scheduled, treat as not overdue but maybe due. Let's stick to strict overdue (date in past)
+        if (!client.nextCallDate) return false; 
+        const nextCall = new Date(client.nextCallDate);
+        nextCall.setHours(0,0,0,0);
+        return nextCall < today;
+      });
     }
 
     // Apply tag filter
@@ -158,6 +174,8 @@ const ClientsList = () => {
     setEditingClient(null);
   };
 
+
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Page Header */}
@@ -166,7 +184,7 @@ const ClientsList = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Clients</h1>
-              <p className="text-sm text-gray-500 mt-1">Manage your business relationships</p>
+              <p className="text-sm text-gray-500 mt-1">Manage your business relationships and call schedules</p>
             </div>
             <div className="hidden sm:block">
               <Button icon={Plus} onClick={handleOpenAddForm}>
@@ -198,6 +216,8 @@ const ClientsList = () => {
                   className="block w-full sm:w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="all">All Clients</option>
+                  <option value="due">Calls Due Today</option>
+                  <option value="overdue">Calls Overdue</option>
                   <option value="active">Active Only</option>
                   <option value="inactive">Inactive Only</option>
                 </select>
@@ -307,6 +327,7 @@ const ClientsList = () => {
           }}
         />
       )}
+
     </div>
   );
 };
