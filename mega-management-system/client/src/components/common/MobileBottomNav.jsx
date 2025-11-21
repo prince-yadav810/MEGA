@@ -27,6 +27,12 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       path: '/dashboard'
     },
     {
+      id: 'inbox',
+      name: 'Inbox',
+      icon: Inbox,
+      path: '/inbox'
+    },
+    {
       id: 'workspace',
       name: 'Tasks',
       icon: LayoutDashboard,
@@ -59,12 +65,6 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       path: '/clients'
     },
     {
-      id: 'inbox',
-      name: 'Inbox',
-      icon: Inbox,
-      path: '/inbox'
-    },
-    {
       id: 'notes',
       name: 'Notes',
       icon: StickyNote,
@@ -95,10 +95,13 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   });
 
   const isActive = (path) => {
+    const searchParams = new URLSearchParams(location.search);
+    const viewParam = searchParams.get('view');
+    
     if (path === '/dashboard') {
       return location.pathname === '/dashboard' || location.pathname === '/';
     }
-    if (path === '/workspace') {
+    if (path === '/workspace/table') {
       return location.pathname === '/workspace' || location.pathname.startsWith('/workspace');
     }
     if (path === '/notes-reminders') {
@@ -106,6 +109,28 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
     }
     if (path === '/inbox') {
       return location.pathname === '/inbox' || location.pathname.startsWith('/inbox');
+    }
+    if (path === '/products') {
+      // Products route redirects to /quotations?view=products
+      return (location.pathname === '/quotations' && viewParam === 'products') || 
+             (location.pathname.startsWith('/products'));
+    }
+    if (path === '/quotations') {
+      // Only active if on quotations and NOT viewing products
+      return (location.pathname === '/quotations' || location.pathname.startsWith('/quotations')) && 
+             viewParam !== 'products';
+    }
+    if (path === '/clients') {
+      return location.pathname === '/clients' || location.pathname.startsWith('/clients');
+    }
+    if (path === '/attendance') {
+      return location.pathname === '/attendance' || location.pathname.startsWith('/attendance');
+    }
+    if (path === '/users') {
+      return location.pathname === '/users' || location.pathname.startsWith('/users');
+    }
+    if (path === '/settings') {
+      return location.pathname === '/settings' || location.pathname.startsWith('/settings');
     }
     return location.pathname.startsWith(path);
   };
