@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Package, Tag, Calendar, User, Image as ImageIcon } from 'lucide-react';
+import { X, Package, Tag, Calendar, User, Image as ImageIcon, IndianRupee } from 'lucide-react';
 
 export default function ProductDetailModal({ product, onClose }) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -12,6 +12,17 @@ export default function ProductDetailModal({ product, onClose }) {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const formatPrice = (price, currency = 'INR') => {
+    if (!price && price !== 0) return 'Not set';
+    const currencySymbols = {
+      'INR': '₹',
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£'
+    };
+    return `${currencySymbols[currency] || '₹'}${Number(price).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
 
   const currentImage = product.images?.[selectedImageIndex]?.url || 'https://via.placeholder.com/600x400?text=No+Image';
@@ -104,6 +115,42 @@ export default function ProductDetailModal({ product, onClose }) {
                       : product.category}
                   </p>
                 </div>
+
+                {/* Pricing Information */}
+                {(product.costPrice || product.sellPrice) && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center mb-3">
+                      <IndianRupee className="w-5 h-5 text-gray-700 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">Pricing</span>
+                    </div>
+                    <div className="space-y-2">
+                      {product.costPrice && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Cost Price:</span>
+                          <span className="text-lg font-semibold text-gray-900">
+                            {formatPrice(product.costPrice, product.currency)}
+                          </span>
+                        </div>
+                      )}
+                      {product.sellPrice && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Sell Price:</span>
+                          <span className="text-lg font-semibold text-gray-900">
+                            {formatPrice(product.sellPrice, product.currency)}
+                          </span>
+                        </div>
+                      )}
+                      {product.costPrice && product.sellPrice && (
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                          <span className="text-sm text-gray-600 font-medium">Margin:</span>
+                          <span className="text-lg font-semibold text-green-600">
+                            {formatPrice(product.sellPrice - product.costPrice, product.currency)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Description */}
                 <div>

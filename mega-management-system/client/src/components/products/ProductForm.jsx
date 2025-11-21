@@ -21,6 +21,8 @@ export default function ProductForm({ product, onClose, onSuccess }) {
     category: 'Custom',
     customCategory: '',
     price: 0,
+    costPrice: '',
+    sellPrice: '',
     currency: 'INR',
     stock: {
       quantity: 0,
@@ -44,6 +46,8 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         category: product.category || 'Custom',
         customCategory: product.customCategory || '',
         price: product.price || '',
+        costPrice: product.costPrice || '',
+        sellPrice: product.sellPrice || '',
         currency: product.currency || 'INR',
         stock: {
           quantity: product.stock?.quantity || 0,
@@ -248,6 +252,38 @@ export default function ProductForm({ product, onClose, onSuccess }) {
                     />
                   </div>
                 )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cost Price
+                  </label>
+                  <input
+                    type="number"
+                    name="costPrice"
+                    value={formData.costPrice}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter cost price"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sell Price
+                  </label>
+                  <input
+                    type="number"
+                    name="sellPrice"
+                    value={formData.sellPrice}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter sell price"
+                  />
+                </div>
               </div>
             </div>
 

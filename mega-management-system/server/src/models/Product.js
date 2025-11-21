@@ -63,6 +63,14 @@ const ProductSchema = new mongoose.Schema({
     required: [true, 'Price is required'],
     min: [0, 'Price cannot be negative']
   },
+  costPrice: {
+    type: Number,
+    min: [0, 'Cost price cannot be negative']
+  },
+  sellPrice: {
+    type: Number,
+    min: [0, 'Sell price cannot be negative']
+  },
   currency: {
     type: String,
     default: 'INR',
