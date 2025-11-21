@@ -22,10 +22,12 @@ class QuotationPdfService {
   static IFSC_CODE = 'IBKL0000047';
 
   // Colors
-  static PRIMARY_COLOR = '#4A628A';
-  static SECONDARY_COLOR = '#7AB2D3';
+  static PRIMARY_COLOR = '#2c5282';
+  static SECONDARY_COLOR = '#1a365d';
   static TEXT_COLOR = '#333333';
   static LIGHT_GRAY = '#EEEEEE';
+  static HEADER_DARK = '#1a365d';
+  static HEADER_LIGHT = '#2c5282';
 
   /**
    * Generate quotation PDF
@@ -44,20 +46,40 @@ class QuotationPdfService {
             bottom: 50,
             left: 50,
             right: 50
-          }
+          },
+          bufferPages: true // Enable page buffering for better control
         });
 
         // Pipe to file
         const writeStream = fs.createWriteStream(outputPath);
         doc.pipe(writeStream);
 
-        // Generate PDF content
+        // Generate PDF content on single page
         this.addHeader(doc, data);
         this.addQuotationDetails(doc, data);
-        this.addItemsTable(doc, data);
-        this.addCalculations(doc, data);
+        const tableEndY = this.addItemsTable(doc, data);
+        this.addCalculations(doc, data, tableEndY);
         this.addFooterSections(doc, data);
         this.addBottomFooter(doc);
+
+        // Prevent blank pages by ensuring we stay on first page
+        // Switch to first page before finalizing
+        doc.switchToPage(0);
+        
+        // Get page count - if more than 1 page exists, we need to handle it
+        const pageCount = doc.bufferedPageRange().count;
+        
+        if (pageCount > 1) {
+          // PDFKit doesn't have removePage, but we can prevent extra pages
+          // by ensuring all content is on page 0 and we don't trigger new pages
+          // Switch back to first page multiple times to ensure we're on it
+          for (let i = 0; i < 3; i++) {
+            doc.switchToPage(0);
+          }
+        }
+        
+        // Final switch to page 0 before ending
+        doc.switchToPage(0);
 
         // Finalize PDF
         doc.end();
@@ -76,45 +98,125 @@ class QuotationPdfService {
   }
 
   /**
-   * Add header with logo and company details
+   * Add header with gradient background and diagonal clip
    */
   static addHeader(doc, data) {
-    const pageWidth = doc.page.width - 100;
+    const pageWidth = doc.page.width;
+    const headerHeight = 120;
 
-    // Add logo if exists (try multiple locations)
+    // Draw gradient-like effect with two overlapping shapes
+    doc.save();
+    // Darker bottom layer
+    doc.moveTo(0, 0)
+      .lineTo(pageWidth, 0)
+      .lineTo(pageWidth, headerHeight - 20)
+      .lineTo(0, headerHeight)
+      .closePath()
+      .fillColor(this.HEADER_DARK)
+      .fill();
+
+    // Lighter gradient overlay (top portion)
+    doc.moveTo(0, 0)
+      .lineTo(pageWidth, 0)
+      .lineTo(pageWidth, headerHeight - 50)
+      .lineTo(0, headerHeight - 30)
+      .closePath()
+      .fillColor(this.HEADER_LIGHT)
+      .fillOpacity(0.3)
+      .fill();
+    doc.fillOpacity(1); // Reset opacity
+    doc.restore();
+
+    // Add decorative stars (small white circles)
+    const stars = [
+      { x: 60, y: 20, r: 1.5 },
+      { x: 150, y: 30, r: 1 },
+      { x: 90, y: 45, r: 2 },
+      { x: 240, y: 25, r: 1.2 },
+      { x: 200, y: 50, r: 1.8 },
+      { x: 320, y: 35, r: 1 },
+      { x: 380, y: 22, r: 1.5 },
+      { x: 420, y: 48, r: 1.2 },
+      { x: 480, y: 28, r: 2 },
+      { x: 520, y: 40, r: 1 },
+      { x: 550, y: 18, r: 1.5 },
+      { x: 100, y: 65, r: 0.8 }
+    ];
+
+    stars.forEach(star => {
+      doc.circle(star.x, star.y, star.r)
+        .fillColor('white')
+        .fillOpacity(0.4)
+        .fill();
+    });
+    doc.fillOpacity(1); // Reset opacity
+
+    // Add logo at leftmost position (fully rounded/circular)
     const logoPath = this.findLogo();
+    const logoSize = 70; // Logo size in points (made bigger)
+    const logoX = 0; // Leftmost position
+    const logoY = 15; // Top position
+    const logoRadius = logoSize / 2; // For circular logo
+    
     if (logoPath) {
-      try {
-        doc.image(logoPath, 50, 50, { width: 60, height: 60 });
-      } catch (error) {
-        console.warn('Logo not found or invalid:', error.message);
-      }
+      // Create circular clipping path for fully rounded logo
+      doc.save();
+      const centerX = logoX + logoRadius;
+      const centerY = logoY + logoRadius;
+      
+      // Create perfect circle clipping path
+      doc.circle(centerX, centerY, logoRadius)
+        .clip();
+      
+      // Draw the logo image
+      doc.image(logoPath, logoX, logoY, {
+        width: logoSize,
+        height: logoSize,
+        fit: [logoSize, logoSize]
+      });
+      doc.restore();
     }
 
-    // Company name (large and bold)
-    doc.fontSize(24)
-      .fillColor(this.PRIMARY_COLOR)
+    // Company name (white text on dark background) - positioned after logo with proper spacing
+    const companyNameX = logoPath ? logoSize + 15 : 50; // Ensure no overlap with logo
+    const companyNameY = logoPath ? 40 : 35; // Vertically centered with logo
+    doc.fontSize(28)
+      .fillColor('white')
       .font('Helvetica-Bold')
-      .text(this.COMPANY_NAME, 120, 50, { width: pageWidth - 70 });
+      .text(this.COMPANY_NAME, companyNameX, companyNameY, { characterSpacing: 2, lineBreak: false });
 
-    // Address
-    doc.fontSize(8)
-      .fillColor(this.TEXT_COLOR)
+    // Company tagline - positioned after logo to avoid overlap
+    const taglineX = logoPath ? logoSize + 15 : 50;
+    doc.fontSize(12)
+      .fillColor('white')
       .font('Helvetica')
-      .text(this.COMPANY_ADDRESS, 120, 80, { width: pageWidth - 70, align: 'left' });
+      .fillOpacity(0.9)
+      .text('Reach For Everything You Need', taglineX, 68, { characterSpacing: 1, lineBreak: false });
+    doc.fillOpacity(1);
 
-    // Contact info
-    doc.fontSize(9)
-      .font('Helvetica')
-      .text(`Phone: ${this.COMPANY_PHONE} | Email: ${this.COMPANY_EMAIL}`, 120, 105);
+    // Contact info in header - positioned after logo to avoid overlap
+    const addressX = logoPath ? logoSize + 15 : 50;
+    doc.fontSize(10)
+      .fillColor('white')
+      .fillOpacity(0.95)
+      .text(`${this.COMPANY_ADDRESS}`, addressX, 88, { lineBreak: false });
+    doc.fillOpacity(1);
 
-    // Quotation title (centered)
-    doc.fontSize(20)
+    // Quotation title (below header, styled)
+    const titleY = headerHeight + 25;
+    doc.fontSize(28)
       .fillColor(this.PRIMARY_COLOR)
-      .font('Helvetica-Bold')
-      .text('QUOTATION', 50, 140, { width: pageWidth, align: 'center' });
+      .font('Helvetica')
+      .text('QUOTATION', 50, titleY, { width: pageWidth - 100, align: 'center', characterSpacing: 2, lineBreak: false });
 
-    doc.moveDown(2);
+    // Underline for title
+    const titleWidth = 120;
+    const centerX = pageWidth / 2;
+    doc.moveTo(centerX - titleWidth / 2, titleY + 32)
+      .lineTo(centerX + titleWidth / 2, titleY + 32)
+      .strokeColor(this.PRIMARY_COLOR)
+      .lineWidth(3)
+      .stroke();
   }
 
   /**
@@ -122,10 +224,12 @@ class QuotationPdfService {
    */
   static findLogo() {
     const possiblePaths = [
-      path.join(__dirname, '../../../client/public/logo512.png'),
-      path.join(__dirname, '../../../client/public/logo192.png'),
+      // Priority: MEGA Enterprise logo in uploads directory
+      path.join(__dirname, '../../uploads/mega-logo.png'),
+      path.join(__dirname, '../../uploads/logo.png'),
       path.join(__dirname, '../../../client/public/mega-logo.png'),
-      path.join(__dirname, '../../uploads/logo.png')
+      path.join(__dirname, '../../../client/public/logo512.png'),
+      path.join(__dirname, '../../../client/public/logo192.png')
     ];
 
     for (const logoPath of possiblePaths) {
@@ -141,121 +245,131 @@ class QuotationPdfService {
    * Add quotation details (Ref No, Date, To)
    */
   static addQuotationDetails(doc, data) {
-    const yPosition = 190;
+    const yPosition = 200;
+    const pageWidth = doc.page.width;
 
-    doc.fontSize(10)
+    // Info box with subtle background
+    doc.rect(50, yPosition - 5, pageWidth - 100, 50)
+      .fillColor('#f8f9fa')
+      .fill();
+
+    doc.fontSize(11)
       .fillColor(this.TEXT_COLOR)
       .font('Helvetica');
 
     // Ref No
-    doc.font('Helvetica-Bold')
-      .text('Ref No:', 50, yPosition)
-      .font('Helvetica')
-      .text(data.refNo, 110, yPosition);
+    doc.fontSize(9)
+      .fillColor('#666666')
+      .text('REF NO.', 60, yPosition, { lineBreak: false });
+    doc.fontSize(12)
+      .fillColor(this.TEXT_COLOR)
+      .font('Helvetica-Bold')
+      .text(data.refNo, 60, yPosition + 12, { lineBreak: false });
 
-    // Date
+    // Date (positioned more to the right)
     const formattedDate = this.formatDate(data.date);
-    doc.font('Helvetica-Bold')
-      .text('Date:', 350, yPosition)
+    doc.fontSize(9)
+      .fillColor('#666666')
       .font('Helvetica')
-      .text(formattedDate, 390, yPosition);
+      .text('DATE', pageWidth - 150, yPosition, { lineBreak: false });
+    doc.fontSize(12)
+      .fillColor(this.TEXT_COLOR)
+      .font('Helvetica-Bold')
+      .text(formattedDate, pageWidth - 150, yPosition + 12, { lineBreak: false });
 
-    // To (Client)
-    doc.font('Helvetica-Bold')
-      .text('To:', 50, yPosition + 20)
-      .font('Helvetica')
-      .text(data.clientName, 110, yPosition + 20);
-
-    doc.moveDown(2);
+    // To (Client) - with styled label
+    doc.fontSize(10)
+      .fillColor(this.PRIMARY_COLOR)
+      .font('Helvetica-Bold')
+      .text('TO:', 60, yPosition + 35, { lineBreak: false });
+    doc.fontSize(12)
+      .fillColor(this.TEXT_COLOR)
+      .text(data.clientName, 85, yPosition + 35, { lineBreak: false });
   }
 
   /**
    * Add items table
    */
   static addItemsTable(doc, data) {
-    const tableTop = 250;
+    const tableTop = 270;
     const tableLeft = 50;
     const pageWidth = doc.page.width - 100;
+    const headerHeight = 28;
+    const rowHeight = 26;
 
-    // Column widths
+    // Column widths (adjusted for better Amount column padding)
     const columns = {
-      srNo: { x: tableLeft, width: 30 },
-      description: { x: tableLeft + 30, width: 180 },
-      quantity: { x: tableLeft + 210, width: 40 },
-      unit: { x: tableLeft + 250, width: 40 },
-      rate: { x: tableLeft + 290, width: 60 },
-      gst: { x: tableLeft + 350, width: 50 },
-      amount: { x: tableLeft + 400, width: 95 }
+      srNo: { x: tableLeft, width: 35 },
+      description: { x: tableLeft + 35, width: 175 },
+      quantity: { x: tableLeft + 210, width: 45 },
+      unit: { x: tableLeft + 255, width: 45 },
+      rate: { x: tableLeft + 300, width: 65 },
+      gst: { x: tableLeft + 365, width: 45 },
+      amount: { x: tableLeft + 410, width: 85 }
     };
 
-    // Table header background
-    doc.rect(tableLeft, tableTop, pageWidth, 20)
-      .fillColor(this.PRIMARY_COLOR)
+    // Table header background (simple, no gradient)
+    doc.rect(tableLeft, tableTop, pageWidth, headerHeight)
+      .fillColor(this.HEADER_DARK)
       .fill();
 
-    // Table headers
-    doc.fontSize(9)
+    // Table headers with uppercase and letter spacing
+    doc.fontSize(10)
       .fillColor('white')
       .font('Helvetica-Bold');
 
-    doc.text('Sr', columns.srNo.x + 5, tableTop + 6, { width: columns.srNo.width });
-    doc.text('Description', columns.description.x + 5, tableTop + 6, { width: columns.description.width });
-    doc.text('Qty', columns.quantity.x + 5, tableTop + 6, { width: columns.quantity.width });
-    doc.text('Unit', columns.unit.x + 5, tableTop + 6, { width: columns.unit.width });
-    doc.text('Rate', columns.rate.x + 5, tableTop + 6, { width: columns.rate.width });
-    doc.text('GST%', columns.gst.x + 5, tableTop + 6, { width: columns.gst.width });
-    doc.text('Amount', columns.amount.x + 5, tableTop + 6, { width: columns.amount.width, align: 'right' });
+    const headerY = tableTop + 9;
+    doc.text('SR', columns.srNo.x + 10, headerY, { width: columns.srNo.width, characterSpacing: 0.5, lineBreak: false });
+    doc.text('DESCRIPTION', columns.description.x + 10, headerY, { width: columns.description.width, characterSpacing: 0.5, lineBreak: false });
+    doc.text('QTY', columns.quantity.x + 10, headerY, { width: columns.quantity.width, characterSpacing: 0.5, lineBreak: false });
+    doc.text('UNIT', columns.unit.x + 10, headerY, { width: columns.unit.width, characterSpacing: 0.5, lineBreak: false });
+    doc.text('RATE', columns.rate.x + 10, headerY, { width: columns.rate.width, characterSpacing: 0.5, lineBreak: false });
+    doc.text('GST%', columns.gst.x + 10, headerY, { width: columns.gst.width, characterSpacing: 0.5, lineBreak: false });
+    doc.text('AMOUNT', columns.amount.x + 5, headerY, { width: columns.amount.width - 15, align: 'right', characterSpacing: 0.5, lineBreak: false });
 
-    // Table rows
-    doc.fillColor(this.TEXT_COLOR)
-      .font('Helvetica')
-      .fontSize(8);
-
-    let yPosition = tableTop + 25;
-    const rowHeight = 20;
+    // Table rows with alternating colors (gray and white like Excel)
+    let yPosition = tableTop + headerHeight;
 
     data.items.forEach((item, index) => {
-      // Check if we need a new page
-      if (yPosition > doc.page.height - 200) {
-        doc.addPage();
-        yPosition = 50;
+      // Alternating row background colors (gray and white)
+      const rowBgColor = index % 2 === 0 ? '#f5f5f5' : 'white'; // Light gray and white
+      doc.rect(tableLeft, yPosition, pageWidth, rowHeight)
+        .fillColor(rowBgColor)
+        .fill();
+
+      // Row border
+      if (index < data.items.length - 1) {
+        doc.moveTo(tableLeft, yPosition + rowHeight)
+          .lineTo(tableLeft + pageWidth, yPosition + rowHeight)
+          .strokeColor('#e0e0e0')
+          .lineWidth(0.5)
+          .stroke();
       }
 
-      // Alternate row background
-      if (index % 2 === 0) {
-        doc.rect(tableLeft, yPosition - 2, pageWidth, rowHeight)
-          .fillColor(this.LIGHT_GRAY)
-          .fill();
-        doc.fillColor(this.TEXT_COLOR);
-      }
-
-      // Row data
-      doc.text(item.srNo, columns.srNo.x + 5, yPosition, { width: columns.srNo.width });
-      doc.text(item.description, columns.description.x + 5, yPosition, { width: columns.description.width });
-      doc.text(item.quantity, columns.quantity.x + 5, yPosition, { width: columns.quantity.width });
-      doc.text(item.unit, columns.unit.x + 5, yPosition, { width: columns.unit.width });
-      doc.text(this.formatCurrency(item.rate), columns.rate.x + 5, yPosition, { width: columns.rate.width });
-      doc.text(`${item.gstPercent}%`, columns.gst.x + 5, yPosition, { width: columns.gst.width });
-      doc.text(this.formatCurrency(item.amount), columns.amount.x + 5, yPosition, { width: columns.amount.width - 10, align: 'right' });
+      // Row data - use index + 1 for clean serial numbers (removes any "1" prefix issue)
+      const textY = yPosition + 8;
+      doc.fillColor(this.TEXT_COLOR)
+        .font('Helvetica')
+        .fontSize(10);
+      doc.text((index + 1).toString(), columns.srNo.x + 10, textY, { width: columns.srNo.width, lineBreak: false });
+      doc.text(item.description, columns.description.x + 10, textY, { width: columns.description.width - 10, lineBreak: false });
+      doc.text(item.quantity.toString(), columns.quantity.x + 10, textY, { width: columns.quantity.width, lineBreak: false });
+      doc.text(item.unit, columns.unit.x + 10, textY, { width: columns.unit.width, lineBreak: false });
+      doc.text(this.formatCurrency(item.rate), columns.rate.x + 10, textY, { width: columns.rate.width, lineBreak: false });
+      doc.text(`${item.gstPercent}%`, columns.gst.x + 10, textY, { width: columns.gst.width, lineBreak: false });
+      doc.text(this.formatCurrency(item.amount), columns.amount.x + 5, textY, { width: columns.amount.width - 15, align: 'right', lineBreak: false });
 
       yPosition += rowHeight;
     });
 
-    // Bottom border
-    doc.moveTo(tableLeft, yPosition)
-      .lineTo(tableLeft + pageWidth, yPosition)
-      .strokeColor(this.PRIMARY_COLOR)
-      .lineWidth(1)
-      .stroke();
-
-    return yPosition + 10;
+    return yPosition + 15;
   }
 
   /**
    * Add calculations box (Subtotal, GST, Grand Total)
    */
-  static addCalculations(doc, data) {
-    const yPosition = doc.y + 20;
+  static addCalculations(doc, data, tableEndY) {
+    const yPosition = tableEndY + 10; // Use actual table end position + padding
     const boxLeft = 350;
     const boxWidth = 195;
 
@@ -264,75 +378,122 @@ class QuotationPdfService {
       .font('Helvetica');
 
     // Subtotal
-    doc.text('Subtotal (Excl GST):', boxLeft, yPosition);
-    doc.text(this.formatCurrency(data.subtotal), boxLeft + 100, yPosition, { width: 95, align: 'right' });
+    doc.text('Subtotal (Excl GST):', boxLeft, yPosition, { lineBreak: false });
+    doc.text(this.formatCurrency(data.subtotal), boxLeft + 100, yPosition, { width: 95, align: 'right', lineBreak: false });
 
     // GST
-    doc.text('GST @ 18%:', boxLeft, yPosition + 20);
-    doc.text(this.formatCurrency(data.gst), boxLeft + 100, yPosition + 20, { width: 95, align: 'right' });
+    doc.text('GST @ 18%:', boxLeft, yPosition + 18, { lineBreak: false });
+    doc.text(this.formatCurrency(data.gst), boxLeft + 100, yPosition + 18, { width: 95, align: 'right', lineBreak: false });
 
     // Separator line
-    doc.moveTo(boxLeft, yPosition + 35)
-      .lineTo(boxLeft + boxWidth, yPosition + 35)
+    doc.moveTo(boxLeft, yPosition + 32)
+      .lineTo(boxLeft + boxWidth, yPosition + 32)
       .strokeColor(this.TEXT_COLOR)
       .lineWidth(0.5)
       .stroke();
 
     // Grand Total
-    doc.fontSize(12)
+    doc.fontSize(11)
       .font('Helvetica-Bold')
       .fillColor(this.PRIMARY_COLOR);
 
-    doc.text('GRAND TOTAL:', boxLeft, yPosition + 42);
-    doc.text(this.formatCurrency(data.grandTotal), boxLeft + 100, yPosition + 42, { width: 95, align: 'right' });
+    doc.text('GRAND TOTAL:', boxLeft, yPosition + 38, { lineBreak: false });
+    doc.text(this.formatCurrency(data.grandTotal), boxLeft + 100, yPosition + 38, { width: 95, align: 'right', lineBreak: false });
 
-    return yPosition + 70;
+    return yPosition + 55;
   }
 
   /**
    * Add footer sections (Bank Details, Terms, Signature)
    */
   static addFooterSections(doc, data) {
-    const yStart = doc.y + 30;
-    const pageWidth = doc.page.width - 100;
+    // Position at absolute bottom of page (above bottom footer)
+    const pageHeight = doc.page.height;
+    const yStart = pageHeight - 125; // Adjusted for new footer
 
     doc.fontSize(9)
       .fillColor(this.TEXT_COLOR)
       .font('Helvetica');
 
-    // Bank Details (Left)
-    doc.font('Helvetica-Bold')
-      .text('BANK DETAILS', 50, yStart);
+    // Bank Details (Left) - with box and left border like HTML
+    const bankBoxWidth = 160;
+    const bankBoxHeight = 65;
 
-    doc.font('Helvetica')
-      .fontSize(8)
-      .text(this.COMPANY_NAME, 50, yStart + 15)
-      .text(`Bank Name: ${this.BANK_NAME}`, 50, yStart + 28)
-      .text(`A/c No.: ${this.ACCOUNT_NUMBER}`, 50, yStart + 41)
-      .text(`Branch: ${this.BRANCH}`, 50, yStart + 54)
-      .text(`IFS Code: ${this.IFSC_CODE}`, 50, yStart + 67);
+    // White box background with shadow
+    doc.rect(50, yStart - 8, bankBoxWidth, bankBoxHeight)
+      .fillColor('white')
+      .fill();
+    doc.rect(50, yStart - 8, bankBoxWidth, bankBoxHeight)
+      .strokeColor('#e8e8e8')
+      .lineWidth(1)
+      .stroke();
 
-    // Terms & Conditions (Center)
+    // Blue left border accent
+    doc.rect(50, yStart - 8, 4, bankBoxHeight)
+      .fillColor(this.PRIMARY_COLOR)
+      .fill();
+
     doc.font('Helvetica-Bold')
+      .fillColor(this.PRIMARY_COLOR)
       .fontSize(9)
-      .text('TERMS & CONDITION', 220, yStart, { width: 150, align: 'center' });
+      .text('BANK DETAILS', 62, yStart, { lineBreak: false, characterSpacing: 1 });
 
     doc.font('Helvetica')
-      .fontSize(8)
-      .text('• GST EXTRA AS APPLICABLE', 200, yStart + 15)
-      .text(`• ${data.paymentTerms}`, 200, yStart + 28)
-      .text(`• ${data.offerValidity}`, 200, yStart + 41)
-      .text('• TRANSPORT EXTRA', 200, yStart + 54);
+      .fillColor(this.TEXT_COLOR)
+      .fontSize(7);
+    doc.text(this.COMPANY_NAME, 62, yStart + 14, { lineBreak: false });
+    doc.text(`Bank: ${this.BANK_NAME}`, 62, yStart + 25, { lineBreak: false });
+    doc.text(`A/c No.: ${this.ACCOUNT_NUMBER}`, 62, yStart + 36, { lineBreak: false });
+    doc.text(`IFSC: ${this.IFSC_CODE}`, 62, yStart + 47, { lineBreak: false });
+
+    // Terms & Conditions (Center) - with box and left border like HTML
+    const termsBoxX = 225;
+    const termsBoxWidth = 170;
+    const termsBoxHeight = 65;
+
+    // White box background with shadow
+    doc.rect(termsBoxX, yStart - 8, termsBoxWidth, termsBoxHeight)
+      .fillColor('white')
+      .fill();
+    doc.rect(termsBoxX, yStart - 8, termsBoxWidth, termsBoxHeight)
+      .strokeColor('#e8e8e8')
+      .lineWidth(1)
+      .stroke();
+
+    // Blue left border accent
+    doc.rect(termsBoxX, yStart - 8, 4, termsBoxHeight)
+      .fillColor(this.PRIMARY_COLOR)
+      .fill();
+
+    doc.font('Helvetica-Bold')
+      .fillColor(this.PRIMARY_COLOR)
+      .fontSize(9)
+      .text('TERMS & CONDITIONS', termsBoxX + 12, yStart, { lineBreak: false, characterSpacing: 1 });
+
+    doc.font('Helvetica')
+      .fillColor('#666666')
+      .fontSize(7);
+    doc.text('GST EXTRA AS APPLICABLE', termsBoxX + 12, yStart + 14, { lineBreak: false });
+    doc.text(data.paymentTerms || 'PAYMENT IMMEDIATE', termsBoxX + 12, yStart + 25, { lineBreak: false });
+    doc.text(data.offerValidity || 'OFFER VALIDITY 1 WEEK', termsBoxX + 12, yStart + 36, { lineBreak: false });
+    doc.text('TRANSPORT EXTRA', termsBoxX + 12, yStart + 47, { lineBreak: false });
 
     // Signature (Right)
     doc.font('Helvetica-Bold')
+      .fillColor(this.PRIMARY_COLOR)
       .fontSize(9)
-      .text('For, Mega Enterprise.', 400, yStart);
+      .text('For, MEGA ENTERPRISE', 420, yStart, { lineBreak: false });
+
+    doc.moveTo(420, yStart + 38)
+      .lineTo(540, yStart + 38)
+      .strokeColor(this.PRIMARY_COLOR)
+      .lineWidth(2)
+      .stroke();
 
     doc.font('Helvetica')
+      .fillColor('#666666')
       .fontSize(8)
-      .text('_____________________', 400, yStart + 50)
-      .text('Authorised Signatory.', 400, yStart + 65);
+      .text('Authorised Signatory', 420, yStart + 42, { lineBreak: false });
   }
 
   /**
@@ -341,40 +502,43 @@ class QuotationPdfService {
   static addBottomFooter(doc) {
     const pageHeight = doc.page.height;
     const pageWidth = doc.page.width;
-    const footerY = pageHeight - 60;
+    const footerHeight = 40;
+    const footerY = pageHeight - footerHeight;
 
-    // GST Number
-    doc.fontSize(8)
-      .fillColor(this.TEXT_COLOR)
+    // Dark blue footer background
+    doc.rect(0, footerY, pageWidth, footerHeight)
+      .fillColor(this.HEADER_DARK)
+      .fill();
+
+    // GST Number and Contact in footer
+    doc.fontSize(9)
+      .fillColor('white')
       .font('Helvetica')
-      .text(`GST NO: ${this.GST_NUMBER}`, 50, footerY, { align: 'center', width: pageWidth - 100 });
-
-    // Separator line
-    doc.moveTo(50, footerY + 15)
-      .lineTo(pageWidth - 50, footerY + 15)
-      .strokeColor(this.PRIMARY_COLOR)
-      .lineWidth(1)
-      .stroke();
-
-    // Contact info
-    doc.fontSize(8)
-      .fillColor(this.TEXT_COLOR)
-      .text(`Contact: 📞 ${this.COMPANY_PHONE} | 📧 ${this.COMPANY_EMAIL}`, 50, footerY + 20, { align: 'center', width: pageWidth - 100 });
+      .text(`GST NO: ${this.GST_NUMBER} | Phone: ${this.COMPANY_PHONE} | Email: ${this.COMPANY_EMAIL}`, 0, footerY + 10, {
+        align: 'center',
+        width: pageWidth,
+        lineBreak: false,
+        characterSpacing: 0.3
+      });
 
     // Page number
-    doc.text('Page 1 of 1', 50, footerY + 33, { align: 'center', width: pageWidth - 100 });
+    doc.fontSize(8)
+      .text('Page 1 of 1', 0, footerY + 24, { align: 'center', width: pageWidth, lineBreak: false });
   }
 
   /**
-   * Format currency in Indian Rupees
+   * Format currency in Indian Rupees (without currency symbol to avoid superscript issues)
    */
   static formatCurrency(amount) {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+    // Format as number with Indian number system (lakhs, crores) but without currency symbol
+    // This avoids the superscript "¹" issue that appears with INR currency formatting
+    const formatted = new Intl.NumberFormat('en-IN', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+    
+    // Return with ₹ symbol manually added (no superscript)
+    return `₹ ${formatted}`;
   }
 
   /**

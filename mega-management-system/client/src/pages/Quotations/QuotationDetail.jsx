@@ -145,6 +145,11 @@ const QuotationDetail = () => {
    * Handle download PDF
    */
   const handleDownload = async () => {
+    if (!quotation.pdfUrl) {
+      toast.error('PDF not available for download');
+      return;
+    }
+
     setIsDownloading(true);
     try {
       await downloadPdf(quotation._id, quotation.fileName);
@@ -590,12 +595,24 @@ const QuotationDetail = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">PDF Preview</h2>
             <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: '800px' }}>
-              <iframe
-                src={`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}${quotation.pdfUrl}`}
-                title="Quotation PDF"
-                className="w-full h-full"
-                style={{ border: 'none' }}
-              />
+              {quotation.pdfUrl ? (
+                <iframe
+                  src={`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}${quotation.pdfUrl}`}
+                  title="Quotation PDF"
+                  className="w-full h-full"
+                  style={{ border: 'none' }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full bg-gray-50">
+                  <div className="text-center">
+                    <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 font-medium">PDF not available</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      The PDF file for this quotation has not been uploaded yet.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
