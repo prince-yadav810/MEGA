@@ -1,4 +1,5 @@
 const PDFDocument = require('pdfkit');
+const { PDFDocument: PDFLibDocument } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
 
@@ -63,29 +64,43 @@ class QuotationPdfService {
         this.addBottomFooter(doc);
 
         // Prevent blank pages by ensuring we stay on first page
-        // Switch to first page before finalizing
-        doc.switchToPage(0);
-        
-        // Get page count - if more than 1 page exists, we need to handle it
-        const pageCount = doc.bufferedPageRange().count;
-        
-        if (pageCount > 1) {
-          // PDFKit doesn't have removePage, but we can prevent extra pages
-          // by ensuring all content is on page 0 and we don't trigger new pages
-          // Switch back to first page multiple times to ensure we're on it
-          for (let i = 0; i < 3; i++) {
-            doc.switchToPage(0);
-          }
-        }
-        
-        // Final switch to page 0 before ending
         doc.switchToPage(0);
 
         // Finalize PDF
         doc.end();
 
-        writeStream.on('finish', () => {
-          resolve(outputPath);
+        writeStream.on('finish', async () => {
+          try {
+            // Post-process PDF to remove blank pages using pdf-lib
+            const pdfBytes = fs.readFileSync(outputPath);
+            const pdfDoc = await PDFLibDocument.load(pdfBytes);
+            const pages = pdfDoc.getPages();
+            
+            // Check if there are blank pages and remove them
+            // Keep only pages that have content (first page should always have content)
+            if (pages.length > 1) {
+              // Remove all pages except the first one
+              const pagesToRemove = [];
+              for (let i = pages.length - 1; i >= 1; i--) {
+                pagesToRemove.push(i);
+              }
+              
+              // Remove pages in reverse order to maintain indices
+              pagesToRemove.forEach(pageIndex => {
+                pdfDoc.removePage(pageIndex);
+              });
+              
+              // Save the cleaned PDF
+              const cleanedPdfBytes = await pdfDoc.save();
+              fs.writeFileSync(outputPath, cleanedPdfBytes);
+            }
+            
+            resolve(outputPath);
+          } catch (error) {
+            // If post-processing fails, still resolve with original PDF
+            console.error('Error removing blank pages:', error);
+            resolve(outputPath);
+          }
         });
 
         writeStream.on('error', (error) => {
@@ -151,35 +166,50 @@ class QuotationPdfService {
     });
     doc.fillOpacity(1); // Reset opacity
 
-    // Add logo at leftmost position (fully rounded/circular)
+    // Add logo at leftmost position (rounded square, not circular)
     const logoPath = this.findLogo();
     const logoSize = 70; // Logo size in points (made bigger)
-    const logoX = 0; // Leftmost position
-    const logoY = 15; // Top position
-    const logoRadius = logoSize / 2; // For circular logo
+    const logoX = 7; // Leftmost position
+    const logoY = 32; // Moved lower (was 15)
+    const logoCornerRadius = 8; // Rounded corner radius for square logo
     
     if (logoPath) {
-      // Create circular clipping path for fully rounded logo
+      // Create rounded rectangle with all corners properly rounded
       doc.save();
-      const centerX = logoX + logoRadius;
-      const centerY = logoY + logoRadius;
+      const r = logoCornerRadius;
+      const x = logoX;
+      const y = logoY;
+      const w = logoSize;
+      const h = logoSize;
       
-      // Create perfect circle clipping path
-      doc.circle(centerX, centerY, logoRadius)
-        .clip();
+      // Create a proper rounded rectangle clipping path
+      // This ensures all 4 corners (including bottom corners) are rounded
+      doc
+        .moveTo(x + r, y)                    // Start just after top-left curve
+        .lineTo(x + w - r, y)                // Top edge
+        .quadraticCurveTo(x + w, y, x + w, y + r)  // Top-right corner
+        .lineTo(x + w, y + h - r)            // Right edge
+        .quadraticCurveTo(x + w, y + h, x + w - r, y + h)  // Bottom-right corner
+        .lineTo(x + r, y + h)                // Bottom edge
+        .quadraticCurveTo(x, y + h, x, y + h - r)  // Bottom-left corner
+        .lineTo(x, y + r)                    // Left edge
+        .quadraticCurveTo(x, y, x + r, y)    // Top-left corner
+        .closePath()                         // Close the path
+        .clip();                             // Apply clipping
       
-      // Draw the logo image
+      // Draw the logo image - it will be clipped to the rounded rectangle
       doc.image(logoPath, logoX, logoY, {
         width: logoSize,
         height: logoSize,
         fit: [logoSize, logoSize]
       });
+      
       doc.restore();
     }
 
     // Company name (white text on dark background) - positioned after logo with proper spacing
     const companyNameX = logoPath ? logoSize + 15 : 50; // Ensure no overlap with logo
-    const companyNameY = logoPath ? 40 : 35; // Vertically centered with logo
+    const companyNameY = logoPath ? 39 : 35; // Moved up a bit (was 50)
     doc.fontSize(28)
       .fillColor('white')
       .font('Helvetica-Bold')
@@ -295,7 +325,7 @@ class QuotationPdfService {
     const tableLeft = 50;
     const pageWidth = doc.page.width - 100;
     const headerHeight = 28;
-    const rowHeight = 26;
+    const rowHeight = 23;
 
     // Column widths (adjusted for better Amount column padding)
     const columns = {
@@ -330,36 +360,71 @@ class QuotationPdfService {
     // Table rows with alternating colors (gray and white like Excel)
     let yPosition = tableTop + headerHeight;
 
+    // Set font properties for height calculation
+    doc.font('Helvetica')
+      .fontSize(10);
+
     data.items.forEach((item, index) => {
+      // Calculate the height needed for each cell's text
+      const cellPadding = 8; // Top and bottom padding
+      const minRowHeight = 23; // Minimum row height
+      
+      // Calculate text heights for each cell (allowing text to wrap)
+      const srNoHeight = doc.heightOfString((index + 1).toString(), { width: columns.srNo.width });
+      const descriptionHeight = doc.heightOfString(item.description || '', { width: columns.description.width - 10 });
+      const quantityHeight = doc.heightOfString(item.quantity.toString(), { width: columns.quantity.width });
+      const unitHeight = doc.heightOfString(item.unit || '', { width: columns.unit.width });
+      const rateHeight = doc.heightOfString(this.formatCurrency(item.rate), { width: columns.rate.width });
+      const gstHeight = doc.heightOfString(`${item.gstPercent}%`, { width: columns.gst.width });
+      const amountHeight = doc.heightOfString(this.formatCurrency(item.amount), { width: columns.amount.width - 15 });
+      
+      // Find the maximum height among all cells in this row
+      const maxCellHeight = Math.max(
+        srNoHeight,
+        descriptionHeight,
+        quantityHeight,
+        unitHeight,
+        rateHeight,
+        gstHeight,
+        amountHeight,
+        minRowHeight - (cellPadding * 2) // Ensure at least minimum height
+      );
+      
+      // Calculate actual row height (max cell height + padding)
+      const actualRowHeight = Math.max(maxCellHeight + (cellPadding * 2), minRowHeight);
+
       // Alternating row background colors (gray and white)
       const rowBgColor = index % 2 === 0 ? '#f5f5f5' : 'white'; // Light gray and white
-      doc.rect(tableLeft, yPosition, pageWidth, rowHeight)
+      doc.rect(tableLeft, yPosition, pageWidth, actualRowHeight)
         .fillColor(rowBgColor)
         .fill();
 
       // Row border
       if (index < data.items.length - 1) {
-        doc.moveTo(tableLeft, yPosition + rowHeight)
-          .lineTo(tableLeft + pageWidth, yPosition + rowHeight)
+        doc.moveTo(tableLeft, yPosition + actualRowHeight)
+          .lineTo(tableLeft + pageWidth, yPosition + actualRowHeight)
           .strokeColor('#e0e0e0')
           .lineWidth(0.5)
           .stroke();
       }
 
       // Row data - use index + 1 for clean serial numbers (removes any "1" prefix issue)
-      const textY = yPosition + 8;
+      // Center text vertically in the cell
+      const textY = yPosition + cellPadding;
       doc.fillColor(this.TEXT_COLOR)
         .font('Helvetica')
         .fontSize(10);
-      doc.text((index + 1).toString(), columns.srNo.x + 10, textY, { width: columns.srNo.width, lineBreak: false });
-      doc.text(item.description, columns.description.x + 10, textY, { width: columns.description.width - 10, lineBreak: false });
-      doc.text(item.quantity.toString(), columns.quantity.x + 10, textY, { width: columns.quantity.width, lineBreak: false });
-      doc.text(item.unit, columns.unit.x + 10, textY, { width: columns.unit.width, lineBreak: false });
-      doc.text(this.formatCurrency(item.rate), columns.rate.x + 10, textY, { width: columns.rate.width, lineBreak: false });
-      doc.text(`${item.gstPercent}%`, columns.gst.x + 10, textY, { width: columns.gst.width, lineBreak: false });
-      doc.text(this.formatCurrency(item.amount), columns.amount.x + 5, textY, { width: columns.amount.width - 15, align: 'right', lineBreak: false });
+      
+      // Draw text in each cell (text will wrap automatically)
+      doc.text((index + 1).toString(), columns.srNo.x + 10, textY, { width: columns.srNo.width, lineBreak: true });
+      doc.text(item.description || '', columns.description.x + 10, textY, { width: columns.description.width - 10, lineBreak: true });
+      doc.text(item.quantity.toString(), columns.quantity.x + 10, textY, { width: columns.quantity.width, lineBreak: true });
+      doc.text(item.unit || '', columns.unit.x + 10, textY, { width: columns.unit.width, lineBreak: true });
+      doc.text(this.formatCurrency(item.rate), columns.rate.x + 10, textY, { width: columns.rate.width, lineBreak: true });
+      doc.text(`${item.gstPercent}%`, columns.gst.x + 10, textY, { width: columns.gst.width, lineBreak: true });
+      doc.text(this.formatCurrency(item.amount), columns.amount.x + 5, textY, { width: columns.amount.width - 15, align: 'right', lineBreak: true });
 
-      yPosition += rowHeight;
+      yPosition += actualRowHeight;
     });
 
     return yPosition + 15;
@@ -527,18 +592,34 @@ class QuotationPdfService {
   }
 
   /**
-   * Format currency in Indian Rupees (without currency symbol to avoid superscript issues)
+   * Format currency in Indian Rupees (without superscript issues)
    */
   static formatCurrency(amount) {
-    // Format as number with Indian number system (lakhs, crores) but without currency symbol
-    // This avoids the superscript "¹" issue that appears with INR currency formatting
-    const formatted = new Intl.NumberFormat('en-IN', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
+    // Convert to number if it's a string, removing any non-numeric characters
+    let numAmount = amount;
+    if (typeof amount === 'string') {
+      // Remove all non-numeric characters except decimal point and minus sign
+      // Also remove any superscript characters that might be in the string
+      const cleaned = amount.replace(/[¹²³⁴⁵⁶⁷⁸⁹⁰]/g, '').replace(/[^\d.-]/g, '');
+      numAmount = parseFloat(cleaned);
+    }
     
-    // Return with ₹ symbol manually added (no superscript)
-    return `₹ ${formatted}`;
+    // Ensure it's a valid number
+    if (isNaN(numAmount) || numAmount === null || numAmount === undefined) {
+      numAmount = 0;
+    }
+    
+    // Round to nearest integer
+    numAmount = Math.round(Number(numAmount));
+    
+    // Format number manually - convert to string and add commas for thousands
+    const numStr = numAmount.toString();
+    
+    // Add comma separators for thousands (standard format: 1,234,567)
+    const formatted = numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    
+    // Return with "Rs" instead of ₹ symbol to avoid any rendering issues
+    return `Rs ${formatted}`;
   }
 
   /**
