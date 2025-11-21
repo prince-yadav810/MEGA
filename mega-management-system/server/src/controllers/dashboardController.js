@@ -27,7 +27,8 @@ const getDashboardStats = async (req, res) => {
       },
       tasks: {
         count: 0,
-        items: []
+        items: [],
+        upcoming: []
       },
       calls: {
         count: 0,
@@ -60,6 +61,24 @@ const getDashboardStats = async (req, res) => {
 
     dashboardData.tasks.count = tasks.length;
     dashboardData.tasks.items = tasks;
+
+    // Fetch Upcoming Tasks (due after today) for employees
+    if (userRole === 'employee') {
+      const upcomingTaskQuery = {
+        assignees: userId,
+        dueDate: { $gt: endOfDay },
+        status: { $ne: 'completed' }
+      };
+
+      const upcomingTasks = await Task.find(upcomingTaskQuery)
+        .populate('client', 'companyName')
+        .populate('assignees', 'name email')
+        .sort({ dueDate: 1 })
+        .limit(10)
+        .lean();
+
+      dashboardData.tasks.upcoming = upcomingTasks;
+    }
 
     // 2. Fetch Clients to Call/Visit Today
     let clientsToCall = [];
@@ -95,18 +114,14 @@ const getDashboardStats = async (req, res) => {
     dashboardData.calls.count = clientsToCall.length;
     dashboardData.calls.items = clientsToCall;
 
-    // 3. Fetch Today's Reminders (or future if none today)
-    // Create date strings for comparison (YYYY-MM-DD format)
-    const todayDateString = startOfDay.toISOString().split('T')[0];
-    
+    // 3. Fetch Reminders (Using Date Range)
+    // Fetch reminders for today
     let reminders = await Reminder.find({
       createdBy: userId,
       isActive: true,
-      $expr: {
-        $eq: [
-          { $dateToString: { format: "%Y-%m-%d", date: "$reminderDate" } },
-          todayDateString
-        ]
+      reminderDate: {
+        $gte: startOfDay,
+        $lte: endOfDay
       }
     })
       .sort({ reminderTime: 1 })
@@ -193,12 +208,64 @@ const getDashboardStats = async (req, res) => {
         }
       }).lean();
 
+      // Fetch additional stats for employee
+      // 1. Advance taken this month
+      const userWithAdvances = await User.findById(userId).select('advances').lean();
+      
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      const endOfMonth = new Date(startOfMonth);
+      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+      endOfMonth.setDate(0); // Last day of current month
+      endOfMonth.setHours(23, 59, 59, 999);
+
+      let advanceTaken = 0;
+      if (userWithAdvances && userWithAdvances.advances) {
+        advanceTaken = userWithAdvances.advances
+          .filter(adv => {
+            const advDate = new Date(adv.date);
+            return (
+              (adv.status === 'approved' || adv.status === 'paid') &&
+              advDate >= startOfMonth && 
+              advDate <= endOfMonth
+            );
+          })
+          .reduce((sum, adv) => sum + adv.amount, 0);
+      }
+
+      // 2. Days Absent and Present this month
+      const monthlyAttendance = await Attendance.find({
+        user: userId,
+        date: {
+          $gte: startOfMonth,
+          $lte: endOfMonth
+        }
+      }).lean();
+
+      const daysPresent = monthlyAttendance.length;
+      // Approximate working days passed so far (excluding Sundays maybe? - For now, just days passed)
+      // Or better, "days absent" is usually tracked if there's an explicit "absent" record.
+      // If not, we can't easily guess absent days without a holiday calendar.
+      // I'll just return the count of explicit 'absent' status if exists, otherwise 0.
+      // Wait, if the user didn't check in, there is no record.
+      // Let's assume standard working days (Mon-Sat) passed minus present days.
+      // For simplicity and robustness, let's just return daysPresent and let frontend handle 'absent' if it can,
+      // OR calculate absent as (Days passed in month - Sundays - Days Present).
+      // Let's keep it simple: Days Present is accurate. Days Absent is count of records with status 'absent'.
+      // If the system doesn't create absent records automatically, this will be 0.
+      const daysAbsent = monthlyAttendance.filter(a => a.status === 'absent').length; 
+
       dashboardData.attendance = {
         checkedIn: !!userAttendance,
         checkInTime: userAttendance?.checkInTime || null,
         checkOutTime: userAttendance?.checkOutTime || null,
         status: userAttendance?.status || null,
-        workDuration: userAttendance?.workDuration || 0
+        workDuration: userAttendance?.workDuration || 0,
+        advanceTaken,
+        daysPresent,
+        daysAbsent
       };
     }
 
@@ -311,4 +378,3 @@ const getDashboardStats = async (req, res) => {
 module.exports = {
   getDashboardStats
 };
-

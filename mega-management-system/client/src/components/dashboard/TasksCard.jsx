@@ -2,7 +2,7 @@ import React from 'react';
 import { CheckSquare, Clock, AlertCircle, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const TasksCard = ({ tasks = [] }) => {
+const TasksCard = ({ tasks = [], title = "Today's Tasks" }) => {
   const getPriorityColor = (priority) => {
     const colors = {
       urgent: 'text-red-600 bg-red-100',
@@ -47,7 +47,7 @@ const TasksCard = ({ tasks = [] }) => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <CheckSquare className="h-6 w-6 text-primary-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Today's Tasks</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         </div>
         <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-medium">
           {tasks.length}
@@ -57,7 +57,7 @@ const TasksCard = ({ tasks = [] }) => {
       {tasks.length === 0 ? (
         <div className="text-center py-8">
           <CheckSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No tasks due today</p>
+          <p className="text-gray-500">No tasks</p>
           <p className="text-sm text-gray-400 mt-1">You're all caught up! 🎉</p>
         </div>
       ) : (
@@ -110,4 +110,3 @@ const TasksCard = ({ tasks = [] }) => {
 };
 
 export default TasksCard;
-

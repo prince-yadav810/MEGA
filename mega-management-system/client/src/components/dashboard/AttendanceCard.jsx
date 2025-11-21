@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, LogIn, LogOut, Users, UserCheck, UserX, AlertCircle } from 'lucide-react';
+import { Clock, LogIn, LogOut, Users, UserCheck, UserX, AlertCircle, Calendar, Wallet } from 'lucide-react';
 import attendanceService from '../../services/attendanceService';
 
 const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => {
@@ -107,19 +107,29 @@ const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => 
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   };
+  
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0);
+  };
 
   // Employee View
   if (userRole === 'employee') {
     const isCheckedIn = attendanceData?.checkedIn;
     const hasCheckedOut = attendanceData?.checkOutTime;
+    const { advanceTaken = 0, daysPresent = 0, daysAbsent = 0 } = attendanceData || {};
 
-  return (
-    <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Clock className="h-6 w-6 text-primary-600" />
-          <h3 className="text-lg font-semibold text-gray-900">My Attendance</h3>
-        </div>
+    return (
+      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 h-full flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <Clock className="h-6 w-6 text-primary-600" />
+            <h3 className="text-lg font-semibold text-gray-900">My Attendance</h3>
+          </div>
           {isCheckedIn && !hasCheckedOut && (
             <span className="flex items-center space-x-1 text-green-600 text-sm font-medium">
               <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
@@ -129,7 +139,7 @@ const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => 
         </div>
 
         {!isCheckedIn ? (
-          <div className="text-center py-6">
+          <div className="text-center py-6 mb-4 border-b border-gray-100">
             <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600 mb-4">You haven't checked in today</p>
             <button
@@ -142,7 +152,7 @@ const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => 
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 mb-6 border-b border-gray-100 pb-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Check In</p>
@@ -180,6 +190,28 @@ const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => 
             )}
           </div>
         )}
+        
+        {/* Monthly Stats */}
+        <div className="mt-auto">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <Calendar className="h-4 w-4 mr-1 text-gray-500" />
+            Monthly Stats
+          </h4>
+          <div className="grid grid-cols-3 gap-2">
+             <div className="bg-gray-50 p-2 rounded-lg text-center">
+               <p className="text-xs text-gray-500 mb-1">Present</p>
+               <p className="text-lg font-bold text-green-600">{daysPresent}</p>
+             </div>
+             <div className="bg-gray-50 p-2 rounded-lg text-center">
+               <p className="text-xs text-gray-500 mb-1">Absent</p>
+               <p className="text-lg font-bold text-red-600">{daysAbsent}</p>
+             </div>
+             <div className="bg-gray-50 p-2 rounded-lg text-center">
+               <p className="text-xs text-gray-500 mb-1">Advance</p>
+               <p className="text-sm font-bold text-orange-600">{formatCurrency(advanceTaken)}</p>
+             </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -276,4 +308,3 @@ const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => 
 };
 
 export default AttendanceCard;
-

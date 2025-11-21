@@ -111,12 +111,22 @@ const Dashboard = () => {
 
           {/* Tasks (1 col) - Sits under Welcome */}
           <div className="md:col-span-1 lg:col-span-1">
-            <TasksCard tasks={dashboardData?.tasks?.items || []} />
+            <TasksCard 
+              tasks={dashboardData?.tasks?.items || []} 
+              title="Today's Tasks" 
+            />
           </div>
 
-          {/* Calls (1 col) - Sits under Welcome */}
+          {/* For Admins: Calls Card. For Employees: Upcoming Tasks */}
           <div className="md:col-span-1 lg:col-span-1">
-            <CallsCard calls={dashboardData?.calls?.items || []} />
+            {isAdmin ? (
+              <CallsCard calls={dashboardData?.calls?.items || []} />
+            ) : (
+              <TasksCard 
+                tasks={dashboardData?.tasks?.upcoming || []} 
+                title="Upcoming Tasks" 
+              />
+            )}
           </div>
 
           {/* Quotations (2 cols) */}
@@ -132,13 +142,15 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* Recent Calls (3 cols - Full Width) */}
-          <div className="md:col-span-2 lg:col-span-3">
-            <RecentCallsCard 
-              recentCalls={dashboardData?.recentCalls?.items || []} 
-              dateRange={dashboardData?.recentCalls?.dateRange || 'today'}
-            />
-          </div>
+          {/* Recent Calls (3 cols - Full Width) - Only for Admin/Manager */}
+          {isAdmin && (
+            <div className="md:col-span-2 lg:col-span-3">
+              <RecentCallsCard 
+                recentCalls={dashboardData?.recentCalls?.items || []} 
+                dateRange={dashboardData?.recentCalls?.dateRange || 'today'}
+              />
+            </div>
+          )}
         </div>
 
         {/* Additional Stats Section for Admins */}
