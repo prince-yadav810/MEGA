@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -43,12 +43,35 @@ const TasksOverview = ({ onViewChange }) => {
   const [showCheckboxes, setShowCheckboxes] = useState(true);
   const [teamMembers, setTeamMembers] = useState([]);
   const [expandedTaskText, setExpandedTaskText] = useState(null); // task object for text expansion modal
+  const [highlightedTaskId, setHighlightedTaskId] = useState(null);
+  const highlightedRowRef = useRef(null);
 
   useEffect(() => {
     fetchTasks();
     fetchStats();
     fetchTeamMembers();
   }, []);
+
+  // Handle highlighting from inbox navigation
+  useEffect(() => {
+    if (location.state?.highlightId) {
+      setHighlightedTaskId(location.state.highlightId);
+      // Clear the highlight after 3 seconds
+      const timer = setTimeout(() => {
+        setHighlightedTaskId(null);
+      }, 3000);
+      // Clear location state to prevent re-highlighting on refresh
+      window.history.replaceState({}, document.title);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state?.highlightId]);
+
+  // Scroll to highlighted task
+  useEffect(() => {
+    if (highlightedTaskId && highlightedRowRef.current) {
+      highlightedRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedTaskId, tasks]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -677,8 +700,17 @@ const TasksOverview = ({ onViewChange }) => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAndSortedTasks.map((task, index) => {
                   const taskId = task._id || task.id;
+                  const isHighlighted = highlightedTaskId === taskId;
                   return (
-                  <tr key={taskId} className={`hover:bg-gray-100 group ${index % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
+                  <tr
+                    key={taskId}
+                    ref={isHighlighted ? highlightedRowRef : null}
+                    className={`hover:bg-gray-100 group transition-all duration-500 ${
+                      isHighlighted
+                        ? 'bg-yellow-100 ring-2 ring-yellow-400 ring-inset animate-pulse'
+                        : index % 2 === 1 ? 'bg-gray-50' : 'bg-white'
+                    }`}
+                  >
                     {showCheckboxes && (
                       <td className="px-6 py-4">
                         <input

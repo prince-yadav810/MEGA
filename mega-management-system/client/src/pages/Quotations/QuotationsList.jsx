@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import {
   FileText,
   Search,
@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
  */
 const QuotationsList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const initialViewMode = searchParams.get('view') === 'products' ? 'products' : 'quotations';
   const [viewMode, setViewMode] = useState(initialViewMode); // 'quotations' or 'products'
   const [quotations, setQuotations] = useState([]);
@@ -38,6 +39,30 @@ const QuotationsList = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('all');
+  // Highlight state for navigation from inbox
+  const [highlightedQuotationId, setHighlightedQuotationId] = useState(null);
+  const highlightedCardRef = useRef(null);
+
+  // Handle highlighting from inbox navigation
+  useEffect(() => {
+    if (location.state?.highlightId) {
+      setHighlightedQuotationId(location.state.highlightId);
+      // Clear the highlight after 3 seconds
+      const timer = setTimeout(() => {
+        setHighlightedQuotationId(null);
+      }, 3000);
+      // Clear location state to prevent re-highlighting on refresh
+      window.history.replaceState({}, document.title);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state?.highlightId]);
+
+  // Scroll to highlighted quotation
+  useEffect(() => {
+    if (highlightedQuotationId && highlightedCardRef.current) {
+      highlightedCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedQuotationId, quotations]);
 
   // Fetch quotations on component mount
   useEffect(() => {
@@ -407,9 +432,20 @@ const QuotationsList = () => {
         {/* Quotations Grid */}
         {!loading && sortedQuotations.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedQuotations.map((quotation) => (
-              <QuotationCard key={quotation._id} quotation={quotation} />
-            ))}
+            {sortedQuotations.map((quotation) => {
+              const isHighlighted = highlightedQuotationId === quotation._id;
+              return (
+                <div
+                  key={quotation._id}
+                  ref={isHighlighted ? highlightedCardRef : null}
+                  className={`transition-all duration-500 ${
+                    isHighlighted ? 'ring-4 ring-yellow-400 rounded-lg animate-pulse' : ''
+                  }`}
+                >
+                  <QuotationCard quotation={quotation} />
+                </div>
+              );
+            })}
           </div>
         )}
 
