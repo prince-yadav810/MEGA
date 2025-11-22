@@ -12,12 +12,18 @@ const fileUpload = require('express-fileupload');
 const notesRoutes = require('./src/routes/notes');
 const remindersRoutes = require('./src/routes/reminders');
 const callLogRoutes = require('./src/routes/callLogRoutes');
+const paymentReminderScheduler = require('./src/services/paymentReminderScheduler');
 
 // Load env vars
 dotenv.config();
 
 // Connect to database
 connectDB();
+
+// Start Payment Reminder Scheduler
+setTimeout(() => {
+  paymentReminderScheduler.start();
+}, 5000); // Wait 5 seconds after server start to ensure DB is connected
 
 const app = express();
 const server = http.createServer(app);
@@ -75,6 +81,7 @@ app.use('/api/attendance', require('./src/routes/attendance'));
 app.use('/api/api-usage', require('./src/routes/apiUsage'));
 app.use('/api/call-logs', callLogRoutes);
 app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
+app.use('/api/whatsapp', require('./src/routes/whatsapp'));
 
 // Health check
 app.get('/api/health', (req, res) => {
