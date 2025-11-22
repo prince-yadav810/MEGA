@@ -76,7 +76,8 @@ exports.createReminder = async (req, res) => {
 
     const reminder = new Reminder({
       ...reminderData,
-      createdByName: 'Team Member',
+      createdBy: req.user.id,
+      createdByName: req.user.name || 'Team Member',
       attachments
     });
 

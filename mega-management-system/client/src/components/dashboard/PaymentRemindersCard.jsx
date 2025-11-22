@@ -1,6 +1,5 @@
 import React from 'react';
-import { CreditCard, Send, Clock, ChevronRight, MessageSquare } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { CreditCard, Send, Clock, MessageSquare } from 'lucide-react';
 
 const PaymentRemindersCard = ({ paymentReminders = [] }) => {
   const formatDate = (dateString) => {
@@ -128,14 +127,6 @@ const PaymentRemindersCard = ({ paymentReminders = [] }) => {
           ))}
         </div>
       )}
-
-      <Link
-        to="/admin/payment-reminders"
-        className="mt-4 w-full bg-orange-50 text-orange-700 px-4 py-2 rounded-lg flex items-center justify-center space-x-2 hover:bg-orange-100 transition-colors"
-      >
-        <span>View All Payment Reminders</span>
-        <ChevronRight className="h-4 w-4" />
-      </Link>
     </div>
   );
 };

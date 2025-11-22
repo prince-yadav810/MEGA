@@ -142,9 +142,9 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* Payment Reminders (2 cols) - Only for Admin/Manager */}
+          {/* Payment Reminders (Full Width) - Only for Admin/Manager */}
           {isAdmin && (
-            <div className="md:col-span-2 lg:col-span-2">
+            <div className="md:col-span-2 lg:col-span-3">
               <PaymentRemindersCard
                 paymentReminders={dashboardData?.paymentReminders?.items || []}
               />
