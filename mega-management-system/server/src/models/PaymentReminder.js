@@ -9,7 +9,7 @@ const MessageLogSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['sent', 'delivered', 'failed', 'read'],
+    enum: ['pending', 'queued', 'sent', 'delivered', 'failed', 'read'],
     default: 'sent'
   },
   errorMessage: {

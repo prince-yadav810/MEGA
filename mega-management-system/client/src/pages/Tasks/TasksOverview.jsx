@@ -56,10 +56,10 @@ const TasksOverview = ({ onViewChange }) => {
   useEffect(() => {
     if (location.state?.highlightId) {
       setHighlightedTaskId(location.state.highlightId);
-      // Clear the highlight after 3 seconds
+      // Clear the highlight after 1.5 seconds
       const timer = setTimeout(() => {
         setHighlightedTaskId(null);
-      }, 3000);
+      }, 700);
       // Clear location state to prevent re-highlighting on refresh
       window.history.replaceState({}, document.title);
       return () => clearTimeout(timer);

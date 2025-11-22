@@ -298,11 +298,13 @@ const Inbox = () => {
                     {notification.message}
                   </p>
 
-                  {/* Created by info */}
+                  {/* Created by / Updated by info */}
                   {notification.createdBy && notification.createdBy !== 'System' && (
                     <div className="flex items-center space-x-1 mt-2">
                       <User className="h-3 w-3 text-gray-400" />
-                      <span className="text-xs text-gray-500">Created by: </span>
+                      <span className="text-xs text-gray-500">
+                        {notification.title?.includes('Updated') ? 'Updated by: ' : 'Created by: '}
+                      </span>
                       <span className="text-xs font-semibold text-primary-600">
                         {notification.createdBy}
                       </span>

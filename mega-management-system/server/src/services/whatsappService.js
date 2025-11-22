@@ -213,24 +213,38 @@ class WhatsAppService {
       invoiceAmount,
       dueDate
     } = reminderData;
-    
+
     // Determine which phone number to use (WhatsApp preferred)
     const phoneNumber = contactPerson.whatsappNumber || contactPerson.phone;
-    
+
     if (!phoneNumber) {
       throw new Error('No phone number available for contact person');
     }
-    
+
     // Process template with variables
     const variables = {
       clientName: client.companyName || 'Valued Client',
       contactName: contactPerson.name || 'Sir/Madam',
       invoiceNumber: invoiceNumber || 'N/A',
-      invoiceAmount: invoiceAmount ? `₹${invoiceAmount.toLocaleString('en-IN')}` : 'N/A',
+      invoiceAmount: (invoiceAmount !== undefined && invoiceAmount !== null && invoiceAmount !== '' && invoiceAmount !== 0)
+        ? `₹${Number(invoiceAmount).toLocaleString('en-IN')}`
+        : 'N/A',
       dueDate: dueDate ? new Date(dueDate).toLocaleDateString('en-IN') : 'N/A'
     };
-    
+
+    // Debug log to see what values are being used
+    console.log('📝 Template variables:', {
+      clientName: variables.clientName,
+      contactName: variables.contactName,
+      invoiceNumber: variables.invoiceNumber,
+      invoiceAmount: variables.invoiceAmount,
+      dueDate: variables.dueDate,
+      rawInvoiceNumber: invoiceNumber,
+      rawInvoiceAmount: invoiceAmount
+    });
+
     const message = this.processTemplate(messageTemplate, variables);
+    console.log('📨 Final message:', message);
     
     // Send message
     return await this.sendMessage({

@@ -98,7 +98,15 @@ exports.createReminder = async (req, res) => {
         message: 'Client must have at least one contact person'
       });
     }
-    
+
+    // Validate that contact has a phone number for WhatsApp
+    if (!primaryContact.phone && !primaryContact.whatsappNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Contact person must have a phone number or WhatsApp number to receive reminders. Please update the client contact details first.'
+      });
+    }
+
     const reminderData = {
       client: req.params.clientId,
       contactPerson: {
