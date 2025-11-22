@@ -478,7 +478,7 @@ const TaskBoard = ({ onViewChange }) => {
         WebkitUserSelect: 'none',
         MozUserSelect: 'none',
         msUserSelect: 'none',
-        touchAction: 'none',
+        touchAction: 'pan-y',
         transformStyle: 'preserve-3d',
         backfaceVisibility: 'hidden'
       }}
@@ -722,7 +722,6 @@ const TaskBoard = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <NotificationDropdown />
             <button
               onClick={() => setIsTaskFormOpen(true)}
               className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition-colors"

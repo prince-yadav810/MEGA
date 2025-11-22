@@ -40,7 +40,6 @@ const TasksOverview = ({ onViewChange }) => {
     overdue: 0
   });
   const [activeDropdown, setActiveDropdown] = useState(null); // { taskId, type: 'status' | 'priority', position: 'top' | 'bottom' }
-  const [showCheckboxes, setShowCheckboxes] = useState(true);
   const [teamMembers, setTeamMembers] = useState([]);
   const [expandedTaskText, setExpandedTaskText] = useState(null); // task object for text expansion modal
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
@@ -206,46 +205,12 @@ const TasksOverview = ({ onViewChange }) => {
     }
   };
 
-  const handleBulkMarkCompleted = async () => {
-    try {
-      const promises = selectedTasks.map(taskId =>
-        taskService.updateTask(taskId, {
-          status: 'completed',
-          completedDate: new Date()
-        })
-      );
-      await Promise.all(promises);
-      toast.success(`${selectedTasks.length} task(s) marked as completed!`);
-      fetchTasks();
-      fetchStats();
-      setSelectedTasks([]);
-    } catch (error) {
-      toast.error('Failed to mark tasks as completed');
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${selectedTasks.length} task(s)? This action cannot be undone.`)) {
-      return;
-    }
-    try {
-      const promises = selectedTasks.map(taskId => taskService.deleteTask(taskId));
-      await Promise.all(promises);
-      toast.success(`${selectedTasks.length} task(s) deleted successfully!`);
-      fetchTasks();
-      fetchStats();
-      setSelectedTasks([]);
-    } catch (error) {
-      toast.error('Failed to delete tasks');
-    }
-  };
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('dueDate');
   const [sortDirection, setSortDirection] = useState('asc');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
-  const [selectedTasks, setSelectedTasks] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
@@ -307,22 +272,6 @@ const TasksOverview = ({ onViewChange }) => {
     } else {
       setSortField(field);
       setSortDirection('asc');
-    }
-  };
-
-  const toggleTaskSelection = (taskId) => {
-    setSelectedTasks(prev =>
-      prev.includes(taskId)
-        ? prev.filter(id => id !== taskId)
-        : [...prev, taskId]
-    );
-  };
-
-  const selectAllTasks = () => {
-    if (selectedTasks.length === filteredAndSortedTasks.length) {
-      setSelectedTasks([]);
-    } else {
-      setSelectedTasks(filteredAndSortedTasks.map(task => task._id || task.id));
     }
   };
 
@@ -593,43 +542,6 @@ const TasksOverview = ({ onViewChange }) => {
         </div>
       </div>
 
-      {/* Bulk Actions */}
-      {selectedTasks.length > 0 && (
-        <div className="bg-primary-50 border-b border-primary-200 px-4 py-3 lg:px-6">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-primary-700">
-              {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''} selected
-            </span>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleBulkMarkCompleted}
-                className="px-3 py-1 text-sm text-primary-700 hover:text-primary-800"
-              >
-                Mark Complete
-              </button>
-              <button
-                onClick={() => {
-                  // For bulk assign, assign to the first selected task
-                  const firstTask = tasks.find(t => (t._id || t.id) === selectedTasks[0]);
-                  if (firstTask) {
-                    setAssigningTask(firstTask);
-                  }
-                }}
-                className="px-3 py-1 text-sm text-primary-700 hover:text-primary-800"
-              >
-                Assign
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                className="px-3 py-1 text-sm text-error-600 hover:text-error-700"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <div className="bg-white mx-4 my-4 lg:mx-6 rounded-lg border border-gray-200 overflow-hidden">
@@ -637,16 +549,6 @@ const TasksOverview = ({ onViewChange }) => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  {showCheckboxes && (
-                    <th className="px-6 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedTasks.length === filteredAndSortedTasks.length && filteredAndSortedTasks.length > 0}
-                        onChange={selectAllTasks}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                    </th>
-                  )}
                   <th className="px-6 py-3 text-left w-1/5">
                     <button
                       onClick={() => handleSort('title')}
@@ -711,16 +613,6 @@ const TasksOverview = ({ onViewChange }) => {
                         : index % 2 === 1 ? 'bg-gray-50' : 'bg-white'
                     }`}
                   >
-                    {showCheckboxes && (
-                      <td className="px-6 py-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedTasks.includes(taskId)}
-                          onChange={() => toggleTaskSelection(taskId)}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                      </td>
-                    )}
                     <td className="px-6 py-4 w-1/5">
                       <div className="max-w-xs">
                         <button
