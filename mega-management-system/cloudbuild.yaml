@@ -1,11 +1,12 @@
 # ============================================
 # Google Cloud Build Configuration
-# Builds and deploys to Cloud Run
+# Auto-deploys to Cloud Run when pushing to 'qa' branch
 # ============================================
 
 steps:
   # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
+    dir: 'mega-management-system'
     args:
       - 'build'
       - '-t'
@@ -13,7 +14,7 @@ steps:
       - '-t'
       - 'gcr.io/$PROJECT_ID/mega-management:latest'
       - '.'
-    timeout: '1200s'  # 20 minutes for build (Sharp takes time)
+    timeout: '1200s'
 
   # Step 2: Push image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -26,7 +27,7 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/mega-management:latest'
 
-  # Step 3: Deploy to Cloud Run
+  # Step 3: Deploy to Cloud Run with environment variables
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -36,7 +37,7 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/mega-management:$COMMIT_SHA'
       - '--region'
-      - 'asia-south1'  # Mumbai region (closest to India)
+      - 'asia-south1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -55,7 +56,7 @@ steps:
       - '--port'
       - '8080'
       - '--set-env-vars'
-      - 'NODE_ENV=production'
+      - 'NODE_ENV=production,DISABLE_CRON=true,MONGODB_URI=mongodb+srv://krishna191105:kris461331@cluster0.gp77ive.mongodb.net/mega-management?retryWrites=true&w=majority,JWT_SECRET=mega-jwt-secret-key-2024-production-secure,JWT_EXPIRE=7d,GOOGLE_VISION_API_KEY=AIzaSyBt5AKJZebCbizaqos-Fwn7CAykzh-czhk,GEMINI_API_KEY=AIzaSyDG7aTsLP0tCnibnx1N4qwzaG5GLHjwVYo'
 
 # Store images in Container Registry
 images:
@@ -68,4 +69,4 @@ timeout: '1800s'
 # Build options
 options:
   logging: CLOUD_LOGGING_ONLY
-  machineType: 'E2_HIGHCPU_8'  # Faster builds
+  machineType: 'E2_HIGHCPU_8'
