@@ -83,6 +83,8 @@ const getDashboardStats = async (req, res) => {
 
     // 2. Fetch Clients to Call/Visit Today
     let clientsToCall = [];
+    let callsDateRange = 'today';
+
     if (userRole === 'admin' || userRole === 'manager') {
       // Admin/Manager sees all clients due for calls today
       clientsToCall = await Client.find({
@@ -96,6 +98,24 @@ const getDashboardStats = async (req, res) => {
         .sort({ nextCallDate: 1 })
         .limit(10)
         .lean();
+
+      // If no clients to call today, fetch overdue clients
+      if (clientsToCall.length === 0) {
+        clientsToCall = await Client.find({
+          nextCallDate: {
+            $lt: startOfDay
+          },
+          isActive: true
+        })
+          .populate('createdBy', 'name')
+          .sort({ nextCallDate: -1 }) // Most recent overdue first
+          .limit(10)
+          .lean();
+
+        if (clientsToCall.length > 0) {
+          callsDateRange = 'overdue';
+        }
+      }
     } else {
       // Employees see only their assigned clients
       clientsToCall = await Client.find({
@@ -110,10 +130,30 @@ const getDashboardStats = async (req, res) => {
         .sort({ nextCallDate: 1 })
         .limit(10)
         .lean();
+
+      // If no clients to call today, fetch overdue clients
+      if (clientsToCall.length === 0) {
+        clientsToCall = await Client.find({
+          nextCallDate: {
+            $lt: startOfDay
+          },
+          createdBy: userId,
+          isActive: true
+        })
+          .populate('createdBy', 'name')
+          .sort({ nextCallDate: -1 }) // Most recent overdue first
+          .limit(10)
+          .lean();
+
+        if (clientsToCall.length > 0) {
+          callsDateRange = 'overdue';
+        }
+      }
     }
 
     dashboardData.calls.count = clientsToCall.length;
     dashboardData.calls.items = clientsToCall;
+    dashboardData.calls.dateRange = callsDateRange;
 
     // 3. Fetch Reminders (Using Date Range)
     // Fetch reminders for today
@@ -306,7 +346,7 @@ const getDashboardStats = async (req, res) => {
       .lean();
 
     // If no call logs today, show upcoming scheduled calls (clients with nextCallDate in future)
-    let callsDateRange = 'today';
+    let recentCallsDateRange = 'today';
     if (todayCallLogs.length === 0) {
       const nextWeek = new Date(startOfDay);
       nextWeek.setDate(nextWeek.getDate() + 7);
@@ -341,7 +381,7 @@ const getDashboardStats = async (req, res) => {
       }
       
       if (upcomingClients.length > 0) {
-        callsDateRange = 'upcoming';
+        recentCallsDateRange = 'upcoming';
         // Map to similar structure
         todayCallLogs = upcomingClients.map(client => ({
           _id: client._id,
@@ -358,7 +398,7 @@ const getDashboardStats = async (req, res) => {
     dashboardData.recentCalls = {
       count: todayCallLogs.length,
       items: todayCallLogs,
-      dateRange: callsDateRange
+      dateRange: recentCallsDateRange
     };
 
     // 7. Fetch Active Payment Reminders

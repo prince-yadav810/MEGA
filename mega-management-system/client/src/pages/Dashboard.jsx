@@ -120,7 +120,10 @@ const Dashboard = () => {
           {/* For Admins: Calls Card. For Employees: Upcoming Tasks */}
           <div className="md:col-span-1 lg:col-span-1">
             {isAdmin ? (
-              <CallsCard calls={dashboardData?.calls?.items || []} />
+              <CallsCard
+                calls={dashboardData?.calls?.items || []}
+                dateRange={dashboardData?.calls?.dateRange || 'today'}
+              />
             ) : (
               <TasksCard 
                 tasks={dashboardData?.tasks?.upcoming || []} 
