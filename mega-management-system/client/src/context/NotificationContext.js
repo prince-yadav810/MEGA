@@ -135,22 +135,6 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [notifications]);
 
-  const clearAll = useCallback(async () => {
-    try {
-      // Optimistic update
-      setNotifications([]);
-      setUnreadCount(0);
-
-      // Update backend
-      await notificationService.clearAllNotifications();
-    } catch (error) {
-      console.error('Error clearing notifications:', error);
-      // Revert on error
-      fetchNotifications();
-      fetchUnreadCount();
-    }
-  }, []);
-
   // Task notification helpers
   const notifyTaskCreated = useCallback((taskTitle) => {
     addNotification({
@@ -259,7 +243,6 @@ export const NotificationProvider = ({ children }) => {
     markAsRead,
     markAllAsRead,
     removeNotification,
-    clearAll,
     fetchNotifications,
     fetchUnreadCount,
     // Task helpers

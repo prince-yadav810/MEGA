@@ -83,6 +83,9 @@ const notificationSchema = new mongoose.Schema({
 notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, category: 1, createdAt: -1 });
 
+// TTL index - automatically delete notifications after 7 days (604800 seconds)
+notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 604800 });
+
 // Virtual for time ago
 notificationSchema.virtual('timeAgo').get(function() {
   const seconds = Math.floor((new Date() - this.createdAt) / 1000);

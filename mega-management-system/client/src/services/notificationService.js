@@ -64,17 +64,6 @@ export const deleteNotification = async (id) => {
   }
 };
 
-// Clear all notifications
-export const clearAllNotifications = async () => {
-  try {
-    const response = await api.delete('/notifications/clear-all');
-    return response.data;
-  } catch (error) {
-    console.error('Error clearing notifications:', error);
-    throw error;
-  }
-};
-
 // Create notification (for testing or admin use)
 export const createNotification = async (notificationData) => {
   try {

@@ -195,27 +195,6 @@ const deleteNotification = async (req, res) => {
   }
 };
 
-// @desc    Clear all notifications
-// @route   DELETE /api/notifications/clear-all
-// @access  Private
-const clearAllNotifications = async (req, res) => {
-  try {
-    await Notification.deleteMany({ userId: req.user.id });
-
-    res.status(200).json({
-      success: true,
-      message: 'All notifications cleared successfully'
-    });
-  } catch (error) {
-    console.error('Error clearing notifications:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error clearing notifications',
-      error: error.message
-    });
-  }
-};
-
 // @desc    Create notification (internal use)
 // @route   POST /api/notifications
 // @access  Private (Admin only or internal use)
@@ -243,7 +222,6 @@ module.exports = {
   markAsRead,
   markAllAsRead,
   deleteNotification,
-  clearAllNotifications,
   createNotificationEndpoint,
   createNotification, // Export for use in other controllers
   notifyMultipleUsers // Export for notifying multiple users
