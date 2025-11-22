@@ -5,6 +5,7 @@ const Attendance = require('../models/Attendance');
 const Quotation = require('../models/Quotation');
 const CallLog = require('../models/CallLog');
 const User = require('../models/User');
+const PaymentReminder = require('../models/PaymentReminder');
 
 // Get dashboard statistics and data for the current user
 const getDashboardStats = async (req, res) => {
@@ -128,12 +129,12 @@ const getDashboardStats = async (req, res) => {
       .limit(10)
       .lean();
 
-    // If no reminders today, fetch upcoming reminders (next 30 days)
+    // If no reminders today, fetch next 3 upcoming reminders
     let reminderDateRange = 'today';
     if (reminders.length === 0) {
       const nextMonth = new Date(startOfDay);
       nextMonth.setDate(nextMonth.getDate() + 30);
-      
+
       reminders = await Reminder.find({
         createdBy: userId,
         isActive: true,
@@ -143,9 +144,9 @@ const getDashboardStats = async (req, res) => {
         }
       })
         .sort({ reminderDate: 1, reminderTime: 1 })
-        .limit(10)
+        .limit(3) // Show only 3 upcoming reminders
         .lean();
-      
+
       if (reminders.length > 0) {
         reminderDateRange = 'upcoming';
       }
@@ -358,6 +359,38 @@ const getDashboardStats = async (req, res) => {
       count: todayCallLogs.length,
       items: todayCallLogs,
       dateRange: callsDateRange
+    };
+
+    // 7. Fetch Active Payment Reminders
+    let paymentReminderQuery = { status: 'active' };
+
+    if (userRole === 'employee') {
+      paymentReminderQuery.createdBy = userId;
+    }
+
+    const activePaymentReminders = await PaymentReminder.find(paymentReminderQuery)
+      .populate('client', 'companyName')
+      .populate('createdBy', 'name')
+      .sort({ nextScheduledDate: 1 })
+      .limit(10)
+      .lean();
+
+    dashboardData.paymentReminders = {
+      count: activePaymentReminders.length,
+      items: activePaymentReminders.map(pr => ({
+        _id: pr._id,
+        clientName: pr.client?.companyName || 'Unknown Client',
+        invoiceNumber: pr.invoiceNumber || 'N/A',
+        invoiceAmount: pr.invoiceAmount || 0,
+        messagesSent: pr.messagesSent || 0,
+        totalMessagesToSend: pr.totalMessagesToSend || 5,
+        frequencyInDays: pr.frequencyInDays || 2,
+        messageTemplate: pr.messageTemplate || '',
+        nextScheduledDate: pr.nextScheduledDate,
+        lastSentDate: pr.lastSentDate,
+        status: pr.status,
+        createdBy: pr.createdBy?.name || 'Unknown'
+      }))
     };
 
     res.status(200).json({

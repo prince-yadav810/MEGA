@@ -61,11 +61,19 @@ const RemindersCard = ({ reminders = [], dateRange = 'today' }) => {
         </span>
       </div>
 
+      {dateRange === 'upcoming' && reminders.length > 0 && (
+        <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-700 font-medium">
+            No reminders for today. Showing next {reminders.length} upcoming:
+          </p>
+        </div>
+      )}
+
       {reminders.length === 0 ? (
         <div className="text-center py-8">
           <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500">No reminders found</p>
-          <p className="text-sm text-gray-400 mt-1">You can relax! 🎯</p>
+          <p className="text-sm text-gray-400 mt-1">You can relax!</p>
         </div>
       ) : (
         <div className="space-y-3 max-h-80 overflow-y-auto">
@@ -129,7 +137,7 @@ const RemindersCard = ({ reminders = [], dateRange = 'today' }) => {
       )}
 
       <Link
-        to="/inbox"
+        to="/admin/notes-reminders"
         className="mt-4 w-full bg-purple-50 text-purple-700 px-4 py-2 rounded-lg flex items-center justify-center space-x-2 hover:bg-purple-100 transition-colors"
       >
         <span>View All Reminders</span>
