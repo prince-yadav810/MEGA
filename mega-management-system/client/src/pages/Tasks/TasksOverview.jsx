@@ -644,6 +644,9 @@ const TasksOverview = ({ onViewChange }) => {
                     </td>
                     <td className="px-6 py-4 w-40">
                       <div className="relative dropdown-container">
+                        {(() => {
+                          const statusConfig = taskStatuses[task.status] || { label: task.status, color: 'bg-gray-100 text-gray-800', dotColor: 'bg-gray-400' };
+                          return (
                         <button
                           onClick={(e) => {
                             const position = getDropdownPosition(e.currentTarget);
@@ -653,11 +656,13 @@ const TasksOverview = ({ onViewChange }) => {
                                 : { taskId, type: 'status', position }
                             );
                           }}
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${taskStatuses[task.status].color} hover:opacity-80 transition-opacity`}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusConfig.color} hover:opacity-80 transition-opacity`}
                         >
-                          <div className={`w-2 h-2 rounded-full mr-1.5 ${taskStatuses[task.status].dotColor}`}></div>
-                          {taskStatuses[task.status].label}
+                          <div className={`w-2 h-2 rounded-full mr-1.5 ${statusConfig.dotColor}`}></div>
+                          {statusConfig.label}
                         </button>
+                          );
+                        })()}
 
                         {activeDropdown?.taskId === taskId && activeDropdown?.type === 'status' && (
                           <div

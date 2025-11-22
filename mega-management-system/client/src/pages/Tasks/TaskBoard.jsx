@@ -148,8 +148,6 @@ const TaskBoard = ({ onViewChange }) => {
   const statusColumns = [
     { id: 'todo', title: 'To Do', status: 'todo', color: 'bg-gray-100' },
     { id: 'in_progress', title: 'In Progress', status: 'in_progress', color: 'bg-primary-100' },
-    { id: 'review', title: 'Review', status: 'review', color: 'bg-yellow-100' },
-    { id: 'scheduled', title: 'Scheduled', status: 'scheduled', color: 'bg-purple-100' },
     { id: 'completed', title: 'Completed', status: 'completed', color: 'bg-success-100' }
   ];
 
