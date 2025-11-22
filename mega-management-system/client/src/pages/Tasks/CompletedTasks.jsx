@@ -9,7 +9,6 @@ import {
   Clock,
   RotateCcw,
   Trash2,
-  Download,
   MoreHorizontal,
   Paperclip,
   MessageCircle,
@@ -154,7 +153,7 @@ const CompletedTasks = ({ onViewChange }) => {
 
   const handleReopenTask = async (taskId) => {
     try {
-      const response = await taskService.updateTask(taskId, { status: 'in-progress' });
+      const response = await taskService.updateTask(taskId, { status: 'in_progress' });
       if (response.success) {
         setTasks(tasks.filter(task => (task._id || task.id) !== taskId));
         setActiveDropdown(null);
@@ -197,10 +196,6 @@ const CompletedTasks = ({ onViewChange }) => {
             >
               <Filter className="h-4 w-4" />
               <span>Filters</span>
-            </button>
-            <button className="bg-success-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-success-700 transition-colors">
-              <Download className="h-4 w-4" />
-              <span>Export</span>
             </button>
           </div>
         </div>
