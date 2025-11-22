@@ -13,7 +13,12 @@ class SocketService {
       return this.socket;
     }
 
-    const SOCKET_URL = url || process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5001';
+    // In production, use current origin (same domain). In development, use localhost.
+    const SOCKET_URL = url || (
+      process.env.NODE_ENV === 'production'
+        ? window.location.origin
+        : (process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5001')
+    );
 
     this.socket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
