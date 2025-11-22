@@ -85,12 +85,17 @@ const PaymentReminderForm = ({ isOpen, onClose, onSubmit, client, isLoading = fa
   // Generate example message preview
   const getMessagePreview = () => {
     if (!formData.messageTemplate) return '';
-    
+
+    const primaryContactName = primaryContact?.name || 'Sir/Madam';
+
     return formData.messageTemplate
-      .replace('{companyName}', client?.companyName || '[Company Name]')
-      .replace('{invoiceNumber}', formData.invoiceNumber || '[Invoice Number]')
-      .replace('{amount}', formData.invoiceAmount || '[Amount]')
-      .replace('{dueDate}', formData.dueDate || '[Due Date]');
+      .replace(/\{\{\s*clientName\s*\}\}/gi, client?.companyName || '[Client Name]')
+      .replace(/\{\{\s*contactName\s*\}\}/gi, primaryContactName)
+      .replace(/\{\{\s*companyName\s*\}\}/gi, 'MEGA Enterprises')
+      .replace(/\{\{\s*companyPhone\s*\}\}/gi, '[Company Phone]')
+      .replace(/\{\{\s*invoiceNumber\s*\}\}/gi, formData.invoiceNumber || '[Invoice Number]')
+      .replace(/\{\{\s*invoiceAmount\s*\}\}/gi, formData.invoiceAmount ? `₹${formData.invoiceAmount}` : '[Amount]')
+      .replace(/\{\{\s*dueDate\s*\}\}/gi, formData.dueDate || '[Due Date]');
   };
 
   return (
@@ -145,13 +150,13 @@ const PaymentReminderForm = ({ isOpen, onClose, onSubmit, client, isLoading = fa
             className={`block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${
               errors.messageTemplate ? 'border-error-500' : 'border-gray-300'
             }`}
-            placeholder="Dear Sir/Madam, This is a gentle reminder about invoice #{invoiceNumber} for ₹{amount} due on {dueDate}. Please confirm payment status. Thank you!"
+            placeholder="Dear {{contactName}}, This is a gentle reminder from {{companyName}} about invoice #{{invoiceNumber}} for {{invoiceAmount}} due on {{dueDate}}. Please confirm payment status. Thank you!"
           />
           {errors.messageTemplate && (
             <p className="text-xs text-error-600 mt-1">{errors.messageTemplate}</p>
           )}
           <p className="text-xs text-gray-500 mt-1">
-            Use variables: {'{companyName}'}, {'{invoiceNumber}'}, {'{amount}'}, {'{dueDate}'}
+            Available variables: {'{{clientName}}'}, {'{{contactName}}'}, {'{{companyName}}'}, {'{{invoiceNumber}}'}, {'{{invoiceAmount}}'}, {'{{dueDate}}'}
           </p>
         </div>
 

@@ -3,6 +3,7 @@
 const PaymentReminder = require('../models/PaymentReminder');
 const Client = require('../models/Client');
 const { createNotification } = require('./notificationController');
+const whatsappService = require('../services/whatsappService');
 
 // @desc    Get all payment reminders
 // @route   GET /api/clients/payment-reminders
@@ -97,7 +98,15 @@ exports.createReminder = async (req, res) => {
         message: 'Client must have at least one contact person'
       });
     }
-    
+
+    // Validate that contact has a phone number for WhatsApp
+    if (!primaryContact.phone && !primaryContact.whatsappNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Contact person must have a phone number or WhatsApp number to receive reminders. Please update the client contact details first.'
+      });
+    }
+
     const reminderData = {
       client: req.params.clientId,
       contactPerson: {
@@ -365,9 +374,38 @@ exports.sendReminderManually = async (req, res) => {
       });
     }
     
-    // TODO: Integrate with WhatsApp API here
-    // For now, just mark as sent
-    await reminder.markMessageSent('sent', '', '');
+    // Send WhatsApp message
+    try {
+      const reminderData = {
+        client: reminder.client,
+        contactPerson: reminder.contactPerson,
+        messageTemplate: reminder.messageTemplate,
+        invoiceNumber: reminder.invoiceNumber,
+        invoiceAmount: reminder.invoiceAmount,
+        dueDate: reminder.dueDate
+      };
+      
+      const result = await whatsappService.sendPaymentReminder(reminderData);
+      
+      if (result.success) {
+        await reminder.markMessageSent(result.status, result.messageId, '');
+      } else {
+        await reminder.markMessageSent('failed', '', result.errorMessage || 'Failed to send');
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send WhatsApp message',
+          error: result.errorMessage
+        });
+      }
+    } catch (whatsappError) {
+      console.error('WhatsApp send error:', whatsappError);
+      await reminder.markMessageSent('failed', '', whatsappError.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Error sending WhatsApp message',
+        error: whatsappError.message
+      });
+    }
 
     // Emit socket notification
     if (req.io) {

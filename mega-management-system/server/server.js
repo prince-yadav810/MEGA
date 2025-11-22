@@ -1,8 +1,11 @@
 // File path: server/server.js
 
+// Load env vars FIRST before any other imports that depend on them
+const dotenv = require('dotenv');
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const path = require('path');
 const connectDB = require('./src/config/database');
 const { errorHandler } = require('./src/middleware/errorHandler');
@@ -12,12 +15,15 @@ const fileUpload = require('express-fileupload');
 const notesRoutes = require('./src/routes/notes');
 const remindersRoutes = require('./src/routes/reminders');
 const callLogRoutes = require('./src/routes/callLogRoutes');
-
-// Load env vars
-dotenv.config();
+const paymentReminderScheduler = require('./src/services/paymentReminderScheduler');
 
 // Connect to database
 connectDB();
+
+// Start Payment Reminder Scheduler
+setTimeout(() => {
+  paymentReminderScheduler.start();
+}, 5000); // Wait 5 seconds after server start to ensure DB is connected
 
 const app = express();
 const server = http.createServer(app);
@@ -75,6 +81,7 @@ app.use('/api/attendance', require('./src/routes/attendance'));
 app.use('/api/api-usage', require('./src/routes/apiUsage'));
 app.use('/api/call-logs', callLogRoutes);
 app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
+app.use('/api/whatsapp', require('./src/routes/whatsapp'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -11,7 +11,7 @@ const path = require('path');
 class QuotationPdfService {
   // Company constants
   static COMPANY_NAME = 'MEGA ENTERPRISE';
-  static COMPANY_ADDRESS = '1ST LEVEL, PLOT NO PAP-57, MIDC WATER TANK, MIDC HINGNA, NAGPUR, MAHARASHTRA - 440028';
+  static COMPANY_ADDRESS = '1ST LEVEL, PLOT NO PAP-57, MIDC WATER TANK, MIDC TALOJA, NAVI MUMBAI -410208';
   static COMPANY_PHONE = '7506070157';
   static COMPANY_EMAIL = 'info@megaenterprise.com';
   static GST_NUMBER = '27DRGPD9065L1ZA';
@@ -218,7 +218,7 @@ class QuotationPdfService {
     // Add logo at leftmost position (rounded square, not circular)
     const logoPath = this.findLogo();
     const logoSize = 70; // Logo size in points (made bigger)
-    const logoX = 7; // Leftmost position
+    const logoX = 18; // Leftmost position
     const logoY = 32; // Moved lower (was 15)
     const logoCornerRadius = 8; // Rounded corner radius for square logo
     
@@ -257,28 +257,28 @@ class QuotationPdfService {
     }
 
     // Company name (white text on dark background) - positioned after logo with proper spacing
-    const companyNameX = logoPath ? logoSize + 15 : 50; // Ensure no overlap with logo
-    const companyNameY = logoPath ? 39 : 35; // Moved up a bit (was 50)
+    const companyNameX = logoPath ? logoSize + 33 : 50; // Ensure no overlap with logo
+    const companyNameY = logoPath ? 32 : 35; // Moved up a bit (was 50)
     doc.fontSize(28)
       .fillColor('white')
       .font('Helvetica-Bold')
       .text(this.COMPANY_NAME, companyNameX, companyNameY, { characterSpacing: 2, lineBreak: false });
 
     // Company tagline - positioned after logo to avoid overlap
-    const taglineX = logoPath ? logoSize + 15 : 50;
+    const taglineX = logoPath ? logoSize + 34 : 50;
     doc.fontSize(12)
       .fillColor('white')
       .font('Helvetica')
       .fillOpacity(0.9)
-      .text('Reach For Everything You Need', taglineX, 68, { characterSpacing: 1, lineBreak: false });
+      .text('Reach For Everything You Need', taglineX, 60, { characterSpacing: 1, lineBreak: false });
     doc.fillOpacity(1);
 
     // Contact info in header - positioned after logo to avoid overlap
-    const addressX = logoPath ? logoSize + 15 : 50;
+    const addressX = logoPath ? logoSize + 34 : 50;
     doc.fontSize(10)
       .fillColor('white')
       .fillOpacity(0.95)
-      .text(`${this.COMPANY_ADDRESS}`, addressX, 88, { lineBreak: false });
+      .text(`${this.COMPANY_ADDRESS}`, addressX, 81, { lineBreak: false });
     doc.fillOpacity(1);
 
     // Quotation title (below header, styled)

@@ -1,7 +1,8 @@
 // File path: client/src/pages/Inbox/Inbox.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSwipeable } from 'react-swipeable';
 import {
   Bell,
   CheckCircle,
@@ -20,7 +21,8 @@ import {
   Calendar,
   DollarSign,
   Settings,
-  ListTodo
+  ListTodo,
+  User
 } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
 import toast from 'react-hot-toast';
@@ -144,30 +146,36 @@ const Inbox = () => {
       await markAsRead(notification.id || notification._id);
     }
 
-    // Navigate based on entity type
-    if (notification.actionUrl) {
-      navigate(notification.actionUrl);
-    } else if (notification.entityType) {
+    // Get the entity ID for highlighting
+    const entityId = notification.entityId;
+
+    // Navigate based on entity type with state for highlighting
+    if (notification.entityType) {
       switch (notification.entityType) {
         case 'task':
-          navigate('/workspace/tasks');
+          navigate('/workspace/table', { state: { highlightId: entityId } });
           break;
         case 'client':
-          navigate('/clients');
+          navigate('/clients', { state: { highlightId: entityId } });
           break;
         case 'quotation':
-          navigate('/quotations');
+          navigate('/quotations', { state: { highlightId: entityId } });
           break;
         case 'product':
-          navigate('/products');
+          navigate('/products', { state: { highlightId: entityId } });
           break;
         case 'note':
         case 'reminder':
-          navigate('/notes-reminders');
+          navigate('/notes-reminders', { state: { highlightId: entityId } });
           break;
         default:
+          if (notification.actionUrl) {
+            navigate(notification.actionUrl);
+          }
           break;
       }
+    } else if (notification.actionUrl) {
+      navigate(notification.actionUrl);
     }
   };
 
@@ -192,13 +200,146 @@ const Inbox = () => {
   };
 
   const handleDeleteNotification = async (e, notificationId) => {
-    e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+    }
     try {
       await removeNotification(notificationId);
       toast.success('Notification deleted');
     } catch (error) {
       toast.error('Failed to delete notification');
     }
+  };
+
+  // Swipeable notification item component for mobile
+  const SwipeableNotificationItem = ({ notification, onDelete, onClick }) => {
+    const [swipeOffset, setSwipeOffset] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+    const deleteThreshold = 100;
+
+    const handlers = useSwipeable({
+      onSwiping: (e) => {
+        if (e.dir === 'Left') {
+          setIsSwiping(true);
+          setSwipeOffset(Math.min(Math.abs(e.deltaX), 150));
+        }
+      },
+      onSwipedLeft: (e) => {
+        if (Math.abs(e.deltaX) > deleteThreshold) {
+          onDelete();
+        } else {
+          setSwipeOffset(0);
+        }
+        setIsSwiping(false);
+      },
+      onSwiped: () => {
+        if (!isSwiping) {
+          setSwipeOffset(0);
+        }
+      },
+      trackMouse: false,
+      trackTouch: true,
+      preventScrollOnSwipe: true
+    });
+
+    const id = notification.id || notification._id;
+    const isAssignment = notification.isAssignment || notification.title === 'New Task Assigned';
+
+    return (
+      <div className="relative overflow-hidden rounded-lg mb-2">
+        {/* Delete background (shown on swipe) */}
+        <div
+          className="absolute inset-0 bg-red-500 flex items-center justify-end pr-6 rounded-lg"
+          style={{ opacity: swipeOffset / deleteThreshold }}
+        >
+          <Trash2 className="h-6 w-6 text-white" />
+        </div>
+
+        {/* Notification card */}
+        <div
+          {...handlers}
+          onClick={() => !isSwiping && onClick(notification)}
+          style={{ transform: `translateX(-${swipeOffset}px)` }}
+          className={`
+            relative rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md
+            ${isAssignment
+              ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'
+              : !notification.read
+                ? 'border-primary-200 bg-primary-50/50'
+                : 'bg-white border-gray-200'}
+          `}
+        >
+          <div className="flex items-start space-x-4">
+            {/* Icon */}
+            <div className={`flex-shrink-0 p-2 rounded-lg ${
+              isAssignment ? 'bg-indigo-100' : categoryConfig[notification.category]?.bg || 'bg-gray-100'
+            }`}>
+              {getCategoryIcon(notification.category)}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      {notification.title}
+                    </h4>
+                    {!notification.read && (
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                    )}
+                    {isAssignment && (
+                      <span className="px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full">
+                        Assigned
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {notification.message}
+                  </p>
+
+                  {/* Created by / Updated by info */}
+                  {notification.createdBy && notification.createdBy !== 'System' && (
+                    <div className="flex items-center space-x-1 mt-2">
+                      <User className="h-3 w-3 text-gray-400" />
+                      <span className="text-xs text-gray-500">
+                        {notification.title?.includes('Updated') ? 'Updated by: ' : 'Created by: '}
+                      </span>
+                      <span className="text-xs font-semibold text-primary-600">
+                        {notification.createdBy}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-4 mt-2">
+                    <span className="text-xs text-gray-500">
+                      {notification.timeAgo || notification.time || 'Just now'}
+                    </span>
+                    {notification.category && (
+                      <span className="text-xs text-gray-500 capitalize">
+                        {notification.category}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Type Icon & Delete (hidden on mobile for swipe) */}
+                <div className="flex items-center space-x-2 ml-4">
+                  {getNotificationIcon(notification.type)}
+                  <button
+                    onClick={(e) => handleDeleteNotification(e, id)}
+                    className="hidden sm:block p-1 text-gray-400 hover:text-error-600 rounded transition-colors"
+                    title="Delete notification"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderNotificationGroup = (title, notifications) => {
@@ -209,66 +350,16 @@ const Inbox = () => {
         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
           {title}
         </h3>
-        <div className="space-y-2">
+        <div className="space-y-0">
           {notifications.map((notification) => {
             const id = notification.id || notification._id;
             return (
-              <div
+              <SwipeableNotificationItem
                 key={id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`
-                  bg-white rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md
-                  ${!notification.read ? 'border-primary-200 bg-primary-50/50' : 'border-gray-200'}
-                `}
-              >
-                <div className="flex items-start space-x-4">
-                  {/* Icon */}
-                  <div className={`flex-shrink-0 p-2 rounded-lg ${categoryConfig[notification.category]?.bg || 'bg-gray-100'}`}>
-                    {getCategoryIcon(notification.category)}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="text-sm font-semibold text-gray-900">
-                            {notification.title}
-                          </h4>
-                          {!notification.read && (
-                            <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {notification.message}
-                        </p>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <span className="text-xs text-gray-500">
-                            {notification.timeAgo || notification.time || 'Just now'}
-                          </span>
-                          {notification.category && (
-                            <span className="text-xs text-gray-500 capitalize">
-                              {notification.category}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Type Icon */}
-                      <div className="flex items-center space-x-2 ml-4">
-                        {getNotificationIcon(notification.type)}
-                        <button
-                          onClick={(e) => handleDeleteNotification(e, id)}
-                          className="p-1 text-gray-400 hover:text-error-600 rounded transition-colors"
-                          title="Delete notification"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                notification={notification}
+                onDelete={() => handleDeleteNotification(null, id)}
+                onClick={handleNotificationClick}
+              />
             );
           })}
         </div>

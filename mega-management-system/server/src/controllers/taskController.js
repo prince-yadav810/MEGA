@@ -148,7 +148,8 @@ exports.createTask = async (req, res) => {
           entityType: 'task',
           entityId: task._id,
           actionUrl: '/workspace/tasks',
-          createdBy: req.user.name || 'System'
+          createdBy: req.user.name || 'System',
+          isAssignment: true
         },
         req.io
       );

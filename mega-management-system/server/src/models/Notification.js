@@ -68,6 +68,12 @@ const notificationSchema = new mongoose.Schema({
   createdBy: {
     type: String,
     default: 'System'
+  },
+
+  // Flag for task assignment notifications (for special highlighting)
+  isAssignment: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
