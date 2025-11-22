@@ -1,0 +1,57 @@
+# ============================================
+# Docker Ignore - Exclude from build context
+# ============================================
+
+# Dependencies (will be installed fresh)
+node_modules
+**/node_modules
+
+# Development files
+.git
+.gitignore
+.env
+.env.local
+.env.development
+.env.test
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Build artifacts (client build is created in Docker)
+client/build
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Test files
+**/*.test.js
+**/*.spec.js
+**/coverage
+**/__tests__
+
+# Documentation (not needed in production)
+*.md
+!README.md
+docs
+
+# Local uploads (use cloud storage in production)
+server/uploads
+uploads
+
+# Development configs
+docker-compose.yml
+docker-compose*.yml
+.dockerignore
+Dockerfile.dev
+
+# Misc
+.npmrc
+.eslintrc*
+.prettierrc*
+*.tgz
