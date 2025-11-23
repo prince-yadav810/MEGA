@@ -292,9 +292,14 @@ exports.downloadPdf = async (req, res) => {
       });
     }
 
-    // If it's a Cloudinary URL, redirect to it
+    // If it's a Cloudinary URL, return the URL for frontend to handle
     if (quotation.pdfUrl.includes('cloudinary') || quotation.pdfUrl.startsWith('http')) {
-      return res.redirect(quotation.pdfUrl);
+      return res.json({
+        success: true,
+        isExternal: true,
+        downloadUrl: quotation.pdfUrl,
+        fileName: quotation.fileName
+      });
     }
 
     // Local file handling (for backward compatibility)
