@@ -710,19 +710,54 @@ const QuotationDetail = () => {
         {/* Right Column - PDF Preview */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">PDF Preview</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">PDF Preview</h2>
+              {quotation.pdfUrl && !quotation.pdfUrl.startsWith('http') && (
+                <button
+                  onClick={async () => {
+                    setRegeneratingPdf(true);
+                    try {
+                      const response = await regenerateQuotationPdf(quotation._id);
+                      setQuotation(response.data);
+                      setPdfTimestamp(Date.now());
+                      toast.success('PDF regenerated and uploaded to cloud');
+                    } catch (error) {
+                      toast.error('Failed to regenerate PDF');
+                    } finally {
+                      setRegeneratingPdf(false);
+                    }
+                  }}
+                  disabled={regeneratingPdf}
+                  className="inline-flex items-center px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                >
+                  {regeneratingPdf ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Regenerate PDF
+                </button>
+              )}
+            </div>
             <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: '800px' }}>
-              {quotation.pdfUrl ? (
+              {quotation.pdfUrl && quotation.pdfUrl.startsWith('http') ? (
                 <iframe
-                  src={
-                    quotation.pdfUrl.startsWith('http')
-                      ? `${quotation.pdfUrl}?t=${pdfTimestamp}`
-                      : `${process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5001')}${quotation.pdfUrl}?t=${pdfTimestamp}`
-                  }
+                  src={`${quotation.pdfUrl}?t=${pdfTimestamp}`}
                   title="Quotation PDF"
                   className="w-full h-full"
                   style={{ border: 'none' }}
                 />
+              ) : quotation.pdfUrl && !quotation.pdfUrl.startsWith('http') ? (
+                <div className="flex items-center justify-center h-full bg-yellow-50">
+                  <div className="text-center p-6">
+                    <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                    <p className="text-gray-800 font-medium text-lg">PDF needs to be regenerated</p>
+                    <p className="text-sm text-gray-600 mt-2 max-w-md">
+                      This PDF was created before cloud storage was enabled.
+                      Click "Regenerate PDF" above to upload it to the cloud.
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <div className="flex items-center justify-center h-full bg-gray-50">
                   <div className="text-center">

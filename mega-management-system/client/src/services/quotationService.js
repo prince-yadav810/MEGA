@@ -87,8 +87,25 @@ export const uploadExcel = async (file, advertisementProducts = [], onUploadProg
 // Download quotation PDF
 export const downloadPdf = async (id, fileName) => {
   try {
+    // First check if it's an external URL (Cloudinary)
+    const checkResponse = await api.get(`/quotations/${id}/download`);
+
+    if (checkResponse.data.isExternal) {
+      // For Cloudinary URLs, open in new tab or download directly
+      const link = document.createElement('a');
+      link.href = checkResponse.data.downloadUrl;
+      link.setAttribute('download', checkResponse.data.fileName || fileName || 'quotation.pdf');
+      link.setAttribute('target', '_blank');
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return { success: true, message: 'PDF download started' };
+    }
+
+    // For local files, download as blob
     const response = await api.get(`/quotations/${id}/download`, {
-      responseType: 'blob' // Important for file download
+      responseType: 'blob'
     });
 
     // Create download link
