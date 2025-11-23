@@ -23,9 +23,18 @@ const noteSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   createdByName: {
     type: String,
     default: 'Team Member'
+  },
+  visibility: {
+    type: String,
+    enum: ['private', 'public'],
+    default: 'private'
   },
   attachments: [{
     filename: {
