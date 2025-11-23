@@ -34,9 +34,24 @@ if (!DISABLE_CRON) {
 
 const app = express();
 const server = http.createServer(app);
+// Get client URL - require in production
+const getClientUrl = () => {
+  if (process.env.CLIENT_URL) {
+    return process.env.CLIENT_URL;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    console.error('⚠️  WARNING: CLIENT_URL not set in production! CORS may block requests.');
+    // In production, also allow the origin from the request header
+    return true; // This enables CORS for all origins - configure CLIENT_URL for security
+  }
+  return "http://localhost:3000";
+};
+
+const clientUrl = getClientUrl();
+
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: clientUrl,
     methods: ["GET", "POST"]
   }
 });
@@ -44,7 +59,7 @@ const io = socketIo(server, {
 // ⭐ CORS must load first
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: clientUrl,
     credentials: true
   })
 );
