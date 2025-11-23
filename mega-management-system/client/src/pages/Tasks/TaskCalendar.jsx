@@ -18,13 +18,11 @@ import {
   Paperclip,
   MessageCircle,
   Edit2,
-  Tag,
-  Bell
+  Tag
 } from 'lucide-react';
 import { taskStatuses, taskPriorities } from '../../utils/sampleData';
 import TaskForm from '../../components/forms/TaskForm';
 import taskService from '../../services/taskService';
-import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const TaskCalendar = ({ onViewChange }) => {
   const location = useLocation();
@@ -37,6 +35,7 @@ const TaskCalendar = ({ onViewChange }) => {
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeDropdown, setActiveDropdown] = useState(null); // { taskId, type: 'priority', position: 'top' | 'bottom' }
+  const [showMobilePopup, setShowMobilePopup] = useState(false);
 
   // Workspace views configuration
   const workspaceViews = [
@@ -218,6 +217,16 @@ const TaskCalendar = ({ onViewChange }) => {
   const handleDateClick = (date) => {
     setSelectedDate(date);
     setSelectedTask(null);
+    // Show popup on mobile (less than 1024px)
+    if (window.innerWidth < 1024) {
+      setShowMobilePopup(true);
+    }
+  };
+
+  const closeMobilePopup = () => {
+    setShowMobilePopup(false);
+    setSelectedDate(null);
+    setSelectedTask(null);
   };
 
   const handleQuickPriorityChange = async (taskId, newPriority) => {
@@ -259,7 +268,6 @@ const TaskCalendar = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <NotificationDropdown />
             <button
               onClick={() => setIsTaskFormOpen(true)}
               className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition-colors"
@@ -415,7 +423,7 @@ const TaskCalendar = ({ onViewChange }) => {
                     key={index}
                     onClick={() => handleDateClick(day.fullDate)}
                     className={`
-                      h-20 p-1.5 border-r border-b border-gray-200 cursor-pointer transition-all
+                      h-14 lg:h-20 p-1 lg:p-1.5 border-r border-b border-gray-200 cursor-pointer transition-all
                       ${getBackgroundColor()}
                       ${day.isToday ? 'ring-2 ring-blue-400 ring-inset' : ''}
                       ${isSelected ? 'ring-2 ring-primary-500 ring-inset' : ''}
@@ -432,24 +440,40 @@ const TaskCalendar = ({ onViewChange }) => {
                     </div>
 
                     {dayTasks.length > 0 && (
-                      <div className="space-y-0.5">
-                        {dayTasks.slice(0, 2).map((task) => (
-                          <div
-                            key={task._id || task.id}
-                            onClick={(e) => handleTaskClick(task, e)}
-                            className="group px-1.5 py-0.5 rounded hover:bg-white/90 hover:shadow-sm transition-all cursor-pointer"
-                          >
-                            <span className="text-[10px] text-gray-900 font-semibold line-clamp-1 group-hover:text-primary-700 leading-tight block">
-                              {task.title}
-                            </span>
-                          </div>
-                        ))}
-                        {dayTasks.length > 2 && (
-                          <div className="text-[10px] text-primary-700 font-bold text-center mt-0.5">
-                            +{dayTasks.length - 2} more
-                          </div>
-                        )}
-                      </div>
+                      <>
+                        {/* Mobile: Show colored dots */}
+                        <div className="lg:hidden flex flex-wrap justify-center gap-0.5 mt-1">
+                          {dayTasks.slice(0, 3).map((task) => (
+                            <div
+                              key={task._id || task.id}
+                              className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)}`}
+                            />
+                          ))}
+                          {dayTasks.length > 3 && (
+                            <span className="text-[8px] text-gray-500 font-bold">+{dayTasks.length - 3}</span>
+                          )}
+                        </div>
+
+                        {/* Desktop: Show task titles */}
+                        <div className="hidden lg:block space-y-0.5">
+                          {dayTasks.slice(0, 2).map((task) => (
+                            <div
+                              key={task._id || task.id}
+                              onClick={(e) => handleTaskClick(task, e)}
+                              className="group px-1.5 py-0.5 rounded hover:bg-white/90 hover:shadow-sm transition-all cursor-pointer"
+                            >
+                              <span className="text-[10px] text-gray-900 font-semibold line-clamp-1 group-hover:text-primary-700 leading-tight block">
+                                {task.title}
+                              </span>
+                            </div>
+                          ))}
+                          {dayTasks.length > 2 && (
+                            <div className="text-[10px] text-primary-700 font-bold text-center mt-0.5">
+                              +{dayTasks.length - 2} more
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 );
@@ -458,8 +482,8 @@ const TaskCalendar = ({ onViewChange }) => {
           </div>
         </div>
 
-        {/* Task Details Panel - Right Side */}
-        <div className="w-96 bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
+        {/* Task Details Panel - Right Side (hidden on mobile) */}
+        <div className="hidden lg:flex w-96 bg-white border-l border-gray-200 flex-col flex-shrink-0 overflow-hidden">
           {selectedTask ? (
             // Single Task View
             <>
@@ -781,6 +805,100 @@ const TaskCalendar = ({ onViewChange }) => {
           onSubmit={handleUpdateTask}
           initialData={selectedTask}
         />
+      )}
+
+      {/* Mobile Popup Modal */}
+      {showMobilePopup && selectedDate && (
+        <div className="lg:hidden fixed inset-0 z-50 flex items-end justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={closeMobilePopup}
+          />
+
+          {/* Popup Content */}
+          <div className="relative bg-white w-full max-h-[70vh] rounded-t-2xl overflow-hidden animate-slide-up">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {(tasksByDate[selectedDate.toDateString()] || []).length} tasks
+                </p>
+              </div>
+              <button
+                onClick={closeMobilePopup}
+                className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Tasks List */}
+            <div className="overflow-y-auto p-4 max-h-[calc(70vh-80px)]">
+              {(tasksByDate[selectedDate.toDateString()] || []).length > 0 ? (
+                <div className="space-y-3">
+                  {(tasksByDate[selectedDate.toDateString()] || []).map((task) => (
+                    <div
+                      key={task._id || task.id}
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-xs px-2 py-1 rounded-full font-semibold ${taskPriorities[task.priority].bgColor} ${taskPriorities[task.priority].color}`}>
+                          {taskPriorities[task.priority].label}
+                        </span>
+                        <span className={`text-xs px-2 py-1 rounded-full ${taskStatuses[task.status].color}`}>
+                          {taskStatuses[task.status].label}
+                        </span>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mb-1">{task.title}</h4>
+                      <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
+                      {task.client?.name && (
+                        <div className="flex items-center gap-1.5 text-xs text-primary-700 mt-2">
+                          <User className="h-3 w-3" />
+                          {task.client.name}
+                        </div>
+                      )}
+                      {task.assignees?.length > 0 && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex -space-x-1">
+                            {task.assignees.slice(0, 3).map((assignee, idx) => (
+                              <div
+                                key={assignee._id || assignee.id || idx}
+                                className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white text-xs flex items-center justify-center font-bold border-2 border-white"
+                              >
+                                {assignee.name?.substring(0, 1).toUpperCase()}
+                              </div>
+                            ))}
+                          </div>
+                          {task.assignees.length > 3 && (
+                            <span className="text-xs text-gray-500">+{task.assignees.length - 3}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <CalendarIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No tasks on this date</p>
+                  <button
+                    onClick={() => {
+                      closeMobilePopup();
+                      setIsTaskFormOpen(true);
+                    }}
+                    className="mt-3 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    + Add a task
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

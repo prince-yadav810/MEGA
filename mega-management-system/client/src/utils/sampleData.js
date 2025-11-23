@@ -10,16 +10,6 @@ export const taskStatuses = {
     color: "bg-primary-100 text-primary-800",
     dotColor: "bg-primary-500"
   },
-  review: {
-    label: "Review",
-    color: "bg-yellow-100 text-yellow-800",
-    dotColor: "bg-yellow-500"
-  },
-  scheduled: {
-    label: "Scheduled",
-    color: "bg-purple-100 text-purple-800",
-    dotColor: "bg-purple-500"
-  },
   completed: {
     label: "Completed",
     color: "bg-success-100 text-success-800",

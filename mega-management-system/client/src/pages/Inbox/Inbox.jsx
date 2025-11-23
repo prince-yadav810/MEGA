@@ -36,7 +36,6 @@ const Inbox = () => {
     markAsRead,
     markAllAsRead,
     removeNotification,
-    clearAll,
     fetchNotifications
   } = useNotifications();
 
@@ -188,17 +187,6 @@ const Inbox = () => {
     }
   };
 
-  const handleClearAll = async () => {
-    if (window.confirm('Are you sure you want to clear all notifications? This action cannot be undone.')) {
-      try {
-        await clearAll();
-        toast.success('All notifications cleared');
-      } catch (error) {
-        toast.error('Failed to clear notifications');
-      }
-    }
-  };
-
   const handleDeleteNotification = async (e, notificationId) => {
     if (e) {
       e.stopPropagation();
@@ -239,7 +227,8 @@ const Inbox = () => {
       },
       trackMouse: false,
       trackTouch: true,
-      preventScrollOnSwipe: true
+      preventScrollOnSwipe: false,
+      delta: 10
     });
 
     const id = notification.id || notification._id;
@@ -259,7 +248,7 @@ const Inbox = () => {
         <div
           {...handlers}
           onClick={() => !isSwiping && onClick(notification)}
-          style={{ transform: `translateX(-${swipeOffset}px)` }}
+          style={{ transform: `translateX(-${swipeOffset}px)`, touchAction: 'pan-y' }}
           className={`
             relative rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md
             ${isAssignment
@@ -386,28 +375,29 @@ const Inbox = () => {
           </p>
         </div>
 
-        {/* Filters and Actions */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        {/* Filters and Actions - Compact Layout */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4">
+          {/* Search + Filters Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            {/* Compact Search */}
+            <div className="relative flex-1 sm:max-w-[200px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search notifications..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
 
-            {/* Category Filter */}
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-500" />
+            {/* Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter className="h-4 w-4 text-gray-400 hidden sm:block" />
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="pl-2 pr-8 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white cursor-pointer"
               >
                 <option value="all">All Categories</option>
                 <option value="task">Tasks</option>
@@ -420,60 +410,42 @@ const Inbox = () => {
                 <option value="system">System</option>
               </select>
 
-              {/* Status Filter */}
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="pl-2 pr-8 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white cursor-pointer"
               >
                 <option value="all">All Status</option>
                 <option value="unread">Unread</option>
                 <option value="read">Read</option>
               </select>
-            </div>
 
-            {/* Actions */}
-            <div className="flex items-center space-x-2">
+              {/* Mark all read button */}
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllAsRead}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors ml-auto sm:ml-0"
                 >
                   <CheckCheck className="h-4 w-4" />
-                  <span>Mark all read</span>
-                </button>
-              )}
-              {notifications.length > 0 && (
-                <button
-                  onClick={handleClearAll}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-error-700 bg-error-50 hover:bg-error-100 rounded-lg transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span>Clear all</span>
+                  <span className="hidden sm:inline">Mark all read</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="flex items-center space-x-6 mt-4 pt-4 border-t border-gray-200">
-            <div className="flex items-center space-x-2">
-              <Bell className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-600">
-                Total: <span className="font-semibold text-gray-900">{notifications.length}</span>
-              </span>
+          {/* Compact Stats */}
+          <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-200 text-xs sm:text-sm">
+            <div className="flex items-center gap-1.5">
+              <Bell className="h-3.5 w-3.5 text-gray-400" />
+              <span className="text-gray-600">Total: <span className="font-semibold text-gray-900">{notifications.length}</span></span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">
-                Unread: <span className="font-semibold text-primary-700">{unreadCount}</span>
-              </span>
+              <span className="text-gray-600">Unread: <span className="font-semibold text-primary-700">{unreadCount}</span></span>
             </div>
-            <div className="flex items-center space-x-2">
-              <Check className="h-4 w-4 text-success-500" />
-              <span className="text-sm text-gray-600">
-                Read: <span className="font-semibold text-gray-900">{notifications.length - unreadCount}</span>
-              </span>
+            <div className="flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 text-success-500" />
+              <span className="text-gray-600">Read: <span className="font-semibold text-gray-900">{notifications.length - unreadCount}</span></span>
             </div>
           </div>
         </div>

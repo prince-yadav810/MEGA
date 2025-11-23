@@ -11,7 +11,6 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     priority: 'medium',
     assignees: [],
     dueDate: '',
-    estimatedTime: '',
     tags: [],
     client: ''
   });
@@ -38,7 +37,6 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         priority: initialData.priority || 'medium',
         assignees: initialData.assignees?.map(a => a._id || a.id) || [],
         dueDate: formattedDate,
-        estimatedTime: initialData.estimatedTime || '',
         tags: initialData.tags || [],
         client: initialData.client?.name || initialData.client || ''
       });
@@ -51,7 +49,6 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         priority: 'medium',
         assignees: [],
         dueDate: '',
-        estimatedTime: '',
         tags: [],
         client: ''
       });
@@ -147,8 +144,6 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
       priority: formData.priority,
       assignees: formData.assignees, // Array of IDs
       dueDate: formData.dueDate,
-      estimatedTime: formData.estimatedTime || '0h',
-      timeTracked: '0h',
       progress: 0,
       tags: formData.tags,
       // Don't send client as string - backend should handle client lookup or creation
@@ -235,34 +230,20 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Calendar className="h-4 w-4 inline mr-1" />Due Date <span className="text-error-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    value={formData.dueDate}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      errors.dueDate ? 'border-error-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors.dueDate && <p className="mt-1 text-sm text-error-600">{errors.dueDate}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time</label>
-                  <input
-                    type="text"
-                    name="estimatedTime"
-                    value={formData.estimatedTime}
-                    onChange={handleChange}
-                    placeholder="e.g., 4h, 2d"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Calendar className="h-4 w-4 inline mr-1" />Due Date <span className="text-error-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={formData.dueDate}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    errors.dueDate ? 'border-error-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.dueDate && <p className="mt-1 text-sm text-error-600">{errors.dueDate}</p>}
               </div>
 
               <div>

@@ -9,7 +9,7 @@ import TasksCard from '../components/dashboard/TasksCard';
 import CallsCard from '../components/dashboard/CallsCard';
 import QuotationsCard from '../components/dashboard/QuotationsCard';
 import RemindersCard from '../components/dashboard/RemindersCard';
-import RecentCallsCard from '../components/dashboard/RecentCallsCard';
+import PaymentRemindersCard from '../components/dashboard/PaymentRemindersCard';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -120,7 +120,10 @@ const Dashboard = () => {
           {/* For Admins: Calls Card. For Employees: Upcoming Tasks */}
           <div className="md:col-span-1 lg:col-span-1">
             {isAdmin ? (
-              <CallsCard calls={dashboardData?.calls?.items || []} />
+              <CallsCard
+                calls={dashboardData?.calls?.items || []}
+                dateRange={dashboardData?.calls?.dateRange || 'today'}
+              />
             ) : (
               <TasksCard 
                 tasks={dashboardData?.tasks?.upcoming || []} 
@@ -142,12 +145,11 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* Recent Calls (3 cols - Full Width) - Only for Admin/Manager */}
+          {/* Payment Reminders (Full Width) - Only for Admin/Manager */}
           {isAdmin && (
             <div className="md:col-span-2 lg:col-span-3">
-              <RecentCallsCard 
-                recentCalls={dashboardData?.recentCalls?.items || []} 
-                dateRange={dashboardData?.recentCalls?.dateRange || 'today'}
+              <PaymentRemindersCard
+                paymentReminders={dashboardData?.paymentReminders?.items || []}
               />
             </div>
           )}

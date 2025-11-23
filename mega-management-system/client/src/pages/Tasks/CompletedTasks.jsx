@@ -5,26 +5,20 @@ import {
   Search,
   Filter,
   Calendar,
-  User,
   CheckCircle,
   Clock,
   RotateCcw,
-  Archive,
   Trash2,
-  Download,
   MoreHorizontal,
   Paperclip,
   MessageCircle,
   TrendingUp,
   Table,
-  LayoutGrid,
-  Plus,
-  Bell
+  LayoutGrid
 } from 'lucide-react';
 import { taskPriorities } from '../../utils/sampleData';
 import taskService from '../../services/taskService';
 import userService from '../../services/userService';
-import NotificationDropdown from '../../components/common/NotificationDropdown';
 
 const CompletedTasks = ({ onViewChange }) => {
   const location = useLocation();
@@ -65,12 +59,8 @@ const CompletedTasks = ({ onViewChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // all, this_week, this_month, last_month
   const [assigneeFilter, setAssigneeFilter] = useState('all');
-  const [selectedTasks, setSelectedTasks] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
-  const [showCheckboxes, setShowCheckboxes] = useState(true);
-  const [editingProgress, setEditingProgress] = useState(null); // taskId of task being edited
-  const [progressValue, setProgressValue] = useState(''); // temporary progress value
 
   // Workspace views configuration
   const workspaceViews = [
@@ -128,22 +118,6 @@ const CompletedTasks = ({ onViewChange }) => {
     return filtered.sort((a, b) => new Date(b.completedDate || b.updatedAt) - new Date(a.completedDate || a.updatedAt));
   }, [tasks, searchQuery, dateFilter, assigneeFilter]);
 
-  const toggleTaskSelection = (taskId) => {
-    setSelectedTasks(prev => 
-      prev.includes(taskId) 
-        ? prev.filter(id => id !== taskId)
-        : [...prev, taskId]
-    );
-  };
-
-  const selectAllTasks = () => {
-    if (selectedTasks.length === completedTasks.length) {
-      setSelectedTasks([]);
-    } else {
-      setSelectedTasks(completedTasks.map(task => task.id));
-    }
-  };
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-IN', { 
@@ -177,47 +151,29 @@ const CompletedTasks = ({ onViewChange }) => {
 
   const stats = getCompletionStats();
 
-  const handleProgressClick = (taskId, currentProgress) => {
-    setEditingProgress(taskId);
-    setProgressValue(currentProgress || '0');
-  };
-
-  const handleProgressChange = (e) => {
-    const value = e.target.value;
-    // Only allow numbers 0-100
-    if (value === '' || (/^\d+$/.test(value) && parseInt(value) >= 0 && parseInt(value) <= 100)) {
-      setProgressValue(value);
-    }
-  };
-
-  const handleProgressSave = async (taskId) => {
-    const progress = parseInt(progressValue);
-    if (isNaN(progress) || progress < 0 || progress > 100) {
-      toast.error('Please enter a value between 0 and 100');
-      return;
-    }
-
+  const handleReopenTask = async (taskId) => {
     try {
-      const response = await taskService.updateTask(taskId, { progress });
+      const response = await taskService.updateTask(taskId, { status: 'in_progress' });
       if (response.success) {
-        setTasks(tasks.map(task =>
-          (task._id || task.id) === taskId ? { ...task, progress } : task
-        ));
-        setEditingProgress(null);
-        setProgressValue('');
-        toast.success('Progress updated successfully');
+        setTasks(tasks.filter(task => (task._id || task.id) !== taskId));
+        setActiveDropdown(null);
+        toast.success('Task reopened successfully');
       }
     } catch (error) {
-      toast.error('Failed to update progress');
+      toast.error('Failed to reopen task');
     }
   };
 
-  const handleProgressKeyDown = (e, taskId) => {
-    if (e.key === 'Enter') {
-      handleProgressSave(taskId);
-    } else if (e.key === 'Escape') {
-      setEditingProgress(null);
-      setProgressValue('');
+  const handleDeleteTask = async (taskId) => {
+    try {
+      const response = await taskService.deleteTask(taskId);
+      if (response.success) {
+        setTasks(tasks.filter(task => (task._id || task.id) !== taskId));
+        setActiveDropdown(null);
+        toast.success('Task deleted successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to delete task');
     }
   };
 
@@ -232,7 +188,6 @@ const CompletedTasks = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <NotificationDropdown />
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
@@ -241,10 +196,6 @@ const CompletedTasks = ({ onViewChange }) => {
             >
               <Filter className="h-4 w-4" />
               <span>Filters</span>
-            </button>
-            <button className="bg-success-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-success-700 transition-colors">
-              <Download className="h-4 w-4" />
-              <span>Export</span>
             </button>
           </div>
         </div>
@@ -383,31 +334,6 @@ const CompletedTasks = ({ onViewChange }) => {
           </div>
         </div>
 
-        {/* Bulk Actions */}
-        {selectedTasks.length > 0 && (
-          <div className="bg-success-50 border border-success-200 rounded-lg px-4 py-3 mb-6">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-success-700">
-                {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''} selected
-              </span>
-              <div className="flex items-center space-x-2">
-                <button className="px-3 py-1 text-sm text-primary-700 hover:text-primary-800 flex items-center space-x-1">
-                  <RotateCcw className="h-3 w-3" />
-                  <span>Reopen</span>
-                </button>
-                <button className="px-3 py-1 text-sm text-gray-700 hover:text-gray-800 flex items-center space-x-1">
-                  <Archive className="h-3 w-3" />
-                  <span>Archive</span>
-                </button>
-                <button className="px-3 py-1 text-sm text-error-600 hover:text-error-700 flex items-center space-x-1">
-                  <Trash2 className="h-3 w-3" />
-                  <span>Delete</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Tasks Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           {completedTasks.length > 0 ? (
@@ -415,16 +341,6 @@ const CompletedTasks = ({ onViewChange }) => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    {showCheckboxes && (
-                      <th className="px-6 py-3 text-left">
-                        <input
-                          type="checkbox"
-                          checked={selectedTasks.length === completedTasks.length && completedTasks.length > 0}
-                          onChange={selectAllTasks}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                      </th>
-                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Task
                     </th>
@@ -437,9 +353,6 @@ const CompletedTasks = ({ onViewChange }) => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Duration
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Time Tracking
-                    </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
@@ -450,17 +363,7 @@ const CompletedTasks = ({ onViewChange }) => {
                     const isLate = new Date(task.completedDate) > new Date(task.dueDate);
                     
                     return (
-                      <tr key={task.id} className="hover:bg-gray-50 group">
-                        {showCheckboxes && (
-                          <td className="px-6 py-4">
-                            <input
-                              type="checkbox"
-                              checked={selectedTasks.includes(task.id)}
-                              onChange={() => toggleTaskSelection(task.id)}
-                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            />
-                          </td>
-                        )}
+                      <tr key={task._id || task.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div className="max-w-xs">
                             <div className="flex items-center space-x-2">
@@ -526,72 +429,32 @@ const CompletedTasks = ({ onViewChange }) => {
                             Due: {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-between mb-1">
-                            {editingProgress === (task._id || task.id) ? (
-                              <div className="flex items-center gap-2 progress-input-container">
-                                <input
-                                  type="text"
-                                  value={progressValue}
-                                  onChange={handleProgressChange}
-                                  onKeyDown={(e) => handleProgressKeyDown(e, task._id || task.id)}
-                                  onBlur={() => handleProgressSave(task._id || task.id)}
-                                  autoFocus
-                                  placeholder="0-100"
-                                  className="w-16 px-2 py-1 text-xs border-2 border-primary-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-center font-semibold bg-white shadow-sm"
-                                />
-                                <span className="text-xs font-semibold text-primary-600">%</span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleProgressClick(task._id || task.id, task.progress || 0);
-                                }}
-                                className="text-xs text-gray-500 hover:text-success-600 transition-colors cursor-pointer"
-                              >
-                                Progress: {task.progress || 0}%
-                              </button>
-                            )}
-                          </div>
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (editingProgress !== (task._id || task.id)) {
-                                handleProgressClick(task._id || task.id, task.progress || 0);
-                              }
-                            }}
-                            className="w-full bg-gray-200 rounded-full h-1.5 mt-1 cursor-pointer hover:h-2 transition-all duration-200"
-                          >
-                            <div
-                              className="bg-success-500 h-full rounded-full transition-all duration-500"
-                              style={{
-                                width: `${Math.min(100, task.progress || 0)}%`
-                              }}
-                            ></div>
-                          </div>
-                        </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              className="p-1 text-gray-400 hover:text-primary-600" 
-                              title="Reopen Task"
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </button>
-                            <button 
-                              className="p-1 text-gray-400 hover:text-gray-600" 
-                              title="Archive"
-                            >
-                              <Archive className="h-4 w-4" />
-                            </button>
+                          <div className="relative">
                             <button
-                              onClick={() => setShowCheckboxes(!showCheckboxes)}
-                              className="p-1 text-gray-400 hover:text-gray-600"
-                              title="Toggle bulk selection"
+                              onClick={() => setActiveDropdown(activeDropdown === (task._id || task.id) ? null : (task._id || task.id))}
+                              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             >
-                              <MoreHorizontal className="h-4 w-4" />
+                              <MoreHorizontal className="h-5 w-5" />
                             </button>
+                            {activeDropdown === (task._id || task.id) && (
+                              <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                                <button
+                                  onClick={() => handleReopenTask(task._id || task.id)}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                  <span>Reopen Task</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTask(task._id || task.id)}
+                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

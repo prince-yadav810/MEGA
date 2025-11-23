@@ -148,8 +148,6 @@ const TaskBoard = ({ onViewChange }) => {
   const statusColumns = [
     { id: 'todo', title: 'To Do', status: 'todo', color: 'bg-gray-100' },
     { id: 'in_progress', title: 'In Progress', status: 'in_progress', color: 'bg-primary-100' },
-    { id: 'review', title: 'Review', status: 'review', color: 'bg-yellow-100' },
-    { id: 'scheduled', title: 'Scheduled', status: 'scheduled', color: 'bg-purple-100' },
     { id: 'completed', title: 'Completed', status: 'completed', color: 'bg-success-100' }
   ];
 
@@ -478,7 +476,7 @@ const TaskBoard = ({ onViewChange }) => {
         WebkitUserSelect: 'none',
         MozUserSelect: 'none',
         msUserSelect: 'none',
-        touchAction: 'none',
+        touchAction: 'pan-y',
         transformStyle: 'preserve-3d',
         backfaceVisibility: 'hidden'
       }}
@@ -722,7 +720,6 @@ const TaskBoard = ({ onViewChange }) => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <NotificationDropdown />
             <button
               onClick={() => setIsTaskFormOpen(true)}
               className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition-colors"
