@@ -715,140 +715,155 @@ class QuotationPdfService {
     const margin = 50;
     const contentWidth = pageWidth - (margin * 2);
     const bottomMargin = 60; // Space for footer
-    
-    // Initial check if we need a new page for the title
-    let currentY = startY + 20;
-    
+
+    // Add more spacing before section starts
+    let currentY = startY + 30;
+
     // Banner styling
-    const bannerHeight = 35;
-    
-    if (currentY + bannerHeight + 100 > pageHeight - bottomMargin) {
+    const bannerHeight = 40;
+
+    if (currentY + bannerHeight + 120 > pageHeight - bottomMargin) {
       doc.addPage();
       currentY = margin;
     }
-    
-    // Add "We Also Provide" Banner
-    // Background
+
+    // Add "We Also Provide" Banner with improved styling
+    // Background with gradient effect
     doc.rect(margin, currentY, contentWidth, bannerHeight)
-      .fillColor('#f8f9fa')
+      .fillColor('#f0f4f8')
       .fill();
-      
-    // Left accent
-    doc.rect(margin, currentY, 4, bannerHeight)
+
+    // Left accent bar (thicker)
+    doc.rect(margin, currentY, 5, bannerHeight)
       .fillColor(this.PRIMARY_COLOR)
       .fill();
-      
-    // Text
+
+    // Right accent bar
+    doc.rect(margin + contentWidth - 5, currentY, 5, bannerHeight)
+      .fillColor(this.PRIMARY_COLOR)
+      .fill();
+
+    // Banner text centered
     doc.font('Helvetica-Bold')
       .fontSize(14)
       .fillColor(this.PRIMARY_COLOR)
-      .text('WE ALSO PROVIDE:', margin + 15, currentY + 10, { 
-        align: 'left',
-        characterSpacing: 1
+      .text('WE ALSO PROVIDE', margin + 20, currentY + 12, {
+        width: contentWidth - 40,
+        align: 'center',
+        characterSpacing: 2
       });
-      
-    currentY += bannerHeight + 20;
-    
-    // Grid configuration - 3 Columns for better density
+
+    currentY += bannerHeight + 25;
+
+    // Grid configuration - 3 Columns with better spacing
     const columns = 3;
-    const gap = 15;
+    const gap = 18;
     const cardWidth = (contentWidth - (gap * (columns - 1))) / columns;
-    const cardHeight = 180; // Fixed height for product card
-    
+    const cardHeight = 110; // Compact card height for better layout
+    const cardPadding = 10;
+
     // Iterate through products
     data.advertisementProducts.forEach((product, index) => {
       // Check if we need a new page (check before starting a row)
       if (currentY + cardHeight > pageHeight - bottomMargin) {
         doc.addPage();
         currentY = margin;
-        
-        // Add banner again on new page? Maybe just title
-        doc.font('Helvetica-Bold')
-          .fontSize(12)
+
+        // Add continuation banner on new page
+        doc.rect(margin, currentY, contentWidth, 30)
+          .fillColor('#f0f4f8')
+          .fill();
+        doc.rect(margin, currentY, 5, 30)
           .fillColor(this.PRIMARY_COLOR)
-          .text('We Also Provide (Continued):', margin, currentY);
-        currentY += 25;
+          .fill();
+        doc.font('Helvetica-Bold')
+          .fontSize(11)
+          .fillColor(this.PRIMARY_COLOR)
+          .text('WE ALSO PROVIDE (Continued)', margin + 15, currentY + 9, {
+            width: contentWidth - 30,
+            align: 'center'
+          });
+        currentY += 45;
       }
-      
+
       const colIndex = index % columns;
       const x = margin + (colIndex * (cardWidth + gap));
-      
+
       // Move Y down only after completing a row
       if (index > 0 && index % columns === 0) {
         currentY += cardHeight + gap;
-        
+
         // Check page break again after row increment
         if (currentY + cardHeight > pageHeight - bottomMargin) {
           doc.addPage();
           currentY = margin;
         }
       }
-      
-      // Draw Product Card
+
+      // Draw Product Card with improved styling
       // Card background
       doc.rect(x, currentY, cardWidth, cardHeight)
-        .fillColor('white')
+        .fillColor('#ffffff')
         .fill();
-        
-      // Card border (subtle)
+
+      // Card border with slight shadow effect
       doc.rect(x, currentY, cardWidth, cardHeight)
-        .strokeColor('#e0e0e0')
-        .lineWidth(0.5)
+        .strokeColor('#d0d5dd')
+        .lineWidth(1)
         .stroke();
-        
-      // Product Image Area
-      const imageAreaHeight = 100;
-      doc.rect(x, currentY, cardWidth, imageAreaHeight)
-        .fillColor('#f8f9fa')
+
+      // Top accent line
+      doc.rect(x, currentY, cardWidth, 3)
+        .fillColor(this.PRIMARY_COLOR)
         .fill();
-        
-      // Add "Image" placeholder icon/text
-      doc.fontSize(20)
-        .fillColor('#dddddd')
-        .text('🖼️', x, currentY + (imageAreaHeight / 2) - 15, {
-          width: cardWidth,
-          align: 'center'
-        });
-        
-      // Product Name (with truncation)
+
+      // Product Name (prominent)
       doc.font('Helvetica-Bold')
         .fontSize(10)
         .fillColor(this.TEXT_COLOR)
-        .text(product.name, x + 8, currentY + imageAreaHeight + 10, {
-          width: cardWidth - 16,
-          height: 24,
+        .text(product.name, x + cardPadding, currentY + 12, {
+          width: cardWidth - (cardPadding * 2),
+          height: 28,
           ellipsis: true,
           align: 'left'
         });
-        
-      // Product Category badge style
+
+      // Category badge with background
       if (product.category) {
-        doc.font('Helvetica')
-          .fontSize(8)
+        const categoryY = currentY + 42;
+        doc.rect(x + cardPadding, categoryY, cardWidth - (cardPadding * 2), 16)
+          .fillColor('#e8f4fd')
+          .fill();
+        doc.font('Helvetica-Bold')
+          .fontSize(7)
           .fillColor(this.PRIMARY_COLOR)
-          .text(product.category.toUpperCase(), x + 8, currentY + imageAreaHeight + 35, {
-            width: cardWidth - 16,
+          .text(product.category.toUpperCase(), x + cardPadding + 5, categoryY + 4, {
+            width: cardWidth - (cardPadding * 2) - 10,
             align: 'left'
           });
       }
-        
-      // Product Description (truncated)
+
+      // Product Description with better spacing
       if (product.description) {
+        const descY = product.category ? currentY + 64 : currentY + 48;
         doc.font('Helvetica')
           .fontSize(8)
-          .fillColor('#666666')
-          .text(product.description.substring(0, 60).replace(/\n/g, ' ') + (product.description.length > 60 ? '...' : ''), 
-            x + 8, 
-            currentY + imageAreaHeight + 50, 
+          .fillColor('#555555')
+          .text(product.description.substring(0, 80).replace(/\n/g, ' ') + (product.description.length > 80 ? '...' : ''),
+            x + cardPadding,
+            descY,
             {
-              width: cardWidth - 16,
-              height: 30,
+              width: cardWidth - (cardPadding * 2),
+              height: 36,
               align: 'left',
               ellipsis: true
             }
           );
       }
     });
+
+    // Return the final Y position for proper spacing after section
+    return currentY + cardHeight + 20;
   }
 
   /**

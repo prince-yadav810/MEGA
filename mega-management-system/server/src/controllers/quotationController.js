@@ -4,14 +4,59 @@ const User = require('../models/User');
 const ExcelProcessor = require('../services/excelProcessor');
 const QuotationPdfService = require('../services/quotationPdfService');
 const { createNotification, notifyMultipleUsers } = require('./notificationController');
+const cloudinary = require('../config/cloudinary');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-// Ensure uploads directory exists
-const UPLOADS_DIR = path.join(__dirname, '../../uploads/quotations');
+// Use /tmp for cloud deployments (ephemeral storage)
+const UPLOADS_DIR = process.env.NODE_ENV === 'production'
+  ? path.join(os.tmpdir(), 'quotations')
+  : path.join(__dirname, '../../uploads/quotations');
+
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
+
+// Helper: Upload PDF to Cloudinary
+const uploadPdfToCloudinary = async (filePath, fileName) => {
+  try {
+    const result = await cloudinary.uploader.upload(filePath, {
+      resource_type: 'raw',
+      folder: 'quotations',
+      public_id: fileName.replace('.pdf', ''),
+      format: 'pdf'
+    });
+    return result.secure_url;
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    throw new Error('Failed to upload PDF to cloud storage');
+  }
+};
+
+// Helper: Delete PDF from Cloudinary
+const deletePdfFromCloudinary = async (pdfUrl) => {
+  try {
+    if (!pdfUrl || !pdfUrl.includes('cloudinary')) return;
+
+    // Extract public_id from URL
+    const urlParts = pdfUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    const publicId = `quotations/${fileName.replace('.pdf', '')}`;
+
+    await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+  } catch (error) {
+    console.error('Cloudinary delete error:', error);
+  }
+};
+
+// Check if Cloudinary is configured
+const isCloudinaryConfigured = () => {
+  return process.env.CLOUDINARY_CLOUD_NAME &&
+         process.env.CLOUDINARY_API_KEY &&
+         process.env.CLOUDINARY_API_SECRET &&
+         process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloudinary-cloud-name';
+};
 
 /**
  * @desc    Get all quotations (optionally filtered by clientName)
@@ -143,10 +188,23 @@ exports.uploadExcel = async (req, res) => {
     await QuotationPdfService.generateQuotationPDF(extractedData, pdfFilePath);
     console.log('✅ PDF generated successfully:', pdfFileName);
 
+    // Step 3.5: Upload PDF to Cloudinary in production
+    let pdfUrl = `/uploads/quotations/${pdfFileName}`;
+    if (isCloudinaryConfigured()) {
+      console.log('☁️  Uploading PDF to Cloudinary...');
+      pdfUrl = await uploadPdfToCloudinary(pdfFilePath, pdfFileName);
+      console.log('✅ PDF uploaded to Cloudinary');
+
+      // Delete local temp file after upload
+      if (fs.existsSync(pdfFilePath)) {
+        fs.unlinkSync(pdfFilePath);
+      }
+    }
+
     // Step 4: Save quotation to database
     console.log('💾 Saving to database...');
     const quotation = await Quotation.create({
-      pdfUrl: `/uploads/quotations/${pdfFileName}`,
+      pdfUrl: pdfUrl,
       fileName: pdfFileName,
       refNo: extractedData.refNo,
       date: extractedData.date,
@@ -234,6 +292,12 @@ exports.downloadPdf = async (req, res) => {
       });
     }
 
+    // If it's a Cloudinary URL, redirect to it
+    if (quotation.pdfUrl.includes('cloudinary') || quotation.pdfUrl.startsWith('http')) {
+      return res.redirect(quotation.pdfUrl);
+    }
+
+    // Local file handling (for backward compatibility)
     const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
 
     if (!fs.existsSync(pdfPath)) {
@@ -330,11 +394,17 @@ exports.deleteQuotation = async (req, res) => {
       });
     }
 
-    // Delete PDF file from filesystem
-    const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
-    if (fs.existsSync(pdfPath)) {
-      fs.unlinkSync(pdfPath);
-      console.log('🗑️  PDF file deleted:', pdfPath);
+    // Delete PDF from Cloudinary if it's a cloud URL
+    if (quotation.pdfUrl && quotation.pdfUrl.includes('cloudinary')) {
+      await deletePdfFromCloudinary(quotation.pdfUrl);
+      console.log('🗑️  PDF deleted from Cloudinary');
+    } else if (quotation.pdfUrl) {
+      // Delete PDF file from local filesystem (backward compatibility)
+      const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
+      if (fs.existsSync(pdfPath)) {
+        fs.unlinkSync(pdfPath);
+        console.log('🗑️  PDF file deleted:', pdfPath);
+      }
     }
 
     // Delete from database
@@ -562,6 +632,27 @@ exports.regenerateQuotationPdf = async (req, res) => {
 
     // Generate new PDF
     await QuotationPdfService.generateQuotationPDF(quotation, pdfFilePath);
+
+    // Upload to Cloudinary if configured
+    let pdfUrl = quotation.pdfUrl;
+    if (isCloudinaryConfigured()) {
+      // Delete old PDF from Cloudinary
+      if (quotation.pdfUrl && quotation.pdfUrl.includes('cloudinary')) {
+        await deletePdfFromCloudinary(quotation.pdfUrl);
+      }
+
+      // Upload new PDF
+      pdfUrl = await uploadPdfToCloudinary(pdfFilePath, quotation.fileName);
+
+      // Update quotation with new URL
+      quotation.pdfUrl = pdfUrl;
+      await quotation.save();
+
+      // Delete local temp file
+      if (fs.existsSync(pdfFilePath)) {
+        fs.unlinkSync(pdfFilePath);
+      }
+    }
 
     res.status(200).json({
       success: true,

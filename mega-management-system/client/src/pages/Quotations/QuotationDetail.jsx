@@ -714,7 +714,11 @@ const QuotationDetail = () => {
             <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: '800px' }}>
               {quotation.pdfUrl ? (
                 <iframe
-                  src={`${process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:5001')}${quotation.pdfUrl}?t=${pdfTimestamp}`}
+                  src={
+                    quotation.pdfUrl.startsWith('http')
+                      ? `${quotation.pdfUrl}?t=${pdfTimestamp}`
+                      : `${process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5001')}${quotation.pdfUrl}?t=${pdfTimestamp}`
+                  }
                   title="Quotation PDF"
                   className="w-full h-full"
                   style={{ border: 'none' }}
