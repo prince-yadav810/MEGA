@@ -304,10 +304,10 @@ class QuotationPdfService {
    */
   static findLogo() {
     const possiblePaths = [
-      // Production (Docker/Cloud Run) paths - /app is the WORKDIR
-      '/app/server/uploads/mega-logo.png',
-      '/app/server/uploads/logo.png',
-      '/app/client/build/mega-logo.png',
+      // Production (Docker/Cloud Run) paths
+      // Dockerfile: WORKDIR /app, COPY server/ ./ → files are at /app/
+      '/app/uploads/mega-logo.png',
+      '/app/uploads/logo.png',
       '/app/client/build/logo512.png',
       '/app/client/build/logo192.png',
       // Local development paths
