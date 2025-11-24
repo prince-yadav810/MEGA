@@ -104,6 +104,7 @@ app.use('/api/api-usage', require('./src/routes/apiUsage'));
 app.use('/api/call-logs', callLogRoutes);
 app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
 app.use('/api/whatsapp', require('./src/routes/whatsapp'));
+app.use('/api/settings', require('./src/routes/settings'));
 
 // Health check
 app.get('/api/health', (req, res) => {

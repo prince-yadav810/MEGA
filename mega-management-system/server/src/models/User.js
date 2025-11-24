@@ -151,6 +151,14 @@ const UserSchema = new mongoose.Schema({
         }
       },
       schedule: {
+        taskReminderHours: {
+          type: Number,
+          default: 24
+        },
+        dailyDigest: {
+          type: Boolean,
+          default: false
+        },
         quietHoursEnabled: {
           type: Boolean,
           default: false
@@ -167,6 +175,27 @@ const UserSchema = new mongoose.Schema({
           type: Boolean,
           default: false
         }
+      }
+    },
+    work: {
+      defaultTaskView: {
+        type: String,
+        enum: ['list', 'kanban', 'calendar'],
+        default: 'list'
+      },
+      taskSortOrder: {
+        type: String,
+        enum: ['dueDate', 'priority', 'createdAt'],
+        default: 'dueDate'
+      },
+      showCompletedTasks: {
+        type: Boolean,
+        default: true
+      },
+      theme: {
+        type: String,
+        enum: ['light', 'dark', 'system'],
+        default: 'light'
       }
     }
   }
