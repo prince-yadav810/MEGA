@@ -1,11 +1,26 @@
 const multer = require('multer');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 const { businessCardImageFilter } = require('../utils/imageValidator');
+
+// Get upload directory - use os.tmpdir() for Cloud Run compatibility
+const getUploadDir = () => {
+  const uploadDir = process.env.NODE_ENV === 'production'
+    ? path.join(os.tmpdir(), 'uploads')
+    : path.join(__dirname, '../../uploads/temp');
+
+  // Ensure directory exists
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  return uploadDir;
+};
 
 // Configure storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/temp/');
+    cb(null, getUploadDir());
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

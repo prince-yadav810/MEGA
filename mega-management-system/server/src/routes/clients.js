@@ -6,30 +6,22 @@ const clientController = require('../controllers/clientController');
 const paymentReminderController = require('../controllers/paymentReminderController');
 const { uploadBusinessCard } = require('../config/multer');
 const { ocrRateLimiter, addRateLimitHeaders } = require('../middleware/ocrRateLimiter');
+const { protect } = require('../middleware/auth');
 
-// Mock authentication middleware for development
-// TODO: Replace with actual auth middleware in production
-const mockAuth = (req, res, next) => {
-  req.user = {
-    id: '507f1f77bcf86cd799439011', // Mock user ID
-    name: 'Manager User',
-    email: 'admin@mega.com',
-    role: 'manager'
-  };
-  next();
-};
+// Use proper JWT authentication
+const auth = protect;
 
 // Client routes
 router.route('/')
-  .get(mockAuth, clientController.getAllClients)
-  .post(mockAuth, clientController.createClient);
+  .get(auth, clientController.getAllClients)
+  .post(auth, clientController.createClient);
 
-router.get('/stats', mockAuth, clientController.getClientStats);
+router.get('/stats', auth, clientController.getClientStats);
 
 // Business card OCR route
 router.post(
   '/extract-from-card',
-  mockAuth,
+  auth,
   ocrRateLimiter,
   addRateLimitHeaders,
   uploadBusinessCard.fields([
@@ -39,26 +31,26 @@ router.post(
   clientController.extractFromCard
 );
 
-router.patch('/:id/call-frequency', mockAuth, clientController.updateCallFrequency);
-router.patch('/:id/toggle-active', mockAuth, clientController.toggleClientActive);
+router.patch('/:id/call-frequency', auth, clientController.updateCallFrequency);
+router.patch('/:id/toggle-active', auth, clientController.toggleClientActive);
 
 router.route('/:id')
-  .get(mockAuth, clientController.getClientById)
-  .put(mockAuth, clientController.updateClient)
-  .delete(mockAuth, clientController.deleteClient);
+  .get(auth, clientController.getClientById)
+  .put(auth, clientController.updateClient)
+  .delete(auth, clientController.deleteClient);
 
 
 // Payment reminder routes
-router.get('/payment-reminders/all', mockAuth, paymentReminderController.getAllReminders);
-router.get('/payment-reminders/stats', mockAuth, paymentReminderController.getReminderStats);
+router.get('/payment-reminders/all', auth, paymentReminderController.getAllReminders);
+router.get('/payment-reminders/stats', auth, paymentReminderController.getReminderStats);
 
 router.route('/:clientId/payment-reminders')
-  .get(mockAuth, paymentReminderController.getClientReminders)
-  .post(mockAuth, paymentReminderController.createReminder);
+  .get(auth, paymentReminderController.getClientReminders)
+  .post(auth, paymentReminderController.createReminder);
 
-router.patch('/payment-reminders/:id/stop', mockAuth, paymentReminderController.stopReminder);
-router.patch('/payment-reminders/:id/resume', mockAuth, paymentReminderController.resumeReminder);
-router.post('/payment-reminders/:id/send', mockAuth, paymentReminderController.sendReminderManually);
-router.delete('/payment-reminders/:id', mockAuth, paymentReminderController.deleteReminder);
+router.patch('/payment-reminders/:id/stop', auth, paymentReminderController.stopReminder);
+router.patch('/payment-reminders/:id/resume', auth, paymentReminderController.resumeReminder);
+router.post('/payment-reminders/:id/send', auth, paymentReminderController.sendReminderManually);
+router.delete('/payment-reminders/:id', auth, paymentReminderController.deleteReminder);
 
 module.exports = router;
