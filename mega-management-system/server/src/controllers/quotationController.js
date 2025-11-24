@@ -305,10 +305,57 @@ exports.downloadPdf = async (req, res) => {
     // Local file handling (for backward compatibility)
     const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
 
+    // In production, if local file doesn't exist, regenerate and upload to Cloudinary
     if (!fs.existsSync(pdfPath)) {
+      // Check if we're in production and Cloudinary is configured
+      if (process.env.NODE_ENV === 'production' && isCloudinaryConfigured()) {
+        console.log('🔄 Regenerating PDF for quotation:', quotation._id);
+
+        try {
+          // Ensure temp directory exists
+          if (!fs.existsSync(UPLOADS_DIR)) {
+            fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+          }
+
+          // Generate new PDF
+          const pdfFileName = quotation.fileName || `quotation_${quotation.refNo}_${Date.now()}.pdf`;
+          const tempPdfPath = path.join(UPLOADS_DIR, pdfFileName);
+
+          await QuotationPdfService.generateQuotationPDF(quotation.toObject(), tempPdfPath);
+
+          // Upload to Cloudinary
+          const cloudinaryUrl = await uploadPdfToCloudinary(tempPdfPath, pdfFileName);
+
+          // Update quotation with new Cloudinary URL
+          quotation.pdfUrl = cloudinaryUrl;
+          await quotation.save();
+
+          // Clean up temp file
+          if (fs.existsSync(tempPdfPath)) {
+            fs.unlinkSync(tempPdfPath);
+          }
+
+          console.log('✅ PDF regenerated and uploaded to Cloudinary');
+
+          return res.json({
+            success: true,
+            isExternal: true,
+            downloadUrl: cloudinaryUrl,
+            fileName: quotation.fileName
+          });
+        } catch (regenError) {
+          console.error('Error regenerating PDF:', regenError);
+          return res.status(500).json({
+            success: false,
+            message: 'Error regenerating PDF. Please try again.',
+            error: regenError.message
+          });
+        }
+      }
+
       return res.status(404).json({
         success: false,
-        message: 'PDF file not found on server'
+        message: 'PDF file not found on server. Please regenerate the quotation.'
       });
     }
 
@@ -325,6 +372,104 @@ exports.downloadPdf = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error downloading PDF',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Preview/Get PDF URL (for viewing in browser)
+ * @route   GET /api/quotations/:id/preview
+ * @access  Private
+ */
+exports.previewPdf = async (req, res) => {
+  try {
+    const quotation = await Quotation.findById(req.params.id);
+
+    if (!quotation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Quotation not found'
+      });
+    }
+
+    if (!quotation.pdfUrl) {
+      return res.status(404).json({
+        success: false,
+        message: 'PDF not available for this quotation'
+      });
+    }
+
+    // If it's already a Cloudinary/external URL, return it directly
+    if (quotation.pdfUrl.includes('cloudinary') || quotation.pdfUrl.startsWith('http')) {
+      return res.json({
+        success: true,
+        pdfUrl: quotation.pdfUrl,
+        fileName: quotation.fileName
+      });
+    }
+
+    // Local path - check if file exists
+    const pdfPath = path.join(__dirname, '../../', quotation.pdfUrl);
+
+    if (fs.existsSync(pdfPath)) {
+      // In development, return local URL
+      return res.json({
+        success: true,
+        pdfUrl: quotation.pdfUrl,
+        fileName: quotation.fileName,
+        isLocal: true
+      });
+    }
+
+    // File doesn't exist - regenerate in production
+    if (process.env.NODE_ENV === 'production' && isCloudinaryConfigured()) {
+      console.log('🔄 Regenerating PDF for preview:', quotation._id);
+
+      try {
+        if (!fs.existsSync(UPLOADS_DIR)) {
+          fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+        }
+
+        const pdfFileName = quotation.fileName || `quotation_${quotation.refNo}_${Date.now()}.pdf`;
+        const tempPdfPath = path.join(UPLOADS_DIR, pdfFileName);
+
+        await QuotationPdfService.generateQuotationPDF(quotation.toObject(), tempPdfPath);
+        const cloudinaryUrl = await uploadPdfToCloudinary(tempPdfPath, pdfFileName);
+
+        quotation.pdfUrl = cloudinaryUrl;
+        await quotation.save();
+
+        if (fs.existsSync(tempPdfPath)) {
+          fs.unlinkSync(tempPdfPath);
+        }
+
+        return res.json({
+          success: true,
+          pdfUrl: cloudinaryUrl,
+          fileName: quotation.fileName,
+          regenerated: true
+        });
+      } catch (regenError) {
+        console.error('Error regenerating PDF for preview:', regenError);
+        return res.status(500).json({
+          success: false,
+          message: 'Error generating PDF preview',
+          error: regenError.message
+        });
+      }
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: 'PDF file not found. Please regenerate the quotation.'
+    });
+
+  } catch (error) {
+    console.error('Preview PDF error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting PDF preview',
       error: error.message
     });
   }
