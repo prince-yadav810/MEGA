@@ -59,19 +59,37 @@ const ClientCard = ({ client, onClick }) => {
             </div>
           </div>
         </div>
-        
-        {/* Status Badge */}
-        <span
-          className={`
-            px-2 py-1 text-xs font-medium rounded-full
-            ${client.isActive 
-              ? 'bg-success-100 text-success-700' 
-              : 'bg-gray-100 text-gray-600'
-            }
-          `}
-        >
-          {client.isActive ? 'Active' : 'Inactive'}
-        </span>
+
+        {/* Status Badges */}
+        <div className="flex flex-col items-end gap-2">
+          {/* Client Type Badge */}
+          <span
+            className={`
+              px-2 py-1 text-xs font-medium rounded-full
+              ${client.clientType === 'supplier'
+                ? 'bg-blue-100 text-blue-700'
+                : client.clientType === 'buyer'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-purple-100 text-purple-700'
+              }
+            `}
+          >
+            {client.clientType === 'supplier' ? 'Supplier' : client.clientType === 'buyer' ? 'Buyer' : 'Both'}
+          </span>
+
+          {/* Active/Inactive Badge */}
+          <span
+            className={`
+              px-2 py-1 text-xs font-medium rounded-full
+              ${client.isActive
+                ? 'bg-success-100 text-success-700'
+                : 'bg-gray-100 text-gray-600'
+              }
+            `}
+          >
+            {client.isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
       </div>
 
       {/* Call Frequency Info */}
@@ -133,6 +151,35 @@ const ClientCard = ({ client, onClick }) => {
               +{client.tags.length - 3} more
             </span>
           )}
+        </div>
+      )}
+
+      {/* Products */}
+      {client.products && client.products.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-500 mb-2">
+            {client.clientType === 'supplier' ? 'Supplies:' :
+             client.clientType === 'buyer' ? 'Purchases:' : 'Products:'}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {client.products.slice(0, 3).map((product, index) => (
+              <span
+                key={index}
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  client.clientType === 'supplier' ? 'bg-blue-50 text-blue-700' :
+                  client.clientType === 'buyer' ? 'bg-green-50 text-green-700' :
+                  'bg-purple-50 text-purple-700'
+                }`}
+              >
+                {product}
+              </span>
+            ))}
+            {client.products.length > 3 && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                +{client.products.length - 3} more
+              </span>
+            )}
+          </div>
         </div>
       )}
 

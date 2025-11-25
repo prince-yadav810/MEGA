@@ -10,6 +10,7 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
   const [formData, setFormData] = useState({
     companyName: '',
     businessType: '',
+    clientType: 'buyer',
     address: {
       street: '',
       city: '',
@@ -30,11 +31,13 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
     companyWebsite: '',
     notes: '',
     tags: [],
+    products: [],
     isActive: true
   });
 
   const [errors, setErrors] = useState({});
   const [tagInput, setTagInput] = useState('');
+  const [productInput, setProductInput] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -67,6 +70,7 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
     setFormData({
       companyName: '',
       businessType: '',
+      clientType: 'buyer',
       address: {
         street: '',
         city: '',
@@ -87,10 +91,12 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
       companyWebsite: '',
       notes: '',
       tags: [],
+      products: [],
       isActive: true
     });
     setErrors({});
     setTagInput('');
+    setProductInput('');
   };
 
   const handleChange = (e) => {
@@ -149,6 +155,31 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
     }
   };
 
+  const addProduct = () => {
+    const product = productInput.trim();
+    if (product && !formData.products.includes(product)) {
+      setFormData(prev => ({
+        ...prev,
+        products: [...prev.products, product]
+      }));
+      setProductInput('');
+    }
+  };
+
+  const removeProduct = (productToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      products: prev.products.filter(product => product !== productToRemove)
+    }));
+  };
+
+  const handleProductInputKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addProduct();
+    }
+  };
+
   const setPrimaryContact = (index) => {
     const updatedContacts = formData.contactPersons.map((contact, i) => ({
       ...contact,
@@ -198,6 +229,10 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
 
     if (!formData.companyName.trim()) {
       newErrors.companyName = 'Company name is required';
+    }
+
+    if (!formData.clientType || !['supplier', 'buyer', 'both'].includes(formData.clientType)) {
+      newErrors.clientType = 'Client type is required';
     }
 
     if (formData.contactPersons.length === 0) {
@@ -263,6 +298,51 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
               onChange={handleChange}
               placeholder="e.g., Manufacturing, Trading"
             />
+          </div>
+
+          {/* Client Type */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Client Type <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-6">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="clientType"
+                  value="buyer"
+                  checked={formData.clientType === 'buyer'}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <span className="ml-2 text-sm text-gray-700">Buyer</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="clientType"
+                  value="supplier"
+                  checked={formData.clientType === 'supplier'}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <span className="ml-2 text-sm text-gray-700">Supplier</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="clientType"
+                  value="both"
+                  checked={formData.clientType === 'both'}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <span className="ml-2 text-sm text-gray-700">Both</span>
+              </label>
+            </div>
+            {errors.clientType && (
+              <p className="mt-1 text-sm text-red-600">{errors.clientType}</p>
+            )}
           </div>
         </div>
 
@@ -477,6 +557,71 @@ const ClientForm = ({ isOpen, onClose, onSubmit, initialData = null, isLoading =
             )}
             <p className="text-xs text-gray-500">
               Tags help you categorize and filter clients easily
+            </p>
+          </div>
+        </div>
+
+        {/* Products Section */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            {formData.clientType === 'supplier' ? 'Products/Services Supplied' :
+             formData.clientType === 'buyer' ? 'Products/Services Purchased' :
+             'Products/Services'}
+          </h3>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder={
+                  formData.clientType === 'supplier' ? 'Add product you supply (e.g., Steel, Electronics)' :
+                  formData.clientType === 'buyer' ? 'Add product you buy (e.g., Raw Materials, Components)' :
+                  'Add product/service (e.g., Steel, Electronics)'
+                }
+                value={productInput}
+                onChange={(e) => setProductInput(e.target.value)}
+                onKeyPress={handleProductInputKeyPress}
+                containerClassName="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addProduct}
+                disabled={!productInput.trim()}
+              >
+                Add
+              </Button>
+            </div>
+
+            {formData.products.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.products.map((product, index) => (
+                  <span
+                    key={index}
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                      formData.clientType === 'supplier' ? 'bg-blue-100 text-blue-700' :
+                      formData.clientType === 'buyer' ? 'bg-green-100 text-green-700' :
+                      'bg-purple-100 text-purple-700'
+                    }`}
+                  >
+                    {product}
+                    <button
+                      type="button"
+                      onClick={() => removeProduct(product)}
+                      className={`ml-2 ${
+                        formData.clientType === 'supplier' ? 'text-blue-600 hover:text-blue-800' :
+                        formData.clientType === 'buyer' ? 'text-green-600 hover:text-green-800' :
+                        'text-purple-600 hover:text-purple-800'
+                      }`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">
+              {formData.clientType === 'supplier' ? 'List products or services you supply. This helps others find you when searching.' :
+               formData.clientType === 'buyer' ? 'List products or services you purchase. This helps suppliers find you.' :
+               'List products or services. This makes your business searchable.'}
             </p>
           </div>
         </div>

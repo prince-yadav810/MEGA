@@ -17,6 +17,7 @@ const ClientsList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive, due, overdue
+  const [clientTypeFilter, setClientTypeFilter] = useState('all'); // all, supplier, buyer, both
   const [selectedTags, setSelectedTags] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
 
@@ -31,7 +32,7 @@ const ClientsList = () => {
 
   useEffect(() => {
     filterClients();
-  }, [clients, searchTerm, filterStatus, selectedTags]);
+  }, [clients, searchTerm, filterStatus, clientTypeFilter, selectedTags]);
 
   useEffect(() => {
     // Extract all unique tags from clients
@@ -69,7 +70,8 @@ const ClientsList = () => {
         return (
           client.companyName.toLowerCase().includes(searchLower) ||
           client.businessType?.toLowerCase().includes(searchLower) ||
-          client.contactPersons?.some(contact => 
+          client.products?.some(product => product.toLowerCase().includes(searchLower)) ||
+          client.contactPersons?.some(contact =>
             contact.name.toLowerCase().includes(searchLower) ||
             contact.email?.toLowerCase().includes(searchLower)
           ) ||
@@ -103,6 +105,11 @@ const ClientsList = () => {
         nextCall.setHours(0,0,0,0);
         return nextCall < today;
       });
+    }
+
+    // Apply client type filter
+    if (clientTypeFilter !== 'all') {
+      filtered = filtered.filter(client => client.clientType === clientTypeFilter);
     }
 
     // Apply tag filter
@@ -203,7 +210,7 @@ const ClientsList = () => {
               <div className="flex-1">
                 <Input
                   leftIcon={Search}
-                  placeholder="Search by company name, business type, contact name, or tags..."
+                  placeholder="Search by company, products, business type, contact name, tags..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -220,6 +227,19 @@ const ClientsList = () => {
                   <option value="overdue">Calls Overdue</option>
                   <option value="active">Active Only</option>
                   <option value="inactive">Inactive Only</option>
+                </select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-gray-400" />
+                <select
+                  value={clientTypeFilter}
+                  onChange={(e) => setClientTypeFilter(e.target.value)}
+                  className="block w-full sm:w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="buyer">Buyers</option>
+                  <option value="supplier">Suppliers</option>
+                  <option value="both">Both</option>
                 </select>
               </div>
             </div>

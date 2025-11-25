@@ -15,22 +15,31 @@ const { logBusinessCardExtraction } = require('../utils/apiUsageTracker');
 // @access  Private
 exports.getAllClients = async (req, res) => {
   try {
-    const { search, isActive, page = 1, limit = 10, sortBy = '-createdAt' } = req.query;
-    
+    const { search, isActive, clientType, page = 1, limit = 10, sortBy = '-createdAt' } = req.query;
+
     const query = {};
-    
+
     // Search functionality
     if (search) {
       query.$or = [
         { companyName: { $regex: search, $options: 'i' } },
+        { businessType: { $regex: search, $options: 'i' } },
+        { products: { $regex: search, $options: 'i' } },
         { 'contactPersons.name': { $regex: search, $options: 'i' } },
-        { 'contactPersons.email': { $regex: search, $options: 'i' } }
+        { 'contactPersons.email': { $regex: search, $options: 'i' } },
+        { 'address.city': { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     // Filter by active status
     if (isActive !== undefined) {
       query.isActive = isActive === 'true';
+    }
+
+    // Filter by client type
+    if (clientType && ['supplier', 'buyer', 'both'].includes(clientType)) {
+      query.clientType = clientType;
     }
     
     const skip = (parseInt(page) - 1) * parseInt(limit);

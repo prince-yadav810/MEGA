@@ -47,6 +47,15 @@ const ClientSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  clientType: {
+    type: String,
+    required: [true, 'Client type is required'],
+    enum: {
+      values: ['supplier', 'buyer', 'both'],
+      message: '{VALUE} is not a valid client type'
+    },
+    default: 'buyer'
+  },
   address: {
     street: { type: String, default: '', trim: true },
     city: { type: String, default: '', trim: true },
@@ -66,6 +75,10 @@ const ClientSchema = new mongoose.Schema({
     trim: true
   },
   tags: [{
+    type: String,
+    trim: true
+  }],
+  products: [{
     type: String,
     trim: true
   }],
