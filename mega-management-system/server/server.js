@@ -86,8 +86,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Static uploads folder
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static uploads folder - only in development
+// In production (Cloud Run), files are served from Cloudinary
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+} else {
+  // In production, redirect /uploads to indicate files should be on Cloudinary
+  app.use('/uploads', (req, res) => {
+    console.warn(`⚠️  Attempted to access local upload: ${req.path}. Files should be stored in Cloudinary.`);
+    res.status(404).json({
+      error: 'File not found',
+      message: 'Local file storage is not available in production. Files should be stored in cloud storage (Cloudinary).'
+    });
+  });
+}
 
 // ⭐ YOUR ROUTES
 app.use('/api/notes', notesRoutes);

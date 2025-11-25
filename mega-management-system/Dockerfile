@@ -24,12 +24,13 @@ RUN npm run build
 # Stage 2: Production Server
 FROM node:20-alpine AS production
 
-# Install dependencies for sharp (image processing)
+# Install dependencies for sharp (image processing) and curl for healthcheck
 RUN apk add --no-cache \
     vips-dev \
     python3 \
     make \
     g++ \
+    curl \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /app
@@ -56,9 +57,9 @@ ENV PORT=8080
 # Cloud Run uses port 8080 by default
 EXPOSE 8080
 
-# Health check
+# Health check (Note: Cloud Run ignores this, uses its own probes)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
+    CMD curl -f http://localhost:8080/api/health || exit 1
 
 # Start the server
 CMD ["node", "server.js"]
