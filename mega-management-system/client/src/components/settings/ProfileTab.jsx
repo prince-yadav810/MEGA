@@ -67,7 +67,7 @@ const ProfileTab = () => {
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
-      const response = await authService.updateProfile(profileForm.name);
+      const response = await authService.updateProfile(profileForm.name, profileForm.email);
       if (response.success) {
         toast.success(response.message || 'Profile updated successfully!');
         setIsEditingProfile(false);
@@ -259,7 +259,7 @@ const ProfileTab = () => {
             </div>
           </div>
 
-          {/* Email Field (Read-only) */}
+          {/* Email Field */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
@@ -268,14 +268,14 @@ const ProfileTab = () => {
               <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
               <input
                 type="email"
+                name="email"
                 value={profileForm.email}
-                disabled
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                onChange={handleProfileChange}
+                disabled={!isEditingProfile}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                placeholder="Enter your email"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Email cannot be changed. Contact your administrator if needed.
-            </p>
           </div>
 
           {/* Account Info */}

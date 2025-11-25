@@ -1,27 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Mail, Volume2, Clock, Save, Loader2, AlertCircle } from 'lucide-react';
+import { Bell, Volume2, Clock, Save, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import toast from 'react-hot-toast';
 import userService from '../../services/userService';
 
 const NotificationsTab = () => {
   const [settings, setSettings] = useState({
-    emailNotifications: {
-      taskAssignments: true,
-      taskDueDate: true,
-      quotationUpdates: true
-    },
     inAppNotifications: {
       desktopNotifications: true,
       soundAlerts: false
     },
-    preferences: {
-      taskReminderHours: 24,
-      dailyDigest: false,
-      quietHoursEnabled: false,
-      quietHoursStart: '22:00',
-      quietHoursEnd: '08:00',
-      weekendNotifications: false
-    }
+    taskReminderHours: 24
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -45,6 +33,11 @@ const NotificationsTab = () => {
       setPermissionStatus(permission);
       if (permission === 'granted') {
         toast.success('Desktop notifications enabled!');
+        // Send a test notification
+        new Notification('Notifications Enabled', {
+          body: 'You will now receive desktop notifications.',
+          icon: '/favicon.ico'
+        });
       } else {
         toast.error('Desktop notification permission denied');
       }
@@ -59,43 +52,19 @@ const NotificationsTab = () => {
       if (response.success && response.data) {
         const prefs = response.data;
 
-        if (prefs.notifications) {
-          setSettings({
-            emailNotifications: {
-              taskAssignments: prefs.notifications.email?.taskAssignments ?? true,
-              taskDueDate: prefs.notifications.email?.taskDueDate ?? true,
-              quotationUpdates: prefs.notifications.email?.quotationUpdates ?? true
-            },
-            inAppNotifications: {
-              desktopNotifications: prefs.notifications.inApp?.desktopNotifications ?? true,
-              soundAlerts: prefs.notifications.inApp?.soundAlerts ?? false
-            },
-            preferences: {
-              taskReminderHours: prefs.notifications.schedule?.taskReminderHours ?? 24,
-              dailyDigest: prefs.notifications.schedule?.dailyDigest ?? false,
-              quietHoursEnabled: prefs.notifications.schedule?.quietHoursEnabled ?? false,
-              quietHoursStart: prefs.notifications.schedule?.quietHoursStart ?? '22:00',
-              quietHoursEnd: prefs.notifications.schedule?.quietHoursEnd ?? '08:00',
-              weekendNotifications: prefs.notifications.schedule?.weekendNotifications ?? false
-            }
-          });
-        }
+        setSettings({
+          inAppNotifications: {
+            desktopNotifications: prefs.notifications?.inApp?.desktopNotifications ?? true,
+            soundAlerts: prefs.notifications?.inApp?.soundAlerts ?? false
+          },
+          taskReminderHours: prefs.notifications?.schedule?.taskReminderHours ?? 24
+        });
       }
     } catch (error) {
       console.error('Failed to load notification preferences:', error);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleEmailToggle = (key) => {
-    setSettings(prev => ({
-      ...prev,
-      emailNotifications: {
-        ...prev.emailNotifications,
-        [key]: !prev.emailNotifications[key]
-      }
-    }));
   };
 
   const handleInAppToggle = (key) => {
@@ -108,13 +77,10 @@ const NotificationsTab = () => {
     }));
   };
 
-  const handlePreferenceChange = (key, value) => {
+  const handleReminderChange = (value) => {
     setSettings(prev => ({
       ...prev,
-      preferences: {
-        ...prev.preferences,
-        [key]: value
-      }
+      taskReminderHours: value
     }));
   };
 
@@ -123,9 +89,10 @@ const NotificationsTab = () => {
     try {
       const preferencesData = {
         notifications: {
-          email: settings.emailNotifications,
           inApp: settings.inAppNotifications,
-          schedule: settings.preferences
+          schedule: {
+            taskReminderHours: settings.taskReminderHours
+          }
         }
       };
 
@@ -144,14 +111,13 @@ const NotificationsTab = () => {
     }
   };
 
-  const ToggleSwitch = ({ enabled, onToggle, disabled = false }) => (
+  const ToggleSwitch = ({ enabled, onToggle }) => (
     <button
       type="button"
       onClick={onToggle}
-      disabled={disabled}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        disabled ? 'opacity-50 cursor-not-allowed' : ''
-      } ${enabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+        enabled ? 'bg-blue-600' : 'bg-gray-200'
+      }`}
     >
       <span
         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -183,64 +149,33 @@ const NotificationsTab = () => {
         </p>
       </div>
 
-      {/* Email Notifications */}
+      {/* Task Reminders */}
       <div>
         <div className="flex items-center mb-4">
-          <Mail className="h-5 w-5 text-blue-600 mr-2" />
+          <Inbox className="h-5 w-5 text-blue-600 mr-2" />
           <h3 className="text-lg font-semibold text-gray-900">
-            Email Notifications
+            Task Reminders
           </h3>
         </div>
-        <div className="space-y-3">
-          {[
-            {
-              key: 'taskAssignments',
-              label: 'Task Assignments',
-              description: 'Get notified when a task is assigned to you'
-            },
-            {
-              key: 'taskDueDate',
-              label: 'Task Due Date Reminders',
-              description: 'Reminders for upcoming and overdue tasks'
-            },
-            {
-              key: 'quotationUpdates',
-              label: 'Quotation Updates',
-              description: 'Updates on quotation status changes'
-            }
-          ].map(({ key, label, description }) => (
-            <div key={key} className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg">
-              <div>
-                <label className="text-sm font-medium text-gray-700">{label}</label>
-                <p className="text-xs text-gray-500 mt-0.5">{description}</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.emailNotifications[key]}
-                onToggle={() => handleEmailToggle(key)}
-              />
-            </div>
-          ))}
-        </div>
 
-        {/* Task Reminder Time */}
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Task Reminder Time
+            Reminder Time Before Due Date
           </label>
           <select
-            value={settings.preferences.taskReminderHours}
-            onChange={(e) => handlePreferenceChange('taskReminderHours', parseInt(e.target.value))}
+            value={settings.taskReminderHours}
+            onChange={(e) => handleReminderChange(parseInt(e.target.value))}
             className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
           >
-            <option value={1}>1 hour before due</option>
-            <option value={2}>2 hours before due</option>
-            <option value={4}>4 hours before due</option>
-            <option value={12}>12 hours before due</option>
-            <option value={24}>1 day before due</option>
-            <option value={48}>2 days before due</option>
+            <option value={1}>1 hour before</option>
+            <option value={2}>2 hours before</option>
+            <option value={4}>4 hours before</option>
+            <option value={12}>12 hours before</option>
+            <option value={24}>1 day before</option>
+            <option value={48}>2 days before</option>
           </select>
-          <p className="text-xs text-gray-500 mt-2">
-            Receive task reminders this long before the due date
+          <p className="text-xs text-gray-600 mt-2">
+            Task reminders will appear in your inbox notifications
           </p>
         </div>
       </div>
@@ -260,15 +195,24 @@ const NotificationsTab = () => {
             <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-yellow-800">
-                Desktop notifications are enabled but browser permission is {permissionStatus}.
+                Desktop notifications are enabled but browser permission is required.
               </p>
               <button
                 onClick={requestNotificationPermission}
-                className="mt-2 text-sm text-yellow-700 underline hover:no-underline"
+                className="mt-2 text-sm text-yellow-700 underline hover:no-underline font-medium"
               >
                 Click here to enable browser notifications
               </button>
             </div>
+          </div>
+        )}
+
+        {permissionStatus === 'granted' && settings.inAppNotifications.desktopNotifications && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+            <Bell className="h-5 w-5 text-green-600" />
+            <p className="text-sm text-green-800">
+              Desktop notifications are active
+            </p>
           </div>
         )}
 
@@ -279,7 +223,7 @@ const NotificationsTab = () => {
                 Desktop Notifications
               </label>
               <p className="text-xs text-gray-500 mt-0.5">
-                Show browser notifications for important updates
+                Show browser notifications for new tasks and updates
               </p>
             </div>
             <ToggleSwitch
@@ -303,95 +247,6 @@ const NotificationsTab = () => {
             <ToggleSwitch
               enabled={settings.inAppNotifications.soundAlerts}
               onToggle={() => handleInAppToggle('soundAlerts')}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Quiet Hours */}
-      <div className="pt-4 border-t border-gray-200">
-        <div className="flex items-center mb-4">
-          <Clock className="h-5 w-5 text-blue-600 mr-2" />
-          <h3 className="text-lg font-semibold text-gray-900">
-            Notification Schedule
-          </h3>
-        </div>
-
-        <div className="space-y-4">
-          {/* Daily Digest */}
-          <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg">
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Daily Summary Email
-              </label>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Receive a daily summary of all notifications instead of individual emails
-              </p>
-            </div>
-            <ToggleSwitch
-              enabled={settings.preferences.dailyDigest}
-              onToggle={() => handlePreferenceChange('dailyDigest', !settings.preferences.dailyDigest)}
-            />
-          </div>
-
-          {/* Quiet Hours Toggle */}
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Enable Quiet Hours
-                </label>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Pause non-urgent notifications during specified hours
-                </p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.preferences.quietHoursEnabled}
-                onToggle={() => handlePreferenceChange('quietHoursEnabled', !settings.preferences.quietHoursEnabled)}
-              />
-            </div>
-
-            {settings.preferences.quietHoursEnabled && (
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    value={settings.preferences.quietHoursStart}
-                    onChange={(e) => handlePreferenceChange('quietHoursStart', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    value={settings.preferences.quietHoursEnd}
-                    onChange={(e) => handlePreferenceChange('quietHoursEnd', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Weekend Notifications */}
-          <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg">
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Weekend Notifications
-              </label>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Receive notifications on Saturdays and Sundays
-              </p>
-            </div>
-            <ToggleSwitch
-              enabled={settings.preferences.weekendNotifications}
-              onToggle={() => handlePreferenceChange('weekendNotifications', !settings.preferences.weekendNotifications)}
             />
           </div>
         </div>

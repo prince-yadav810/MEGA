@@ -147,14 +147,14 @@ exports.logout = async (req, res) => {
 };
 
 /**
- * Update user profile (name only)
+ * Update user profile (name and email)
  * @route PUT /api/auth/profile
  */
 exports.updateProfile = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, email } = req.body;
 
-    // Validate input
+    // Validate name
     if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
@@ -162,7 +162,6 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    // Validate name length
     if (name.trim().length < 2) {
       return res.status(400).json({
         success: false,
@@ -177,7 +176,7 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    // Update user profile
+    // Find user
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -185,6 +184,29 @@ exports.updateProfile = async (req, res) => {
         success: false,
         message: 'User not found'
       });
+    }
+
+    // Check if email is being changed and validate
+    if (email && email.toLowerCase() !== user.email) {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address'
+        });
+      }
+
+      // Check if new email already exists
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use by another account'
+        });
+      }
+
+      user.email = email.toLowerCase();
     }
 
     user.name = name.trim();
