@@ -184,6 +184,16 @@ export const regenerateQuotationPdf = async (id) => {
   }
 };
 
+// Get PDF preview URL (auto-regenerates if needed)
+export const getPreviewUrl = async (id) => {
+  try {
+    const response = await api.get(`/quotations/${id}/preview`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 const quotationService = {
   getQuotations,
   getQuotationsByClient,
@@ -198,7 +208,8 @@ const quotationService = {
   updatePriority,
   createLinkedTask,
   updateAdvertisementProducts,
-  regenerateQuotationPdf
+  regenerateQuotationPdf,
+  getPreviewUrl
 };
 
 export default quotationService;

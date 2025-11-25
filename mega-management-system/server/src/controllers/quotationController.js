@@ -52,10 +52,27 @@ const deletePdfFromCloudinary = async (pdfUrl) => {
 
 // Check if Cloudinary is configured
 const isCloudinaryConfigured = () => {
-  return process.env.CLOUDINARY_CLOUD_NAME &&
-         process.env.CLOUDINARY_API_KEY &&
-         process.env.CLOUDINARY_API_SECRET &&
-         process.env.CLOUDINARY_CLOUD_NAME !== 'your-cloudinary-cloud-name';
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  const isConfigured = cloudName &&
+         apiKey &&
+         apiSecret &&
+         cloudName !== 'your-cloudinary-cloud-name' &&
+         cloudName !== 'your_cloud_name';
+
+  // Debug logging
+  if (!isConfigured) {
+    console.log('⚠️  Cloudinary NOT configured:', {
+      hasCloudName: !!cloudName,
+      hasApiKey: !!apiKey,
+      hasApiSecret: !!apiSecret,
+      cloudNameValue: cloudName ? cloudName.substring(0, 5) + '...' : 'undefined'
+    });
+  }
+
+  return isConfigured;
 };
 
 /**
@@ -188,17 +205,28 @@ exports.uploadExcel = async (req, res) => {
     await QuotationPdfService.generateQuotationPDF(extractedData, pdfFilePath);
     console.log('✅ PDF generated successfully:', pdfFileName);
 
-    // Step 3.5: Upload PDF to Cloudinary in production
+    // Step 3.5: Upload PDF to Cloudinary
     let pdfUrl = `/uploads/quotations/${pdfFileName}`;
-    if (isCloudinaryConfigured()) {
-      console.log('☁️  Uploading PDF to Cloudinary...');
-      pdfUrl = await uploadPdfToCloudinary(pdfFilePath, pdfFileName);
-      console.log('✅ PDF uploaded to Cloudinary');
+    const cloudinaryConfigured = isCloudinaryConfigured();
+    console.log('☁️  Cloudinary configured:', cloudinaryConfigured);
 
-      // Delete local temp file after upload
-      if (fs.existsSync(pdfFilePath)) {
-        fs.unlinkSync(pdfFilePath);
+    if (cloudinaryConfigured) {
+      try {
+        console.log('☁️  Uploading PDF to Cloudinary...');
+        pdfUrl = await uploadPdfToCloudinary(pdfFilePath, pdfFileName);
+        console.log('✅ PDF uploaded to Cloudinary:', pdfUrl);
+
+        // Delete local temp file after upload
+        if (fs.existsSync(pdfFilePath)) {
+          fs.unlinkSync(pdfFilePath);
+        }
+      } catch (uploadError) {
+        console.error('❌ Cloudinary upload failed:', uploadError.message);
+        // Keep local path as fallback
+        console.log('⚠️  Using local path as fallback:', pdfUrl);
       }
+    } else {
+      console.log('⚠️  Cloudinary not configured - using local storage:', pdfUrl);
     }
 
     // Step 4: Save quotation to database
