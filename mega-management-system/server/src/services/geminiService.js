@@ -11,10 +11,10 @@ class GeminiService {
   constructor() {
     // Initialize Gemini API client
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Using models/gemini-2.5-flash (free tier, fast, good for text parsing)
-    // Note: Model names must include the "models/" prefix
+    // Using gemini-2.5-flash (current 2025 model, fast, good for text parsing)
+    // Note: The library adds the "models/" prefix automatically
     this.model = this.genAI.getGenerativeModel({
-      model: 'models/gemini-2.5-flash'
+      model: 'gemini-2.5-flash'
     });
   }
 

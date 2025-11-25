@@ -69,7 +69,14 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ⭐ YOUR express-fileupload middleware
-app.use(
+// Exclude business card route (uses multer instead)
+app.use((req, res, next) => {
+  // Skip express-fileupload for business card route (uses multer)
+  if (req.path === '/api/clients/extract-from-card') {
+    return next();
+  }
+
+  // Apply express-fileupload to all other routes
   fileUpload({
     useTempFiles: true,
     tempFileDir: '/tmp/',
@@ -77,8 +84,8 @@ app.use(
     abortOnLimit: true,
     responseOnLimit: 'File size limit exceeded',
     createParentPath: true
-  })
-);
+  })(req, res, next);
+});
 
 // Attach socket.io to req
 app.use((req, res, next) => {
