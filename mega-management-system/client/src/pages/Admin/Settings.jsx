@@ -6,19 +6,15 @@ import {
   Palette,
   Settings as SettingsIcon,
   LogOut,
-  Building2,
   Clock,
   FileText,
-  Wallet,
   Shield
 } from 'lucide-react';
 import ProfileTab from '../../components/settings/ProfileTab';
 import NotificationsTab from '../../components/settings/NotificationsTab';
 import AppearanceTab from '../../components/settings/AppearanceTab';
-import CompanySettingsTab from '../../components/settings/CompanySettingsTab';
 import AttendanceSettingsTab from '../../components/settings/AttendanceSettingsTab';
 import QuotationSettingsTab from '../../components/settings/QuotationSettingsTab';
-import PayrollSettingsTab from '../../components/settings/PayrollSettingsTab';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -65,13 +61,6 @@ const Settings = () => {
   // Admin settings - only for admins
   const adminTabs = [
     {
-      id: 'company',
-      name: 'Company',
-      icon: Building2,
-      description: 'Company information & branding',
-      adminOnly: true
-    },
-    {
       id: 'attendance',
       name: 'Attendance',
       icon: Clock,
@@ -82,14 +71,7 @@ const Settings = () => {
       id: 'quotation',
       name: 'Quotation',
       icon: FileText,
-      description: 'Quote numbering & defaults',
-      adminOnly: true
-    },
-    {
-      id: 'payroll',
-      name: 'Payroll',
-      icon: Wallet,
-      description: 'Salary & deduction settings',
+      description: 'Bank details & terms',
       adminOnly: true
     }
   ];
@@ -105,14 +87,10 @@ const Settings = () => {
         return <NotificationsTab />;
       case 'appearance':
         return <AppearanceTab />;
-      case 'company':
-        return isAdmin ? <CompanySettingsTab /> : null;
       case 'attendance':
         return isAdmin ? <AttendanceSettingsTab /> : null;
       case 'quotation':
         return isAdmin ? <QuotationSettingsTab /> : null;
-      case 'payroll':
-        return isAdmin ? <PayrollSettingsTab /> : null;
       default:
         return <ProfileTab />;
     }

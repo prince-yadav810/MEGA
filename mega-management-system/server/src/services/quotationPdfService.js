@@ -300,10 +300,17 @@ class QuotationPdfService {
 
   /**
    * Find logo in various possible locations
+   * Supports both local development and Cloud Run (Docker) environments
    */
   static findLogo() {
     const possiblePaths = [
-      // Priority: MEGA Enterprise logo in uploads directory
+      // Production (Docker/Cloud Run) paths
+      // Dockerfile: WORKDIR /app, COPY server/ ./ → files are at /app/
+      '/app/uploads/mega-logo.png',
+      '/app/uploads/logo.png',
+      '/app/client/build/logo512.png',
+      '/app/client/build/logo192.png',
+      // Local development paths
       path.join(__dirname, '../../uploads/mega-logo.png'),
       path.join(__dirname, '../../uploads/logo.png'),
       path.join(__dirname, '../../../client/public/mega-logo.png'),
@@ -312,11 +319,18 @@ class QuotationPdfService {
     ];
 
     for (const logoPath of possiblePaths) {
-      if (fs.existsSync(logoPath)) {
-        return logoPath;
+      try {
+        if (fs.existsSync(logoPath)) {
+          return logoPath;
+        }
+      } catch (err) {
+        // Skip paths that cause errors (permission issues, etc.)
+        continue;
       }
     }
 
+    // No logo found - PDF will render without logo (graceful fallback)
+    console.warn('Logo not found in any expected location. PDF will render without logo.');
     return null;
   }
 

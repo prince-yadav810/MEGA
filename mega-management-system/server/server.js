@@ -69,7 +69,14 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ⭐ YOUR express-fileupload middleware
-app.use(
+// Exclude business card route (uses multer instead)
+app.use((req, res, next) => {
+  // Skip express-fileupload for business card route (uses multer)
+  if (req.path === '/api/clients/extract-from-card') {
+    return next();
+  }
+
+  // Apply express-fileupload to all other routes
   fileUpload({
     useTempFiles: true,
     tempFileDir: '/tmp/',
@@ -77,8 +84,8 @@ app.use(
     abortOnLimit: true,
     responseOnLimit: 'File size limit exceeded',
     createParentPath: true
-  })
-);
+  })(req, res, next);
+});
 
 // Attach socket.io to req
 app.use((req, res, next) => {
@@ -86,8 +93,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Static uploads folder
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static uploads folder - only in development
+// In production (Cloud Run), files are served from Cloudinary
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+} else {
+  // In production, redirect /uploads to indicate files should be on Cloudinary
+  app.use('/uploads', (req, res) => {
+    console.warn(`⚠️  Attempted to access local upload: ${req.path}. Files should be stored in Cloudinary.`);
+    res.status(404).json({
+      error: 'File not found',
+      message: 'Local file storage is not available in production. Files should be stored in cloud storage (Cloudinary).'
+    });
+  });
+}
 
 // ⭐ YOUR ROUTES
 app.use('/api/notes', notesRoutes);
@@ -113,6 +132,32 @@ app.get('/api/health', (req, res) => {
     message: 'MEGA Management Server is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Configuration check endpoint (for debugging)
+app.get('/api/config-check', (req, res) => {
+  const cloudinaryConfigured = !!(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name'
+  );
+
+  res.json({
+    status: 'OK',
+    config: {
+      nodeEnv: process.env.NODE_ENV || 'development',
+      cloudinaryConfigured: cloudinaryConfigured,
+      cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME ?
+        process.env.CLOUDINARY_CLOUD_NAME.substring(0, 5) + '...' : 'NOT SET',
+      geminiConfigured: !!process.env.GEMINI_API_KEY,
+      visionConfigured: !!process.env.GOOGLE_VISION_API_KEY,
+      mongodbConfigured: !!process.env.MONGODB_URI,
+      clientUrl: process.env.CLIENT_URL || 'NOT SET',
+      jwtConfigured: !!process.env.JWT_SECRET
+    },
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -185,4 +230,17 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+
+  // Log configuration status for debugging
+  console.log('📋 Configuration Status:');
+  console.log('  - NODE_ENV:', process.env.NODE_ENV || 'development');
+  console.log('  - Cloudinary configured:', !!(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name'
+  ));
+  console.log('  - Gemini API configured:', !!process.env.GEMINI_API_KEY);
+  console.log('  - Vision API configured:', !!process.env.GOOGLE_VISION_API_KEY);
+  console.log('  - MongoDB URI set:', !!process.env.MONGODB_URI);
 });

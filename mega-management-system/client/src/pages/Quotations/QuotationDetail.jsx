@@ -31,7 +31,8 @@ import {
   createLinkedTask,
   deleteQuotation,
   updateAdvertisementProducts,
-  regenerateQuotationPdf
+  regenerateQuotationPdf,
+  getPreviewUrl
 } from '../../services/quotationService';
 import userService from '../../services/userService';
 import toast from 'react-hot-toast';
@@ -92,6 +93,33 @@ const QuotationDetail = () => {
     fetchQuotation();
     fetchUsers();
   }, [id]);
+
+  // Auto-regenerate PDF if it's a local path (for production compatibility)
+  useEffect(() => {
+    const autoRegeneratePdf = async () => {
+      if (quotation && quotation.pdfUrl && !quotation.pdfUrl.startsWith('http')) {
+        console.log('Detected local PDF path, auto-regenerating...');
+        setRegeneratingPdf(true);
+        try {
+          const response = await getPreviewUrl(quotation._id);
+          if (response.success && response.pdfUrl) {
+            setQuotation(prev => ({ ...prev, pdfUrl: response.pdfUrl }));
+            setPdfTimestamp(Date.now());
+            if (response.regenerated) {
+              toast.success('PDF regenerated and uploaded to cloud');
+            }
+          }
+        } catch (error) {
+          console.error('Auto-regenerate failed:', error);
+          // Don't show error toast - user can manually regenerate
+        } finally {
+          setRegeneratingPdf(false);
+        }
+      }
+    };
+
+    autoRegeneratePdf();
+  }, [quotation?._id, quotation?.pdfUrl]);
 
   /**
    * Fetch quotation details
@@ -740,7 +768,17 @@ const QuotationDetail = () => {
               )}
             </div>
             <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: '800px' }}>
-              {quotation.pdfUrl && quotation.pdfUrl.startsWith('http') ? (
+              {regeneratingPdf ? (
+                <div className="flex items-center justify-center h-full bg-blue-50">
+                  <div className="text-center p-6">
+                    <Loader2 className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
+                    <p className="text-gray-800 font-medium text-lg">Regenerating PDF...</p>
+                    <p className="text-sm text-gray-600 mt-2 max-w-md">
+                      Uploading to cloud storage. This may take a moment.
+                    </p>
+                  </div>
+                </div>
+              ) : quotation.pdfUrl && quotation.pdfUrl.startsWith('http') ? (
                 <iframe
                   src={`${quotation.pdfUrl}?t=${pdfTimestamp}`}
                   title="Quotation PDF"
