@@ -135,6 +135,32 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Configuration check endpoint (for debugging)
+app.get('/api/config-check', (req, res) => {
+  const cloudinaryConfigured = !!(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name'
+  );
+
+  res.json({
+    status: 'OK',
+    config: {
+      nodeEnv: process.env.NODE_ENV || 'development',
+      cloudinaryConfigured: cloudinaryConfigured,
+      cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME ?
+        process.env.CLOUDINARY_CLOUD_NAME.substring(0, 5) + '...' : 'NOT SET',
+      geminiConfigured: !!process.env.GEMINI_API_KEY,
+      visionConfigured: !!process.env.GOOGLE_VISION_API_KEY,
+      mongodbConfigured: !!process.env.MONGODB_URI,
+      clientUrl: process.env.CLIENT_URL || 'NOT SET',
+      jwtConfigured: !!process.env.JWT_SECRET
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Cloud Scheduler endpoint for payment reminders
 // This replaces the internal cron job when running on Cloud Run
 app.post('/api/scheduler/trigger', async (req, res) => {
@@ -204,4 +230,17 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+
+  // Log configuration status for debugging
+  console.log('📋 Configuration Status:');
+  console.log('  - NODE_ENV:', process.env.NODE_ENV || 'development');
+  console.log('  - Cloudinary configured:', !!(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name'
+  ));
+  console.log('  - Gemini API configured:', !!process.env.GEMINI_API_KEY);
+  console.log('  - Vision API configured:', !!process.env.GOOGLE_VISION_API_KEY);
+  console.log('  - MongoDB URI set:', !!process.env.MONGODB_URI);
 });

@@ -5,6 +5,7 @@ const {
   getQuotation,
   uploadExcel,
   downloadPdf,
+  previewPdf,
   updateFileName,
   updateStatus,
   updatePriority,
@@ -30,6 +31,9 @@ router.route('/:id')
 
 // Download PDF
 router.get('/:id/download', protect, downloadPdf);
+
+// Preview PDF (get PDF URL for viewing)
+router.get('/:id/preview', protect, previewPdf);
 
 // Update filename
 router.patch('/:id/filename', protect, updateFileName);
