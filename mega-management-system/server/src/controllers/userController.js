@@ -460,7 +460,7 @@ exports.getUserPreferences = async (req, res) => {
  */
 exports.updateUserPreferences = async (req, res) => {
   try {
-    const { appearance, notifications } = req.body;
+    const { appearance, notifications, work } = req.body;
 
     const user = await User.findById(req.user.userId);
 
@@ -475,7 +475,8 @@ exports.updateUserPreferences = async (req, res) => {
     if (!user.preferences) {
       user.preferences = {
         appearance: {},
-        notifications: {}
+        notifications: {},
+        work: {}
       };
     }
 
@@ -519,6 +520,17 @@ exports.updateUserPreferences = async (req, res) => {
           ...notifications.schedule
         };
       }
+    }
+
+    // Update work preferences if provided
+    if (work) {
+      if (!user.preferences.work) {
+        user.preferences.work = {};
+      }
+      user.preferences.work = {
+        ...user.preferences.work,
+        ...work
+      };
     }
 
     // Mark the preferences field as modified (required for nested objects in Mongoose)

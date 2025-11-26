@@ -11,10 +11,10 @@ class GeminiService {
   constructor() {
     // Initialize Gemini API client
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Using models/gemini-2.5-flash (free tier, fast, good for text parsing)
-    // Note: Model names must include the "models/" prefix
+    // Using gemini-2.5-flash (current 2025 model, fast, good for text parsing)
+    // Note: The library adds the "models/" prefix automatically
     this.model = this.genAI.getGenerativeModel({
-      model: 'models/gemini-2.5-flash'
+      model: 'gemini-2.5-flash'
     });
   }
 
@@ -34,7 +34,12 @@ RULES:
 5. Parse address into: street, city, state, pincode separately
 6. If multiple people mentioned, include in contactPersons array
 7. Mark most prominent person as isPrimary: true
-8. If field uncertain, mark confidence as low
+8. Detect client type based on keywords:
+   - SUPPLIER indicators: "Manufacturer", "Supplier", "Wholesaler", "Distributor", "Factory", "Producer", "Vendor"
+   - BUYER indicators: "Retailer", "Dealer", "Shop", "Store", "Purchaser", "Client"
+   - If unclear or could be both, use "both"
+9. Extract products/services/items mentioned (as array): Look for specific products, materials, services offered/needed
+10. If field uncertain, mark confidence as low
 
 Business Card Text:
 ---
@@ -45,6 +50,7 @@ Return JSON in EXACT format:
 {
   "companyName": "string",
   "businessType": "string or empty",
+  "clientType": "supplier or buyer or both",
   "address": {
     "street": "string",
     "city": "string",
@@ -53,6 +59,7 @@ Return JSON in EXACT format:
     "country": "India"
   },
   "companyWebsite": "string or empty",
+  "products": ["array of products/services/items mentioned"],
   "contactPersons": [
     {
       "name": "string",
@@ -66,6 +73,8 @@ Return JSON in EXACT format:
   "notes": "any additional info (GST, certifications, etc)",
   "confidence": {
     "companyName": "high/medium/low",
+    "clientType": "high/medium/low",
+    "products": "high/medium/low",
     "address": "high/medium/low",
     "contactPersons": "high/medium/low"
   }
@@ -228,6 +237,7 @@ Return ONLY the JSON object, nothing else.`;
     const cleanData = {
       companyName: data.companyName || '',
       businessType: data.businessType || '',
+      clientType: this.normalizeClientType(data.clientType),
       address: {
         street: data.address?.street || '',
         city: data.address?.city || '',
@@ -236,6 +246,7 @@ Return ONLY the JSON object, nothing else.`;
         country: data.address?.country || 'India'
       },
       companyWebsite: data.companyWebsite || '',
+      products: Array.isArray(data.products) ? data.products.filter(p => p && p.trim()) : [],
       contactPersons: [],
       notes: data.notes || ''
     };
@@ -273,6 +284,8 @@ Return ONLY the JSON object, nothing else.`;
     // Extract confidence scores
     const confidence = {
       companyName: this.normalizeConfidence(data.confidence?.companyName),
+      clientType: this.normalizeConfidence(data.confidence?.clientType),
+      products: this.normalizeConfidence(data.confidence?.products),
       address: this.normalizeConfidence(data.confidence?.address),
       contactPersons: this.normalizeConfidence(data.confidence?.contactPersons)
     };
@@ -328,6 +341,23 @@ Return ONLY the JSON object, nothing else.`;
     }
 
     return 'low';
+  }
+
+  /**
+   * Normalizes client type to supplier/buyer/both
+   * @param {string} clientType - Raw client type value
+   * @returns {string} Normalized client type
+   */
+  normalizeClientType(clientType) {
+    if (!clientType) return 'both';
+
+    const normalized = clientType.toLowerCase().trim();
+    if (['supplier', 'buyer', 'both'].includes(normalized)) {
+      return normalized;
+    }
+
+    // Default to 'both' if unrecognized
+    return 'both';
   }
 
   /**

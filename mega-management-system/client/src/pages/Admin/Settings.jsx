@@ -1,16 +1,30 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Bell, Palette, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import {
+  User,
+  Bell,
+  Palette,
+  Settings as SettingsIcon,
+  LogOut,
+  Clock,
+  FileText,
+  Shield
+} from 'lucide-react';
 import ProfileTab from '../../components/settings/ProfileTab';
 import NotificationsTab from '../../components/settings/NotificationsTab';
 import AppearanceTab from '../../components/settings/AppearanceTab';
+import AttendanceSettingsTab from '../../components/settings/AttendanceSettingsTab';
+import QuotationSettingsTab from '../../components/settings/QuotationSettingsTab';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  const isAdmin = user?.role === 'admin';
+  const isManager = user?.role === 'manager' || user?.role === 'admin';
 
   const handleLogout = async () => {
     try {
@@ -22,23 +36,48 @@ const Settings = () => {
     }
   };
 
-  const tabs = [
+  // Personal settings - available to all users
+  const personalTabs = [
     {
       id: 'profile',
       name: 'Profile',
-      icon: User
+      icon: User,
+      description: 'Manage your profile information'
     },
     {
       id: 'notifications',
       name: 'Notifications',
-      icon: Bell
+      icon: Bell,
+      description: 'Configure notification preferences'
     },
     {
       id: 'appearance',
       name: 'Appearance',
-      icon: Palette
+      icon: Palette,
+      description: 'Customize display settings'
     }
   ];
+
+  // Admin settings - only for admins
+  const adminTabs = [
+    {
+      id: 'attendance',
+      name: 'Attendance',
+      icon: Clock,
+      description: 'Office hours & attendance rules',
+      adminOnly: true
+    },
+    {
+      id: 'quotation',
+      name: 'Quotation',
+      icon: FileText,
+      description: 'Bank details & terms',
+      adminOnly: true
+    }
+  ];
+
+  // Combine tabs based on role
+  const allTabs = isAdmin ? [...personalTabs, ...adminTabs] : personalTabs;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -48,6 +87,10 @@ const Settings = () => {
         return <NotificationsTab />;
       case 'appearance':
         return <AppearanceTab />;
+      case 'attendance':
+        return isAdmin ? <AttendanceSettingsTab /> : null;
+      case 'quotation':
+        return isAdmin ? <QuotationSettingsTab /> : null;
       default:
         return <ProfileTab />;
     }
@@ -67,56 +110,94 @@ const Settings = () => {
           </p>
         </div>
 
-        {/* Tabs Navigation - Top */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
+        {/* Main Content with Sidebar */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar Navigation */}
+          <div className="lg:w-64 flex-shrink-0">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              {/* Personal Settings Section */}
+              <div className="p-3 bg-gray-50 border-b border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Personal Settings
+                </h3>
+              </div>
+              <nav className="p-2">
+                {personalTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
 
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`
-                      flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200
-                      ${isActive
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }
-                    `}
-                  >
-                    <Icon className="h-5 w-5 mr-2" />
-                    {tab.name}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`w-full flex items-center px-3 py-2.5 rounded-lg mb-1 text-left transition-all duration-200 ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 mr-3 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <div>
+                        <div className="font-medium text-sm">{tab.name}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </nav>
 
-        {/* Content Area */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {renderTabContent()}
-        </div>
+              {/* Admin Settings Section */}
+              {isAdmin && (
+                <>
+                  <div className="p-3 bg-gray-50 border-t border-b border-gray-200">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Admin Settings
+                    </h3>
+                  </div>
+                  <nav className="p-2">
+                    {adminTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
 
-        {/* Account Section with Logout */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Account</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Sign out of your account
-              </p>
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`w-full flex items-center px-3 py-2.5 rounded-lg mb-1 text-left transition-all duration-200 ${
+                            isActive
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <Icon className={`h-5 w-5 mr-3 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <div>
+                            <div className="font-medium text-sm">{tab.name}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </>
+              )}
+
+              {/* Logout Button */}
+              <div className="p-2 border-t border-gray-200">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="h-5 w-5 mr-3" />
+                  <span className="font-medium text-sm">Logout</span>
+                </button>
+              </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center px-4 py-2 border border-red-300 rounded-lg text-red-600 bg-white hover:bg-red-50 transition-colors font-medium"
-            >
-              <LogOut className="h-5 w-5 mr-2" />
-              Logout
-            </button>
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              {renderTabContent()}
+            </div>
           </div>
         </div>
       </div>

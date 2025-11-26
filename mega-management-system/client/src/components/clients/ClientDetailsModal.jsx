@@ -190,6 +190,27 @@ const ClientDetailsModal = ({
                   </div>
                 )}
 
+                {/* Client Type */}
+                <div className="flex items-start space-x-3">
+                  <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Client Type</p>
+                    <span
+                      className={`
+                        inline-block px-3 py-1 text-sm font-medium rounded-full
+                        ${client.clientType === 'supplier'
+                          ? 'bg-blue-100 text-blue-700'
+                          : client.clientType === 'buyer'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-purple-100 text-purple-700'
+                        }
+                      `}
+                    >
+                      {client.clientType === 'supplier' ? 'Supplier' : client.clientType === 'buyer' ? 'Buyer' : 'Both'}
+                    </span>
+                  </div>
+                </div>
+
                 {client.companyWebsite && (
                   <div className="flex items-start space-x-3">
                     <Globe className="h-5 w-5 text-gray-400 mt-0.5" />
@@ -258,6 +279,30 @@ const ClientDetailsModal = ({
                       className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-700"
                     >
                       {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {client.products && client.products.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-sm font-medium text-gray-500 mb-3">
+                  {client.clientType === 'supplier' ? 'Products/Services Supplied' :
+                   client.clientType === 'buyer' ? 'Products/Services Purchased' :
+                   'Products/Services'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {client.products.map((product, index) => (
+                    <span
+                      key={index}
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        client.clientType === 'supplier' ? 'bg-blue-100 text-blue-700' :
+                        client.clientType === 'buyer' ? 'bg-green-100 text-green-700' :
+                        'bg-purple-100 text-purple-700'
+                      }`}
+                    >
+                      {product}
                     </span>
                   ))}
                 </div>
