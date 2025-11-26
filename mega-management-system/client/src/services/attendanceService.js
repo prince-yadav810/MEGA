@@ -152,6 +152,17 @@ const attendanceService = {
     }
   },
 
+  // Get recent attendance with location data (last 7 days)
+  getRecentAttendanceWithLocation: async (userId) => {
+    try {
+      const response = await api.get(`/attendance/recent/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get recent attendance with location error:', error);
+      throw error.response?.data || error;
+    }
+  },
+
   // Helper function to get user's current location
   getCurrentLocation: () => {
     return new Promise((resolve, reject) => {

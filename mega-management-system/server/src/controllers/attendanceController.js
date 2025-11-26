@@ -497,12 +497,18 @@ exports.getUserAttendanceSummary = async (req, res) => {
     const totalDaysInMonth = moment(`${targetYear}-${targetMonth}-01`).daysInMonth();
     const today = moment().startOf('day');
 
-    // Calculate working days (excluding Sundays and future dates)
+    // Calculate working days (excluding Sundays unless they have attendance)
     let workingDays = 0;
     let pastAndCurrentWorkingDays = 0;
     for (let i = 1; i <= totalDaysInMonth; i++) {
       const date = moment(`${targetYear}-${targetMonth}-${i}`);
-      if (date.day() !== 0) { // 0 is Sunday
+      const dateString = date.format('YYYY-MM-DD');
+
+      // Check if this date has attendance record
+      const hasAttendance = attendance.find(a => moment(a.date).format('YYYY-MM-DD') === dateString);
+
+      // Count as working day if: NOT Sunday OR has attendance on Sunday
+      if (date.day() !== 0 || hasAttendance) {
         workingDays++;
         // Only count past and current dates for statistics
         if (date.isSameOrBefore(today, 'day')) {
@@ -565,14 +571,16 @@ exports.getUserAttendanceSummary = async (req, res) => {
       let status = 'absent';
       if (isFutureDate) {
         status = 'unmarked';
-      } else if (isSunday) {
-        status = 'holiday';
       } else if (dayAttendance) {
+        // Check attendance data first (even on Sundays)
         if (dayAttendance.checkOutTime) {
           status = 'present';
         } else if (dayAttendance.checkInTime) {
           status = 'half-day';
         }
+      } else if (isSunday) {
+        // Only mark as holiday if no attendance exists
+        status = 'holiday';
       }
 
       calendarData.push({
@@ -687,12 +695,18 @@ exports.getMyAttendanceSummary = async (req, res) => {
     const totalDaysInMonth = moment(`${targetYear}-${targetMonth}-01`).daysInMonth();
     const today = moment().startOf('day');
 
-    // Calculate working days (excluding Sundays and future dates)
+    // Calculate working days (excluding Sundays unless they have attendance)
     let workingDays = 0;
     let pastAndCurrentWorkingDays = 0;
     for (let i = 1; i <= totalDaysInMonth; i++) {
       const date = moment(`${targetYear}-${targetMonth}-${i}`);
-      if (date.day() !== 0) { // 0 is Sunday
+      const dateString = date.format('YYYY-MM-DD');
+
+      // Check if this date has attendance record
+      const hasAttendance = attendance.find(a => moment(a.date).format('YYYY-MM-DD') === dateString);
+
+      // Count as working day if: NOT Sunday OR has attendance on Sunday
+      if (date.day() !== 0 || hasAttendance) {
         workingDays++;
         // Only count past and current dates for statistics
         if (date.isSameOrBefore(today, 'day')) {
@@ -755,14 +769,16 @@ exports.getMyAttendanceSummary = async (req, res) => {
       let status = 'absent';
       if (isFutureDate) {
         status = 'unmarked';
-      } else if (isSunday) {
-        status = 'holiday';
       } else if (dayAttendance) {
+        // Check attendance data first (even on Sundays)
         if (dayAttendance.checkOutTime) {
           status = 'present';
         } else if (dayAttendance.checkInTime) {
           status = 'half-day';
         }
+      } else if (isSunday) {
+        // Only mark as holiday if no attendance exists
+        status = 'holiday';
       }
 
       calendarData.push({
@@ -963,6 +979,78 @@ exports.updateAttendanceManually = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error updating attendance',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get recent attendance with location data (last 7 days)
+ * GET /api/attendance/recent/:userId
+ * Access: Employee (own data) or Admin (any user)
+ */
+exports.getRecentAttendanceWithLocation = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const requestingUser = req.user;
+
+    // Permission check: employees can only see their own data, admins can see anyone's
+    if (requestingUser.role !== 'admin' && requestingUser.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only view your own attendance records.'
+      });
+    }
+
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Calculate 7 days ago from today
+    const sevenDaysAgo = moment().subtract(7, 'days').startOf('day').toDate();
+    const today = moment().endOf('day').toDate();
+
+    // Fetch recent attendance records with location data
+    const attendanceRecords = await Attendance.find({
+      user: userId,
+      date: {
+        $gte: sevenDaysAgo,
+        $lte: today
+      }
+    })
+    .sort({ date: -1 })
+    .populate('user', 'name email avatar')
+    .lean();
+
+    // Format response data
+    const formattedData = attendanceRecords.map(record => ({
+      _id: record._id,
+      date: record.date,
+      status: record.status,
+      checkInTime: record.checkInTime || null,
+      checkOutTime: record.checkOutTime || null,
+      workDuration: record.workDuration || 0,
+      location: record.location || null,
+      checkOutLocation: record.checkOutLocation || null,
+      notes: record.notes || '',
+      hasLocationData: !!(record.location || record.checkOutLocation || record.checkInTime || record.checkOutTime)
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedData,
+      count: formattedData.length
+    });
+  } catch (error) {
+    console.error('Error fetching recent attendance with location:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching recent attendance',
       error: error.message
     });
   }
