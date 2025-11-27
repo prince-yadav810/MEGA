@@ -7,7 +7,22 @@ const cloudinary = require('../config/cloudinary');
 
 exports.getAllReminders = async (req, res) => {
   try {
-    const reminders = await Reminder.find({ isActive: true }).sort({ reminderDate: 1 });
+    const userId = req.user?.id;
+
+    // Filter reminders based on visibility:
+    // - Show public reminders to everyone
+    // - Show private reminders only to their creator
+    // - Show legacy reminders (no visibility set) to everyone
+    const reminders = await Reminder.find({
+      isActive: true,
+      $or: [
+        { visibility: 'public' },
+        { createdBy: userId },
+        { visibility: { $exists: false } },
+        { visibility: null }
+      ]
+    }).sort({ reminderDate: 1 });
+
     res.json({ success: true, data: reminders });
   } catch (error) {
     console.error('Error fetching reminders:', error);

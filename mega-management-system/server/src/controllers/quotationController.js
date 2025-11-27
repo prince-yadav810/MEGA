@@ -21,15 +21,45 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 // Helper: Upload PDF to Cloudinary
 const uploadPdfToCloudinary = async (filePath, fileName) => {
   try {
+    // Log upload attempt
+    console.log('📤 Uploading PDF to Cloudinary:', {
+      fileName,
+      fileExists: fs.existsSync(filePath),
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME?.substring(0, 5) + '...',
+      apiKeyPresent: !!process.env.CLOUDINARY_API_KEY,
+      apiKeyPrefix: process.env.CLOUDINARY_API_KEY?.substring(0, 4) + '...'
+    });
+
     const result = await cloudinary.uploader.upload(filePath, {
       resource_type: 'raw',
+      type: 'upload',           // Explicitly set as public upload
       folder: 'quotations',
       public_id: fileName.replace('.pdf', ''),
-      format: 'pdf'
+      format: 'pdf',
+      access_mode: 'public',    // Ensure public access
+      invalidate: true          // Clear CDN cache if re-uploading
     });
+
+    console.log('✅ PDF uploaded successfully:', {
+      fileName,
+      url: result.secure_url,
+      size: result.bytes,
+      access_mode: result.access_mode,
+      type: result.type
+    });
+
     return result.secure_url;
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    console.error('❌ Cloudinary upload error:', {
+      fileName,
+      message: error.message,
+      httpCode: error.http_code,
+      errorName: error.name,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKeyLength: process.env.CLOUDINARY_API_KEY?.length,
+      apiKeyValue: process.env.CLOUDINARY_API_KEY,
+      fullError: JSON.stringify(error, null, 2)
+    });
     throw new Error('Failed to upload PDF to cloud storage');
   }
 };

@@ -94,6 +94,11 @@ const reminderSchema = new mongoose.Schema({
     type: String,
     default: 'Team Member'
   },
+  visibility: {
+    type: String,
+    enum: ['private', 'public'],
+    default: 'private'
+  },
   lastTriggered: {
     type: Date
   },

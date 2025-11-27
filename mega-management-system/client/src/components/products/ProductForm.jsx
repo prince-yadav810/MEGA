@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Plus, Trash2 } from 'lucide-react';
+import { X, Upload, Plus, Trash2, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import productService from '../../services/productService';
+import ImageUploadPreview from '../clients/ImageUploadPreview';
 
 const CATEGORIES = [
   'Hoses - Canvas',
@@ -37,6 +38,8 @@ export default function ProductForm({ product, onClose, onSuccess }) {
   const [newSpecKey, setNewSpecKey] = useState('');
   const [newSpecValue, setNewSpecValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [newImageFiles, setNewImageFiles] = useState([]); // For file uploads
+  const [showImageUpload, setShowImageUpload] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -94,14 +97,13 @@ export default function ProductForm({ product, onClose, onSuccess }) {
     }));
   };
 
-  const handleAddImageUrl = () => {
-    const url = prompt('Enter image URL:');
-    if (url) {
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, { url, isPrimary: prev.images.length === 0 }]
-      }));
-    }
+  const handleImageFileSelect = (file) => {
+    setNewImageFiles(prev => [...prev, file]);
+    setShowImageUpload(false);
+  };
+
+  const handleRemoveNewImage = (index) => {
+    setNewImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleRemoveImage = (index) => {
@@ -147,17 +149,62 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         return;
       }
 
-      const submitData = {
-        ...formData
-      };
-
       let response;
-      if (isEditMode) {
-        response = await productService.updateProduct(product._id, submitData);
-        toast.success('Product updated successfully!');
+
+      // If there are new image files, use FormData for multipart upload
+      if (newImageFiles.length > 0) {
+        const formDataToSend = new FormData();
+
+        // Append all form fields
+        formDataToSend.append('name', formData.name);
+        formDataToSend.append('description', formData.description);
+        formDataToSend.append('category', formData.category);
+        if (formData.customCategory) {
+          formDataToSend.append('customCategory', formData.customCategory);
+        }
+        if (formData.costPrice) {
+          formDataToSend.append('costPrice', formData.costPrice);
+        }
+        if (formData.sellPrice) {
+          formDataToSend.append('sellPrice', formData.sellPrice);
+        }
+        formDataToSend.append('currency', formData.currency);
+        formDataToSend.append('status', formData.status);
+
+        // Append stock data
+        formDataToSend.append('stock[quantity]', formData.stock.quantity);
+        formDataToSend.append('stock[unit]', formData.stock.unit);
+        formDataToSend.append('stock[lowStockThreshold]', formData.stock.lowStockThreshold);
+
+        // Append specifications
+        formDataToSend.append('specifications', JSON.stringify(formData.specifications));
+
+        // Append image files
+        newImageFiles.forEach((file) => {
+          formDataToSend.append('images', file);
+        });
+
+        // Call the appropriate service method
+        if (isEditMode) {
+          response = await productService.updateProductWithImages(product._id, formDataToSend);
+          toast.success('Product updated successfully!');
+        } else {
+          response = await productService.createProductWithImages(formDataToSend);
+          toast.success('Product created successfully!');
+        }
       } else {
-        response = await productService.createProduct(submitData);
-        toast.success('Product created successfully!');
+        // No new images, use regular JSON update
+        const submitData = {
+          ...formData
+        };
+
+        if (isEditMode) {
+          response = await productService.updateProduct(product._id, submitData);
+          toast.success('Product updated successfully!');
+        } else {
+          response = await productService.createProduct(submitData);
+          toast.success('Product created successfully!');
+        }
       }
 
       onSuccess(response.data);
@@ -340,55 +387,108 @@ export default function ProductForm({ product, onClose, onSuccess }) {
             <div>
               <h3 className="text-lg font-semibold mb-4">Product Images</h3>
 
-              {/* Existing Images */}
+              {/* Existing Images (from database) */}
               {formData.images.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  {formData.images.map((img, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={img.url}
-                        alt={`Product ${index + 1}`}
-                        className={`w-full h-32 object-cover rounded-lg ${img.isPrimary ? 'ring-4 ring-blue-500' : ''}`}
-                      />
-                      <div className="absolute top-2 right-2 flex gap-1">
-                        {!img.isPrimary && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Existing Images:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    {formData.images.map((img, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={img.url}
+                          alt={`Product ${index + 1}`}
+                          className={`w-full h-32 object-cover rounded-lg ${img.isPrimary ? 'ring-4 ring-blue-500' : ''}`}
+                        />
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          {!img.isPrimary && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetPrimaryImage(index)}
+                              className="p-1 bg-white rounded text-xs text-blue-600 hover:bg-blue-50"
+                            >
+                              Set Primary
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => handleSetPrimaryImage(index)}
-                            className="p-1 bg-white rounded text-xs text-blue-600 hover:bg-blue-50"
+                            onClick={() => handleRemoveImage(index)}
+                            className="p-1 bg-white rounded text-red-600 hover:bg-red-50"
                           >
-                            Set Primary
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(index)}
-                          className="p-1 bg-white rounded text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      {img.isPrimary && (
-                        <div className="absolute bottom-2 left-2">
-                          <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded">Primary</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {img.isPrimary && (
+                          <div className="absolute bottom-2 left-2">
+                            <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded">Primary</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Add Image Button */}
-              <button
-                type="button"
-                onClick={handleAddImageUrl}
-                className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 text-gray-600"
-              >
-                <Upload className="w-5 h-5" />
-                Add Image URL
-              </button>
+              {/* New Images to Upload */}
+              {newImageFiles.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">New Images to Upload:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    {newImageFiles.map((file, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`New ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg ring-2 ring-green-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNewImage(index)}
+                          className="absolute top-2 right-2 p-1 bg-white rounded text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-2 left-2">
+                          <span className="px-2 py-1 bg-green-500 text-white text-xs rounded">New</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Image Component */}
+              {showImageUpload ? (
+                <div className="mb-4">
+                  <ImageUploadPreview
+                    label="Add Product Image"
+                    required={false}
+                    image={null}
+                    onImageSelect={handleImageFileSelect}
+                    onImageRemove={() => setShowImageUpload(false)}
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    maxSize={10}
+                    helpText="Upload product images (JPG, PNG, or WebP format)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowImageUpload(false)}
+                    className="mt-2 text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowImageUpload(true)}
+                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 text-gray-600"
+                >
+                  <Upload className="w-5 h-5" />
+                  Upload Product Image
+                </button>
+              )}
               <p className="text-xs text-gray-500 mt-2">
-                Note: For production, image file upload will be implemented with Cloudinary
+                Images will be uploaded to Cloudinary. You can upload multiple images.
               </p>
             </div>
           </div>
