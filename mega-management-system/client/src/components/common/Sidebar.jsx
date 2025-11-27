@@ -224,11 +224,19 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
         {/* User Info */}
         {!collapsed && user && (
           <div className="flex items-center space-x-3 p-2 rounded-lg bg-gray-50">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-bold">
-                {user.name?.charAt(0).toUpperCase() || 'U'}
-              </span>
-            </div>
+            {user.profileImage?.url ? (
+              <img
+                src={user.profileImage.url}
+                alt={user.name}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-xs font-bold">
+                  {user.name?.charAt(0).toUpperCase() || 'U'}
+                </span>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>

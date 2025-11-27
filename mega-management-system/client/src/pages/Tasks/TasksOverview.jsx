@@ -734,10 +734,20 @@ const TasksOverview = ({ onViewChange }) => {
                             {task.assignees.slice(0, 3).map((assignee, index) => (
                               <div
                                 key={assignee._id || assignee.id || index}
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium border-2 border-white"
+                                className="w-8 h-8 rounded-full border-2 border-white"
                                 title={assignee.name || 'Assignee'}
                               >
-                                {assignee.avatar || assignee.name?.substring(0, 2).toUpperCase() || '??'}
+                                {assignee.profileImage?.url ? (
+                                  <img
+                                    src={assignee.profileImage.url}
+                                    alt={assignee.name}
+                                    className="w-full h-full rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium rounded-full">
+                                    {assignee.name?.substring(0, 2).toUpperCase() || '??'}
+                                  </div>
+                                )}
                               </div>
                             ))}
                             {task.assignees.length > 3 && (
@@ -932,9 +942,17 @@ const TasksOverview = ({ onViewChange }) => {
                               : 'border-gray-300 hover:border-gray-400 text-gray-700'
                           }`}
                         >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium">
-                            {member.avatar || member.name?.substring(0, 2).toUpperCase()}
-                          </div>
+                          {member.profileImage?.url ? (
+                            <img
+                              src={member.profileImage.url}
+                              alt={member.name}
+                              className="w-6 h-6 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium">
+                              {member.name?.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
                           <span className="text-sm font-medium">{member.name}</span>
                         </button>
                       );
