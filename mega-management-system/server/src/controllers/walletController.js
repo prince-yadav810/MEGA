@@ -46,17 +46,22 @@ exports.addCredit = async (req, res) => {
     // Get admin details for notification
     const admin = await User.findById(adminId).select('name');
 
-    // Notify employee
+    // Notify employee (non-blocking - don't fail if notification fails)
     if (req.io) {
-      await createNotification({
-        userId: employee._id,
-        type: 'success',
-        category: 'payment',
-        title: 'Money Added to Wallet',
-        message: `${admin.name} added ₹${amount.toFixed(2)} to your wallet. Current balance: ₹${employee.walletBalance.toFixed(2)}`,
-        entityType: 'wallet',
-        entityId: transaction._id
-      }, req.io);
+      try {
+        await createNotification({
+          userId: employee._id,
+          type: 'success',
+          category: 'payment',
+          title: 'Money Added to Wallet',
+          message: `${admin.name} added ₹${amount.toFixed(2)} to your wallet. Current balance: ₹${employee.walletBalance.toFixed(2)}`,
+          entityType: 'wallet',
+          entityId: transaction._id
+        }, req.io);
+      } catch (notificationError) {
+        console.error('Notification error (non-blocking):', notificationError);
+        // Continue - notification failure shouldn't fail the entire operation
+      }
     }
 
     res.status(200).json({
@@ -105,7 +110,8 @@ exports.addDebit = async (req, res) => {
     }
 
     // Ensure employee can only update their own wallet
-    if (userId !== employeeId) {
+    // Convert both to strings for comparison (userId is string, employeeId might be ObjectId)
+    if (userId.toString() !== employeeId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You can only update your own wallet'
@@ -141,18 +147,23 @@ exports.addDebit = async (req, res) => {
       isActive: true
     }).select('_id');
 
-    // Notify all admins/managers
+    // Notify all admins/managers (non-blocking - don't fail if notification fails)
     if (req.io && admins.length > 0) {
-      for (const admin of admins) {
-        await createNotification({
-          userId: admin._id,
-          type: 'info',
-          category: 'payment',
-          title: 'Employee Expense Recorded',
-          message: `${employee.name} spent ₹${amount.toFixed(2)}. Note: ${description}. Remaining balance: ₹${employee.walletBalance.toFixed(2)}`,
-          entityType: 'wallet',
-          entityId: transaction._id
-        }, req.io);
+      try {
+        for (const admin of admins) {
+          await createNotification({
+            userId: admin._id,
+            type: 'info',
+            category: 'payment',
+            title: 'Employee Expense Recorded',
+            message: `${employee.name} spent ₹${amount.toFixed(2)}. Note: ${description}. Remaining balance: ₹${employee.walletBalance.toFixed(2)}`,
+            entityType: 'wallet',
+            entityId: transaction._id
+          }, req.io);
+        }
+      } catch (notificationError) {
+        console.error('Notification error (non-blocking):', notificationError);
+        // Continue - notification failure shouldn't fail the entire operation
       }
     }
 
@@ -186,7 +197,8 @@ exports.getWallet = async (req, res) => {
     const requesterRole = req.user.role;
 
     // Employee can only view their own wallet, admin/manager can view any
-    if (requesterRole === 'employee' && userId !== requesterId) {
+    // Convert both to strings for comparison (userId is string, requesterId might be ObjectId)
+    if (requesterRole === 'employee' && userId.toString() !== requesterId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You can only view your own wallet'
@@ -234,7 +246,8 @@ exports.getTransactions = async (req, res) => {
     const { page = 1, limit = 50, type } = req.query;
 
     // Employee can only view their own transactions, admin/manager can view any
-    if (requesterRole === 'employee' && userId !== requesterId) {
+    // Convert both to strings for comparison (userId is string, requesterId might be ObjectId)
+    if (requesterRole === 'employee' && userId.toString() !== requesterId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You can only view your own transactions'

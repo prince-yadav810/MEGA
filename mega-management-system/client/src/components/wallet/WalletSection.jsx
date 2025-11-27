@@ -90,13 +90,13 @@ export default function WalletSection({ userId, employeeName }) {
       </div>
 
       {/* Wallet Balance Card */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white mb-6">
-        <div className="text-sm opacity-90 mb-2">Current Balance</div>
-        <div className="text-4xl font-bold">
+      <div className="border-2 border-gray-200 rounded-lg p-6 mb-6 bg-white">
+        <div className="text-sm text-gray-600 mb-2">Current Balance</div>
+        <div className={`text-4xl font-bold ${walletData?.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
           ₹{walletData?.balance?.toFixed(2) || '0.00'}
         </div>
         {walletData?.balance < 0 && (
-          <div className="mt-2 text-sm bg-red-500/30 px-3 py-1 rounded inline-block">
+          <div className="mt-3 text-sm bg-red-50 text-red-700 px-3 py-2 rounded border border-red-200 inline-block">
             Negative Balance
           </div>
         )}
@@ -111,7 +111,7 @@ export default function WalletSection({ userId, employeeName }) {
         ) : transactions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">No transactions yet</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
             {transactions.map((transaction) => (
               <div
                 key={transaction._id}

@@ -655,17 +655,20 @@ const NotesReminders = () => {
           >
             Reminders
           </button>
-          <button
-            onClick={() => setActiveTab('wallet')}
-            className={`pb-2 px-1 font-medium transition-colors flex items-center gap-2 ${
-              activeTab === 'wallet'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Wallet className="w-4 h-4" />
-            My Wallet
-          </button>
+          {/* Only show wallet tab for employees */}
+          {user?.role === 'employee' && (
+            <button
+              onClick={() => setActiveTab('wallet')}
+              className={`pb-2 px-1 font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'wallet'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Wallet className="w-4 h-4" />
+              My Wallet
+            </button>
+          )}
         </div>
       </div>
 
@@ -891,8 +894,8 @@ const NotesReminders = () => {
         </div>
         )}
 
-        {/* Wallet Section */}
-        {activeTab === 'wallet' && (
+        {/* Wallet Section - Only for employees */}
+        {activeTab === 'wallet' && user?.role === 'employee' && (
           <EmployeeWalletSection />
         )}
       </div>
