@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { generateToken } = require('../config/jwt');
+const cloudinary = require('../config/cloudinary');
 
 /**
  * Login user with email and password
@@ -65,6 +66,7 @@ exports.login = async (req, res) => {
           email: user.email,
           role: user.role,
           avatar: user.avatar,
+          profileImage: user.profileImage,
           isActive: user.isActive
         }
       }
@@ -105,6 +107,7 @@ exports.getCurrentUser = async (req, res) => {
           email: user.email,
           role: user.role,
           avatar: user.avatar,
+          profileImage: user.profileImage,
           isActive: user.isActive,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt
@@ -313,11 +316,13 @@ exports.changePassword = async (req, res) => {
 };
 
 /**
- * Upload user avatar
+ * Upload user avatar to Cloudinary
  * @route POST /api/auth/upload-avatar
  */
 exports.uploadAvatar = async (req, res) => {
   try {
+    console.log('📸 Avatar upload request received');
+
     // Check if file was uploaded
     if (!req.files || !req.files.avatar) {
       return res.status(400).json({
@@ -327,6 +332,7 @@ exports.uploadAvatar = async (req, res) => {
     }
 
     const avatarFile = req.files.avatar;
+    console.log(`📂 File received: ${avatarFile.name} (${avatarFile.size} bytes, ${avatarFile.mimetype})`);
 
     // Validate file type
     const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -337,12 +343,12 @@ exports.uploadAvatar = async (req, res) => {
       });
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
     if (avatarFile.size > maxSize) {
       return res.status(400).json({
         success: false,
-        message: 'File size too large. Maximum size is 5MB'
+        message: 'File size too large. Maximum size is 10MB'
       });
     }
 
@@ -356,25 +362,65 @@ exports.uploadAvatar = async (req, res) => {
       });
     }
 
-    // Convert image to base64 for simple storage
-    // In production, you'd want to use a service like Cloudinary or AWS S3
-    const base64Image = avatarFile.data.toString('base64');
-    const avatarDataUrl = `data:${avatarFile.mimetype};base64,${base64Image}`;
+    console.log(`👤 Uploading avatar for user: ${user.name} (${user.email})`);
 
-    // Update user avatar
-    user.avatar = avatarDataUrl;
+    // Delete old profile image from Cloudinary if exists
+    if (user.profileImage && user.profileImage.publicId) {
+      try {
+        console.log(`🗑️  Deleting old avatar: ${user.profileImage.publicId}`);
+        await cloudinary.uploader.destroy(user.profileImage.publicId);
+        console.log('✅ Old avatar deleted successfully');
+      } catch (deleteError) {
+        console.error('⚠️  Error deleting old avatar:', deleteError.message);
+        // Continue with upload even if deletion fails
+      }
+    }
+
+    // Upload to Cloudinary
+    console.log('☁️  Uploading to Cloudinary...');
+    const result = await cloudinary.uploader.upload(avatarFile.tempFilePath, {
+      folder: 'mega/avatars',
+      public_id: `user_${user._id}_${Date.now()}`,
+      resource_type: 'image',
+      type: 'upload',
+      access_mode: 'public',
+      transformation: [
+        { width: 500, height: 500, crop: 'fill', gravity: 'face' },
+        { quality: 'auto', fetch_format: 'auto' }
+      ]
+    });
+
+    console.log('✅ Cloudinary upload successful!');
+    console.log(`   URL: ${result.secure_url}`);
+    console.log(`   Public ID: ${result.public_id}`);
+
+    // Update user profile image
+    user.profileImage = {
+      url: result.secure_url,
+      publicId: result.public_id
+    };
+
+    // Also update avatar field for backward compatibility
+    user.avatar = result.secure_url;
+
     await user.save();
+
+    console.log('💾 User profile updated successfully');
 
     res.status(200).json({
       success: true,
       message: 'Avatar uploaded successfully',
       data: {
-        avatar: avatarDataUrl
+        avatar: result.secure_url,
+        profileImage: {
+          url: result.secure_url,
+          publicId: result.public_id
+        }
       }
     });
 
   } catch (error) {
-    console.error('Upload avatar error:', error);
+    console.error('❌ Upload avatar error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to upload avatar',
