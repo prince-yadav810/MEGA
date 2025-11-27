@@ -1,11 +1,12 @@
 # ============================================
 # Google Cloud Build Configuration
-# Builds and deploys to Cloud Run
+# Auto-deploys to Cloud Run when pushing to 'qa' branch
 # ============================================
 
 steps:
   # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
+    dir: 'mega-management-system'
     args:
       - 'build'
       - '-t'
@@ -13,7 +14,7 @@ steps:
       - '-t'
       - 'gcr.io/$PROJECT_ID/mega-management:latest'
       - '.'
-    timeout: '1200s'  # 20 minutes for build (Sharp takes time)
+    timeout: '1200s'
 
   # Step 2: Push image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -26,7 +27,7 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/mega-management:latest'
 
-  # Step 3: Deploy to Cloud Run
+  # Step 3: Deploy to Cloud Run with environment variables
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -36,7 +37,7 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/mega-management:$COMMIT_SHA'
       - '--region'
-      - 'asia-south1'  # Mumbai region (closest to India)
+      - 'asia-south1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -55,7 +56,7 @@ steps:
       - '--port'
       - '8080'
       - '--set-env-vars'
-      - 'NODE_ENV=production'
+      - 'NODE_ENV=production,DISABLE_CRON=true,JWT_EXPIRE=7d'
       # IMPORTANT: Set these secrets in Google Cloud Secret Manager first, then uncomment:
       # gcloud secrets create MONGODB_URI --data-file=-
       # gcloud secrets create JWT_SECRET --data-file=-
@@ -81,4 +82,5 @@ timeout: '1800s'
 # Build options
 options:
   logging: CLOUD_LOGGING_ONLY
-  machineType: 'E2_HIGHCPU_8'  # Faster builds
+  machineType: 'E2_HIGHCPU_8'
+# Deployment trigger

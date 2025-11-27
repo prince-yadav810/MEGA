@@ -183,7 +183,7 @@ const Login = () => {
                   </p>
                   <div className="bg-white rounded p-2 font-mono text-xs">
                     <div className="text-gray-600">Email: <span className="text-purple-900 font-semibold">admin@mega.com</span></div>
-                    <div className="text-gray-600">Password: <span className="text-purple-900 font-semibold">Admin@123</span></div>
+                    <div className="text-gray-600">Password: <span className="text-purple-900 font-semibold">ChangeThisPassword123!</span></div>
                   </div>
                 </div>
 

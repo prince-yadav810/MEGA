@@ -2,18 +2,14 @@
 // REPLACE entire file with this
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Pin, Edit2, Trash2, X, Calendar, Clock, Repeat, Bell, Copy, Check, ChevronDown, ChevronUp, Upload, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Paperclip, ChevronRight, AlertCircle, Wallet } from 'lucide-react';
+import { Plus, Pin, Edit2, Trash2, X, Calendar, Clock, Repeat, Bell, Copy, Check, ChevronDown, ChevronUp, Upload, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Paperclip, ChevronRight, AlertCircle, Globe, Lock } from 'lucide-react';
 import noteService from '../../services/noteService';
 import reminderService from '../../services/reminderService';
 import { useNotifications } from '../../context/NotificationContext';
-import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { formatNaturalDate, formatDateTime, formatTime, getSmartDefaults, formatRepeatPattern } from '../../utils/formatters';
-import EmployeeWalletSection from '../../components/wallet/EmployeeWalletSection';
 
 const NotesReminders = () => {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('notes');
   const [notes, setNotes] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +22,7 @@ const NotesReminders = () => {
   const { addNotification } = useNotifications();
 
   // Note form state
-  const [noteForm, setNoteForm] = useState({ heading: '', content: '' });
+  const [noteForm, setNoteForm] = useState({ heading: '', content: '', visibility: 'private' });
   
   // File management state (separate section)
   const [files, setFiles] = useState([]);
@@ -53,7 +49,8 @@ const NotesReminders = () => {
     monthlyWeekDay: 1,
     alertTimes: [],
     startDate: '',
-    endDate: ''
+    endDate: '',
+    visibility: 'private'
   });
 
   const [newAlertTime, setNewAlertTime] = useState('');
@@ -309,7 +306,7 @@ const NotesReminders = () => {
       const response = await noteService.createNote(noteForm, null);
       if (response.success) {
         setNotes([response.data, ...notes]);
-        setNoteForm({ heading: '', content: '' });
+        setNoteForm({ heading: '', content: '', visibility: 'private' });
         setShowNoteModal(false);
         toast.success('Note created successfully');
       }
@@ -328,7 +325,7 @@ const NotesReminders = () => {
       const response = await noteService.updateNote(editingNote._id, noteForm, null);
       if (response.success) {
         setNotes(notes.map(n => n._id === editingNote._id ? response.data : n));
-        setNoteForm({ heading: '', content: '' });
+        setNoteForm({ heading: '', content: '', visibility: 'private' });
         setEditingNote(null);
         setShowNoteModal(false);
         toast.success('Note updated successfully');
@@ -534,7 +531,8 @@ const NotesReminders = () => {
       monthlyWeekDay: 1,
       alertTimes: [],
       startDate: '',
-      endDate: ''
+      endDate: '',
+      visibility: 'private'
     });
     setNewAlertTime('');
     setShowAdvancedOptions(false);
@@ -544,10 +542,10 @@ const NotesReminders = () => {
   const openNoteModal = (note = null) => {
     if (note) {
       setEditingNote(note);
-      setNoteForm({ heading: note.heading, content: note.content });
+      setNoteForm({ heading: note.heading, content: note.content, visibility: note.visibility || 'private' });
     } else {
       setEditingNote(null);
-      setNoteForm({ heading: '', content: '' });
+      setNoteForm({ heading: '', content: '', visibility: 'private' });
     }
     setShowNoteModal(true);
   };
@@ -572,7 +570,8 @@ const NotesReminders = () => {
         monthlyWeekDay: reminder.monthlyWeekDay || 1,
         alertTimes: reminder.alertTimes || [],
         startDate: reminder.startDate ? new Date(reminder.startDate).toISOString().split('T')[0] : (reminder.reminderDate ? new Date(reminder.reminderDate).toISOString().split('T')[0] : ''),
-        endDate: reminder.endDate ? new Date(reminder.endDate).toISOString().split('T')[0] : ''
+        endDate: reminder.endDate ? new Date(reminder.endDate).toISOString().split('T')[0] : '',
+        visibility: reminder.visibility || 'private'
       });
     } else {
       setEditingReminder(null);
@@ -632,49 +631,10 @@ const NotesReminders = () => {
             <p className="text-gray-600 mt-1">Keep track of important information and set reminders</p>
           </div>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-4 mt-4 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('notes')}
-            className={`pb-2 px-1 font-medium transition-colors ${
-              activeTab === 'notes'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Notes
-          </button>
-          <button
-            onClick={() => setActiveTab('reminders')}
-            className={`pb-2 px-1 font-medium transition-colors ${
-              activeTab === 'reminders'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Reminders
-          </button>
-          {/* Only show wallet tab for employees */}
-          {user?.role === 'employee' && (
-            <button
-              onClick={() => setActiveTab('wallet')}
-              className={`pb-2 px-1 font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'wallet'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Wallet className="w-4 h-4" />
-              My Wallet
-            </button>
-          )}
-        </div>
       </div>
 
-      <div className="p-4 lg:p-6">
+      <div className="p-4 lg:p-6 space-y-8">
         {/* Notes Section */}
-        {activeTab === 'notes' && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Notes</h2>
@@ -702,10 +662,21 @@ const NotesReminders = () => {
                     minHeight: '200px'
                   }}
                 >
-                  {/* Pin icon */}
-                  {note.isPinned && (
-                    <Pin className="absolute top-2 right-2 h-5 w-5 text-gray-700 fill-current" />
-                  )}
+                  {/* Pin and Visibility icons */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    {note.visibility === 'public' ? (
+                      <span className="p-1 bg-white/60 rounded" title="Visible to everyone">
+                        <Globe className="h-4 w-4 text-green-600" />
+                      </span>
+                    ) : (
+                      <span className="p-1 bg-white/60 rounded" title="Only visible to you">
+                        <Lock className="h-4 w-4 text-gray-500" />
+                      </span>
+                    )}
+                    {note.isPinned && (
+                      <Pin className="h-5 w-5 text-gray-700 fill-current" />
+                    )}
+                  </div>
 
                   {/* Note content */}
                   <div className="flex-1 mb-2">
@@ -779,10 +750,8 @@ const NotesReminders = () => {
             )}
           </div>
         </div>
-        )}
 
         {/* Reminders Section */}
-        {activeTab === 'reminders' && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Reminders</h2>
@@ -854,8 +823,19 @@ const NotesReminders = () => {
                                 )}
                               </div>
                               
-                              <div className="text-xs text-gray-400 mt-2">
-                                Created by {reminder.createdByName}
+                              <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+                                <span>Created by {reminder.createdByName}</span>
+                                {reminder.visibility === 'public' ? (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-600 rounded" title="Visible to everyone">
+                                    <Globe className="h-3 w-3" />
+                                    <span>Public</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded" title="Only visible to you">
+                                    <Lock className="h-3 w-3" />
+                                    <span>Private</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -892,12 +872,6 @@ const NotesReminders = () => {
             )}
           </div>
         </div>
-        )}
-
-        {/* Wallet Section - Only for employees */}
-        {activeTab === 'wallet' && user?.role === 'employee' && (
-          <EmployeeWalletSection />
-        )}
       </div>
 
       {/* Note Modal */}
@@ -912,7 +886,7 @@ const NotesReminders = () => {
                 onClick={() => {
                   setShowNoteModal(false);
                   setEditingNote(null);
-                  setNoteForm({ heading: '', content: '' });
+                  setNoteForm({ heading: '', content: '', visibility: 'private' });
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -942,6 +916,42 @@ const NotesReminders = () => {
                   placeholder="Write your note here..."
                 />
               </div>
+
+              {/* Visibility Toggle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Visibility</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNoteForm({ ...noteForm, visibility: 'private' })}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                      noteForm.visibility === 'private'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Lock className="h-4 w-4" />
+                    <span className="font-medium">Only Me</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNoteForm({ ...noteForm, visibility: 'public' })}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                      noteForm.visibility === 'public'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Globe className="h-4 w-4" />
+                    <span className="font-medium">Everyone</span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {noteForm.visibility === 'private'
+                    ? 'Only you can see this note'
+                    : 'All team members can see this note'}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-200">
@@ -949,7 +959,7 @@ const NotesReminders = () => {
                 onClick={() => {
                   setShowNoteModal(false);
                   setEditingNote(null);
-                  setNoteForm({ heading: '', content: '' });
+                  setNoteForm({ heading: '', content: '', visibility: 'private' });
                 }}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -1110,6 +1120,44 @@ const NotesReminders = () => {
                     <option value="monthly">Monthly</option>
                     <option value="yearly">Yearly</option>
                   </select>
+                </div>
+
+                {/* Visibility Toggle */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    Visibility
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReminderForm({ ...reminderForm, visibility: 'private' })}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
+                        reminderForm.visibility === 'private'
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <Lock className="h-4 w-4" />
+                      <span className="font-medium">Only Me</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReminderForm({ ...reminderForm, visibility: 'public' })}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
+                        reminderForm.visibility === 'public'
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <Globe className="h-4 w-4" />
+                      <span className="font-medium">Everyone</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    {reminderForm.visibility === 'private'
+                      ? 'Only you can see this reminder'
+                      : 'All team members can see this reminder'}
+                  </p>
                 </div>
               </div>
 
