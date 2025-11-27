@@ -47,6 +47,10 @@ const UserSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  walletBalance: {
+    type: Number,
+    default: 0
+  },
   advances: [{
     amount: {
       type: Number,

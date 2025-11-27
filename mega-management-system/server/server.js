@@ -34,35 +34,38 @@ if (!DISABLE_CRON) {
 
 const app = express();
 const server = http.createServer(app);
-// Get client URL - require in production
-const getClientUrl = () => {
-  if (process.env.CLIENT_URL) {
-    return process.env.CLIENT_URL;
-  }
-  if (process.env.NODE_ENV === 'production') {
-    console.error('⚠️  WARNING: CLIENT_URL not set in production! CORS may block requests.');
-    // In production, also allow the origin from the request header
-    return true; // This enables CORS for all origins - configure CLIENT_URL for security
-  }
-  return "http://localhost:3000";
-};
 
-const clientUrl = getClientUrl();
+// CORS Configuration - Allow both local and production origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://mega-management-411708517030.asia-south1.run.app'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+};
 
 const io = socketIo(server, {
   cors: {
-    origin: clientUrl,
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 // ⭐ CORS must load first
-app.use(
-  cors({
-    origin: clientUrl,
-    credentials: true
-  })
-);
+app.use(cors(corsOptions));
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
@@ -124,6 +127,7 @@ app.use('/api/call-logs', callLogRoutes);
 app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
 app.use('/api/whatsapp', require('./src/routes/whatsapp'));
 app.use('/api/settings', require('./src/routes/settings'));
+app.use('/api/wallet', require('./src/routes/wallet'));
 
 // Health check
 app.get('/api/health', (req, res) => {

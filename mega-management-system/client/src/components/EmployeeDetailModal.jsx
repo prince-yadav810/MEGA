@@ -298,7 +298,7 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
               <DollarSign className="w-5 h-5 text-orange-600" />
               Advance Payments Management
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <p className="text-sm text-gray-600 mb-1">Total Advances (All Time)</p>
                 <p className="text-2xl font-bold text-orange-600">₹{getTotalAdvances().toLocaleString('en-IN')}</p>
@@ -311,6 +311,12 @@ export default function EmployeeDetailModal({ employee, onClose, onUpdate, onEdi
                 <p className="text-sm text-gray-600 mb-1">This Month</p>
                 <p className="text-2xl font-bold text-blue-600">
                   ₹{attendanceSummary?.advances?.totalAdvancesThisMonth?.toLocaleString('en-IN') || 0}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <p className="text-sm text-gray-600 mb-1">Wallet Balance</p>
+                <p className={`text-2xl font-bold ${employee.walletBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ₹{(employee.walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>

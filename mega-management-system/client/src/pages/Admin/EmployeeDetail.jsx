@@ -10,6 +10,7 @@ import AttendanceEditModal from '../../components/attendance/AttendanceEditModal
 import SimplifiedAttendanceStats from '../../components/attendance/SimplifiedAttendanceStats';
 import SalaryCalculator from '../../components/attendance/SalaryCalculator';
 import CompactAdvancePayments from '../../components/attendance/CompactAdvancePayments';
+import WalletSection from '../../components/wallet/WalletSection';
 import { useAuth } from '../../context/AuthContext';
 import moment from 'moment';
 
@@ -639,6 +640,11 @@ export default function EmployeeDetail() {
               <p className="text-sm text-gray-500 text-center py-4">No advances recorded</p>
             )}
           </div>
+        </div>
+
+        {/* Employee Wallet */}
+        <div className="mb-6">
+          <WalletSection userId={userId} employeeName={employee?.name} />
         </div>
 
         {/* Tasks Information */}

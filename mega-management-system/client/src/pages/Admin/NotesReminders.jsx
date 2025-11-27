@@ -2,14 +2,18 @@
 // REPLACE entire file with this
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Pin, Edit2, Trash2, X, Calendar, Clock, Repeat, Bell, Copy, Check, ChevronDown, ChevronUp, Upload, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Paperclip, ChevronRight, AlertCircle } from 'lucide-react';
+import { Plus, Pin, Edit2, Trash2, X, Calendar, Clock, Repeat, Bell, Copy, Check, ChevronDown, ChevronUp, Upload, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Paperclip, ChevronRight, AlertCircle, Wallet } from 'lucide-react';
 import noteService from '../../services/noteService';
 import reminderService from '../../services/reminderService';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { formatNaturalDate, formatDateTime, formatTime, getSmartDefaults, formatRepeatPattern } from '../../utils/formatters';
+import EmployeeWalletSection from '../../components/wallet/EmployeeWalletSection';
 
 const NotesReminders = () => {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('notes');
   const [notes, setNotes] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -628,10 +632,46 @@ const NotesReminders = () => {
             <p className="text-gray-600 mt-1">Keep track of important information and set reminders</p>
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="flex gap-4 mt-4 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('notes')}
+            className={`pb-2 px-1 font-medium transition-colors ${
+              activeTab === 'notes'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Notes
+          </button>
+          <button
+            onClick={() => setActiveTab('reminders')}
+            className={`pb-2 px-1 font-medium transition-colors ${
+              activeTab === 'reminders'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Reminders
+          </button>
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`pb-2 px-1 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'wallet'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            My Wallet
+          </button>
+        </div>
       </div>
 
-      <div className="p-4 lg:p-6 space-y-8">
+      <div className="p-4 lg:p-6">
         {/* Notes Section */}
+        {activeTab === 'notes' && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Notes</h2>
@@ -736,8 +776,10 @@ const NotesReminders = () => {
             )}
           </div>
         </div>
+        )}
 
         {/* Reminders Section */}
+        {activeTab === 'reminders' && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Reminders</h2>
@@ -847,6 +889,12 @@ const NotesReminders = () => {
             )}
           </div>
         </div>
+        )}
+
+        {/* Wallet Section */}
+        {activeTab === 'wallet' && (
+          <EmployeeWalletSection />
+        )}
       </div>
 
       {/* Note Modal */}
