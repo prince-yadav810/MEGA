@@ -162,6 +162,11 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         if (formData.customCategory) {
           formDataToSend.append('customCategory', formData.customCategory);
         }
+
+        // Price field (required by schema) - use sellPrice if available, otherwise costPrice, otherwise 0
+        const priceValue = formData.sellPrice || formData.costPrice || 0;
+        formDataToSend.append('price', priceValue);
+
         if (formData.costPrice) {
           formDataToSend.append('costPrice', formData.costPrice);
         }
@@ -176,8 +181,10 @@ export default function ProductForm({ product, onClose, onSuccess }) {
         formDataToSend.append('stock[unit]', formData.stock.unit);
         formDataToSend.append('stock[lowStockThreshold]', formData.stock.lowStockThreshold);
 
-        // Append specifications
-        formDataToSend.append('specifications', JSON.stringify(formData.specifications));
+        // Append specifications as individual fields for Map type
+        Object.entries(formData.specifications).forEach(([key, value]) => {
+          formDataToSend.append(`specifications[${key}]`, value);
+        });
 
         // Append image files
         newImageFiles.forEach((file) => {
