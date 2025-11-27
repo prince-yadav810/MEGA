@@ -42,7 +42,7 @@ const notificationSchema = new mongoose.Schema({
   // Related entity information (for navigation)
   entityType: {
     type: String,
-    enum: ['task', 'client', 'quotation', 'product', 'note', 'reminder', 'payment-reminder', null],
+    enum: ['task', 'client', 'quotation', 'product', 'note', 'reminder', 'payment-reminder', 'wallet', null],
     default: null
   },
 

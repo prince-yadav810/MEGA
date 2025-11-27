@@ -208,6 +208,14 @@ const TaskCalendar = ({ onViewChange }) => {
     return colors[priority] || colors.low;
   };
 
+  const getSafePriority = (priority) => {
+    return taskPriorities[priority] || taskPriorities.low;
+  };
+
+  const getSafeStatus = (status) => {
+    return taskStatuses[status] || taskStatuses.todo;
+  };
+
   const handleTaskClick = (task, e) => {
     e.stopPropagation();
     setSelectedTask(task);
@@ -498,24 +506,30 @@ const TaskCalendar = ({ onViewChange }) => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6">
-                {/* Priority & Status */}
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="relative dropdown-container">
-                    <button
-                      onClick={(e) => {
-                        const taskId = selectedTask._id || selectedTask.id;
-                        const position = getDropdownPosition(e.currentTarget);
-                        setActiveDropdown(
-                          activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority'
-                            ? null
-                            : { taskId, type: 'priority', position }
-                        );
-                      }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${taskPriorities[selectedTask.priority].bgColor} ${taskPriorities[selectedTask.priority].color} hover:opacity-80 transition-opacity`}
-                    >
-                      {selectedTask.priority === 'urgent' && <AlertCircle className="h-3.5 w-3.5" />}
-                      {selectedTask.priority === 'high' && <TrendingUp className="h-3.5 w-3.5" />}
-                      <span className="uppercase tracking-wide">{taskPriorities[selectedTask.priority].label}</span>
+                {(() => {
+                  const priority = getSafePriority(selectedTask.priority);
+                  const status = getSafeStatus(selectedTask.status);
+
+                  return (
+                    <>
+                      {/* Priority & Status */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="relative dropdown-container">
+                          <button
+                            onClick={(e) => {
+                              const taskId = selectedTask._id || selectedTask.id;
+                              const position = getDropdownPosition(e.currentTarget);
+                              setActiveDropdown(
+                                activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority'
+                                  ? null
+                                  : { taskId, type: 'priority', position }
+                              );
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${priority.bgColor} ${priority.color} hover:opacity-80 transition-opacity`}
+                          >
+                            {selectedTask.priority === 'urgent' && <AlertCircle className="h-3.5 w-3.5" />}
+                            {selectedTask.priority === 'high' && <TrendingUp className="h-3.5 w-3.5" />}
+                            <span className="uppercase tracking-wide">{priority.label}</span>
                     </button>
 
                     {activeDropdown?.taskId === (selectedTask._id || selectedTask.id) && activeDropdown?.type === 'priority' && (
@@ -542,8 +556,8 @@ const TaskCalendar = ({ onViewChange }) => {
                       </div>
                     )}
                   </div>
-                  <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${taskStatuses[selectedTask.status].color}`}>
-                    {taskStatuses[selectedTask.status].label}
+                  <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${status.color}`}>
+                    {status.label}
                   </span>
                 </div>
 
@@ -657,6 +671,9 @@ const TaskCalendar = ({ onViewChange }) => {
                     </div>
                   </div>
                 )}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Edit Button */}
@@ -693,6 +710,8 @@ const TaskCalendar = ({ onViewChange }) => {
                   <div className="space-y-3">
                     {selectedDateTasks.map((task) => {
                       const taskId = task._id || task.id;
+                      const priority = getSafePriority(task.priority);
+                      const status = getSafeStatus(task.status);
                       return (
                       <div
                         key={taskId}
@@ -711,11 +730,11 @@ const TaskCalendar = ({ onViewChange }) => {
                                     : { taskId, type: 'priority', position }
                                 );
                               }}
-                              className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${taskPriorities[task.priority].bgColor} ${taskPriorities[task.priority].color} hover:opacity-80 transition-opacity`}
+                              className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${priority.bgColor} ${priority.color} hover:opacity-80 transition-opacity`}
                             >
                               {task.priority === 'urgent' && <AlertCircle className="h-3 w-3" />}
                               {task.priority === 'high' && <TrendingUp className="h-3 w-3" />}
-                              <span>{taskPriorities[task.priority].label}</span>
+                              <span>{priority.label}</span>
                             </button>
 
                             {activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority' && (
@@ -745,8 +764,8 @@ const TaskCalendar = ({ onViewChange }) => {
                               </div>
                             )}
                           </div>
-                          <span className={`text-xs px-2 py-1 rounded-full ${taskStatuses[task.status].color}`}>
-                            {taskStatuses[task.status].label}
+                          <span className={`text-xs px-2 py-1 rounded-full ${status.color}`}>
+                            {status.label}
                           </span>
                         </div>
 
@@ -840,19 +859,23 @@ const TaskCalendar = ({ onViewChange }) => {
             <div className="overflow-y-auto p-4 max-h-[calc(70vh-80px)]">
               {(tasksByDate[selectedDate.toDateString()] || []).length > 0 ? (
                 <div className="space-y-3">
-                  {(tasksByDate[selectedDate.toDateString()] || []).map((task) => (
-                    <div
-                      key={task._id || task.id}
-                      className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs px-2 py-1 rounded-full font-semibold ${taskPriorities[task.priority].bgColor} ${taskPriorities[task.priority].color}`}>
-                          {taskPriorities[task.priority].label}
-                        </span>
-                        <span className={`text-xs px-2 py-1 rounded-full ${taskStatuses[task.status].color}`}>
-                          {taskStatuses[task.status].label}
-                        </span>
-                      </div>
+                  {(tasksByDate[selectedDate.toDateString()] || []).map((task) => {
+                    const priority = getSafePriority(task.priority);
+                    const status = getSafeStatus(task.status);
+
+                    return (
+                      <div
+                        key={task._id || task.id}
+                        className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-xs px-2 py-1 rounded-full font-semibold ${priority.bgColor} ${priority.color}`}>
+                            {priority.label}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${status.color}`}>
+                            {status.label}
+                          </span>
+                        </div>
                       <h4 className="font-semibold text-gray-900 mb-1">{task.title}</h4>
                       <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
                       {task.client?.name && (
@@ -878,8 +901,9 @@ const TaskCalendar = ({ onViewChange }) => {
                           )}
                         </div>
                       )}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">

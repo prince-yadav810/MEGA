@@ -16,6 +16,7 @@ const notesRoutes = require('./src/routes/notes');
 const remindersRoutes = require('./src/routes/reminders');
 const callLogRoutes = require('./src/routes/callLogRoutes');
 const paymentReminderScheduler = require('./src/services/paymentReminderScheduler');
+const attendanceCleanupScheduler = require('./src/services/attendanceCleanupScheduler');
 
 // Connect to database
 connectDB();
@@ -27,6 +28,7 @@ const DISABLE_CRON = process.env.DISABLE_CRON === 'true';
 if (!DISABLE_CRON) {
   setTimeout(() => {
     paymentReminderScheduler.start();
+    attendanceCleanupScheduler.start();
   }, 5000); // Wait 5 seconds after server start to ensure DB is connected
 } else {
   console.log('⚠️  Internal cron disabled. Use /api/scheduler/trigger endpoint for Cloud Scheduler.');
@@ -198,6 +200,41 @@ app.post('/api/scheduler/trigger', async (req, res) => {
 // Get scheduler statistics
 app.get('/api/scheduler/stats', (req, res) => {
   const stats = paymentReminderScheduler.getStats();
+  res.json(stats);
+});
+
+// Manual trigger for attendance cleanup (admin only, for testing)
+app.post('/api/scheduler/attendance-cleanup/trigger', async (req, res) => {
+  try {
+    // Verify request in production
+    const userAgent = req.get('User-Agent') || '';
+    const isCloudScheduler = userAgent.includes('Google-Cloud-Scheduler');
+    const hasSchedulerKey = req.get('X-Scheduler-Key') === process.env.SCHEDULER_SECRET;
+
+    // Allow if from Cloud Scheduler OR has valid secret OR in development
+    if (!isCloudScheduler && !hasSchedulerKey && process.env.NODE_ENV === 'production') {
+      console.log('⚠️  Unauthorized attendance cleanup trigger attempt');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('🔧 Attendance cleanup trigger received');
+    await attendanceCleanupScheduler.triggerCleanup();
+
+    const stats = attendanceCleanupScheduler.getStats();
+    res.json({
+      success: true,
+      message: 'Attendance cleanup triggered',
+      stats
+    });
+  } catch (error) {
+    console.error('Attendance cleanup trigger error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get attendance cleanup scheduler statistics
+app.get('/api/scheduler/attendance-cleanup/stats', (req, res) => {
+  const stats = attendanceCleanupScheduler.getStats();
   res.json(stats);
 });
 

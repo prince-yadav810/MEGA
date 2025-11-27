@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, Plus, Edit2, ChevronLeft, ChevronRight, CheckCircle, X, Eye, EyeOff, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import userService from '../../services/userService';
@@ -10,6 +10,7 @@ import AttendanceEditModal from '../../components/attendance/AttendanceEditModal
 import SimplifiedAttendanceStats from '../../components/attendance/SimplifiedAttendanceStats';
 import SalaryCalculator from '../../components/attendance/SalaryCalculator';
 import CompactAdvancePayments from '../../components/attendance/CompactAdvancePayments';
+import RecentAttendanceHistory from '../../components/attendance/RecentAttendanceHistory';
 import WalletSection from '../../components/wallet/WalletSection';
 import { useAuth } from '../../context/AuthContext';
 import moment from 'moment';
@@ -52,6 +53,9 @@ export default function EmployeeDetail() {
   const [showAdvanceEditModal, setShowAdvanceEditModal] = useState(false);
   const [editingAdvance, setEditingAdvance] = useState(null);
   const [showAllAdvances, setShowAllAdvances] = useState(false);
+
+  // Ref for scrolling to advance section
+  const advanceSectionRef = useRef(null);
 
   // Check if current user is admin
   const isAdmin = currentUser?.role === 'admin';
@@ -364,6 +368,24 @@ export default function EmployeeDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setShowAdvanceForm(true);
+                    // Scroll to advance section after a brief delay to ensure state update
+                    setTimeout(() => {
+                      advanceSectionRef.current?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                      });
+                    }, 100);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Quick Advance
+                </button>
+              )}
               <button
                 onClick={handleEditClick}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -492,7 +514,7 @@ export default function EmployeeDetail() {
         )}
 
         {/* Advance Payment Management */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4 mb-6">
+        <div ref={advanceSectionRef} className="bg-white rounded-xl border border-gray-200 shadow-md p-4 mb-6">
           <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
             <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-2.5 rounded-lg shadow-sm">
               <DollarSign className="w-5 h-5 text-yellow-600" />
@@ -718,6 +740,11 @@ export default function EmployeeDetail() {
               <p className="text-sm text-gray-500 text-center py-4">No tasks assigned</p>
             )}
           </div>
+        </div>
+
+        {/* Recent Attendance History with Location (Last 7 Days) */}
+        <div className="mt-6">
+          <RecentAttendanceHistory userId={userId} isOwnRecord={false} />
         </div>
       </div>
 
