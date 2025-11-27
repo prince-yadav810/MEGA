@@ -32,15 +32,20 @@ const uploadPdfToCloudinary = async (filePath, fileName) => {
 
     const result = await cloudinary.uploader.upload(filePath, {
       resource_type: 'raw',
+      type: 'upload',           // Explicitly set as public upload
       folder: 'quotations',
       public_id: fileName.replace('.pdf', ''),
-      format: 'pdf'
+      format: 'pdf',
+      access_mode: 'public',    // Ensure public access
+      invalidate: true          // Clear CDN cache if re-uploading
     });
 
     console.log('✅ PDF uploaded successfully:', {
       fileName,
       url: result.secure_url,
-      size: result.bytes
+      size: result.bytes,
+      access_mode: result.access_mode,
+      type: result.type
     });
 
     return result.secure_url;
