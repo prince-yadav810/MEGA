@@ -67,9 +67,9 @@ const io = socketIo(server, {
 // ⭐ CORS must load first
 app.use(cors(corsOptions));
 
-// Body parser middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parser middleware - increased limits for file uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ⭐ YOUR express-fileupload middleware
 // Exclude business card route (uses multer instead)
@@ -83,7 +83,7 @@ app.use((req, res, next) => {
   fileUpload({
     useTempFiles: true,
     tempFileDir: '/tmp/',
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB (increased for document uploads)
     abortOnLimit: true,
     responseOnLimit: 'File size limit exceeded',
     createParentPath: true
