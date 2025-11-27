@@ -156,14 +156,19 @@ const getDashboardStats = async (req, res) => {
     dashboardData.calls.dateRange = callsDateRange;
 
     // 3. Fetch Reminders (Using Date Range)
-    // Fetch reminders for today
+    // Fetch reminders for today (own + public)
     let reminders = await Reminder.find({
-      createdBy: userId,
       isActive: true,
       reminderDate: {
         $gte: startOfDay,
         $lte: endOfDay
-      }
+      },
+      $or: [
+        { createdBy: userId },
+        { visibility: 'public' },
+        { visibility: { $exists: false } },
+        { visibility: null }
+      ]
     })
       .sort({ reminderTime: 1 })
       .limit(10)
@@ -176,12 +181,17 @@ const getDashboardStats = async (req, res) => {
       nextMonth.setDate(nextMonth.getDate() + 30);
 
       reminders = await Reminder.find({
-        createdBy: userId,
         isActive: true,
         reminderDate: {
           $gt: endOfDay,
           $lte: nextMonth
-        }
+        },
+        $or: [
+          { createdBy: userId },
+          { visibility: 'public' },
+          { visibility: { $exists: false } },
+          { visibility: null }
+        ]
       })
         .sort({ reminderDate: 1, reminderTime: 1 })
         .limit(3) // Show only 3 upcoming reminders

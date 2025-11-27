@@ -232,7 +232,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 
   // Log configuration status for debugging
@@ -247,4 +247,27 @@ server.listen(PORT, () => {
   console.log('  - Gemini API configured:', !!process.env.GEMINI_API_KEY);
   console.log('  - Vision API configured:', !!process.env.GOOGLE_VISION_API_KEY);
   console.log('  - MongoDB URI set:', !!process.env.MONGODB_URI);
+
+  // Validate Cloudinary credentials on startup
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+    console.log('\n🔐 Validating Cloudinary credentials...');
+    console.log('  - Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME);
+    console.log('  - API Key:', process.env.CLOUDINARY_API_KEY?.substring(0, 8) + '...');
+    console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.substring(process.env.CLOUDINARY_API_SECRET.length - 4) : 'NOT SET');
+
+    try {
+      const cloudinary = require('./src/config/cloudinary');
+      // Test credentials by calling the ping API
+      const result = await cloudinary.api.ping();
+      console.log('✅ Cloudinary credentials validated successfully!', result);
+    } catch (error) {
+      console.error('❌ Cloudinary credential validation FAILED:');
+      console.error('  - Error:', error.message);
+      console.error('  - HTTP Code:', error.http_code);
+      console.error('  - This will cause PDF upload/download failures!');
+      console.error('  - Please check your Cloudinary credentials in Google Secret Manager');
+    }
+  } else {
+    console.log('\n⚠️  Cloudinary credentials not fully configured - PDF features may not work');
+  }
 });

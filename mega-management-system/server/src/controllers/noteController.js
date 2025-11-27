@@ -7,7 +7,21 @@ const cloudinary = require('../config/cloudinary');
 
 exports.getAllNotes = async (req, res) => {
   try {
-    const notes = await Note.find().sort({ isPinned: -1, createdAt: -1 });
+    const userId = req.user?.id;
+
+    // Filter notes based on visibility:
+    // - Show public notes to everyone
+    // - Show private notes only to their creator
+    // - Show legacy notes (no createdBy) to everyone
+    const notes = await Note.find({
+      $or: [
+        { visibility: 'public' },
+        { createdBy: userId },
+        { createdBy: { $exists: false } },
+        { createdBy: null }
+      ]
+    }).sort({ isPinned: -1, createdAt: -1 });
+
     res.json({ success: true, data: notes });
   } catch (error) {
     console.error('Error fetching notes:', error);
@@ -21,7 +35,7 @@ exports.createNote = async (req, res) => {
     console.log('Body:', req.body);
     console.log('Files:', req.files);
     
-    const { heading, content, color } = req.body;
+    const { heading, content, color, visibility } = req.body;
 
     if (!heading || !content) {
       return res.status(400).json({ success: false, message: 'Heading and content are required' });
@@ -85,7 +99,9 @@ exports.createNote = async (req, res) => {
       heading,
       content,
       color: selectedColor,
-      createdByName: 'Team Member',
+      createdBy: req.user?.id,
+      createdByName: req.user?.name || 'Team Member',
+      visibility: visibility || 'private',
       attachments
     });
 
@@ -119,7 +135,7 @@ exports.createNote = async (req, res) => {
 exports.updateNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const { heading, content, color, isPinned } = req.body;
+    const { heading, content, color, isPinned, visibility } = req.body;
 
     const note = await Note.findById(id);
     if (!note) {
@@ -181,6 +197,7 @@ exports.updateNote = async (req, res) => {
     if (content) note.content = content;
     if (color) note.color = color;
     if (isPinned !== undefined) note.isPinned = isPinned;
+    if (visibility) note.visibility = visibility;
 
     await note.save();
 
