@@ -348,12 +348,33 @@ const TasksOverview = ({ onViewChange }) => {
     }
   };
 
-  const getDropdownPosition = (buttonElement) => {
-    if (!buttonElement) return 'bottom';
+  const getDropdownPosition = (buttonElement, dropdownWidth = 160, dropdownHeight = 200) => {
+    if (!buttonElement) return { vertical: 'bottom', horizontal: 'right', top: 0, left: 0 };
     const rect = buttonElement.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    return spaceBelow < 200 && spaceAbove > spaceBelow ? 'top' : 'bottom';
+    const spaceRight = window.innerWidth - rect.right;
+    const spaceLeft = rect.left;
+
+    const vertical = spaceBelow < 200 && spaceAbove > spaceBelow ? 'top' : 'bottom';
+    const horizontal = spaceRight < dropdownWidth && spaceLeft > dropdownWidth ? 'left' : 'right';
+
+    // Calculate fixed position coordinates
+    let top, left;
+
+    if (vertical === 'top') {
+      top = rect.top - dropdownHeight - 8; // 8px gap
+    } else {
+      top = rect.bottom + 4; // 4px gap
+    }
+
+    if (horizontal === 'left') {
+      left = rect.left;
+    } else {
+      left = rect.right - dropdownWidth;
+    }
+
+    return { vertical, horizontal, top, left };
   };
 
   return (
@@ -649,7 +670,7 @@ const TasksOverview = ({ onViewChange }) => {
                           return (
                         <button
                           onClick={(e) => {
-                            const position = getDropdownPosition(e.currentTarget);
+                            const position = getDropdownPosition(e.currentTarget, 160, 240);
                             setActiveDropdown(
                               activeDropdown?.taskId === taskId && activeDropdown?.type === 'status'
                                 ? null
@@ -666,9 +687,11 @@ const TasksOverview = ({ onViewChange }) => {
 
                         {activeDropdown?.taskId === taskId && activeDropdown?.type === 'status' && (
                           <div
-                            className={`absolute z-10 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 ${
-                              activeDropdown.position === 'top' ? 'bottom-full mb-1' : 'mt-1'
-                            }`}
+                            className="fixed z-[999] w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                            style={{
+                              top: `${activeDropdown.position.top}px`,
+                              left: `${activeDropdown.position.left}px`
+                            }}
                           >
                             {Object.entries(taskStatuses).map(([key, status]) => (
                               <button
@@ -690,7 +713,7 @@ const TasksOverview = ({ onViewChange }) => {
                       <div className="relative dropdown-container">
                         <button
                           onClick={(e) => {
-                            const position = getDropdownPosition(e.currentTarget);
+                            const position = getDropdownPosition(e.currentTarget, 144, 180);
                             setActiveDropdown(
                               activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority'
                                 ? null
@@ -707,9 +730,11 @@ const TasksOverview = ({ onViewChange }) => {
 
                         {activeDropdown?.taskId === taskId && activeDropdown?.type === 'priority' && (
                           <div
-                            className={`absolute z-10 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1 ${
-                              activeDropdown.position === 'top' ? 'bottom-full mb-1' : 'mt-1'
-                            }`}
+                            className="fixed z-[999] w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                            style={{
+                              top: `${activeDropdown.position.top}px`,
+                              left: `${activeDropdown.position.left}px`
+                            }}
                           >
                             {Object.entries(taskPriorities).map(([key, priority]) => (
                               <button

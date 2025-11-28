@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Package, Tag, Calendar, User, Image as ImageIcon, IndianRupee } from 'lucide-react';
 
 export default function ProductDetailModal({ product, onClose }) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // Disable body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   if (!product) return null;
 
@@ -28,10 +36,10 @@ export default function ProductDetailModal({ product, onClose }) {
   const currentImage = product.images?.[selectedImageIndex]?.url || 'https://via.placeholder.com/600x400?text=No+Image';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 pb-8 md:pb-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full flex flex-col mb-4 md:mb-0" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700">
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 flex-shrink-0">
           <div>
             <h2 className="text-2xl font-bold text-white">{product.name}</h2>
             <p className="text-blue-100 text-sm mt-1">Product ID: {product.sku}</p>
@@ -45,7 +53,7 @@ export default function ProductDetailModal({ product, onClose }) {
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+        <div className="overflow-y-auto flex-1">
           <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column - Images */}
@@ -213,7 +221,7 @@ export default function ProductDetailModal({ product, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t p-4 bg-gray-50 flex justify-end">
+        <div className="border-t p-4 bg-gray-50 flex justify-end flex-shrink-0">
           <button
             onClick={onClose}
             className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
