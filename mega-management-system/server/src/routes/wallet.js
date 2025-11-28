@@ -13,8 +13,8 @@ router.get('/:userId', protect, walletController.getWallet);
 // Admin/Manager can view any employee's transactions, Employee can only view their own
 router.get('/:userId/transactions', protect, walletController.getTransactions);
 
-// Add credit to wallet (Admin/Manager only)
-router.post('/:userId/credit', protect, restrictTo('manager', 'admin'), walletController.addCredit);
+// Add credit to wallet (Super Admin/Admin/Manager only)
+router.post('/:userId/credit', protect, restrictTo('super_admin', 'manager', 'admin'), walletController.addCredit);
 
 // Record expense/debit (Employee - own wallet only, validated in controller)
 router.post('/:userId/debit', protect, walletController.addDebit);
