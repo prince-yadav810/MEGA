@@ -6,8 +6,8 @@ const { logCall, getClientLogs } = require('../controllers/callLogController');
 // All routes are protected
 router.use(protect);
 
-router.post('/', restrictTo('admin', 'sales'), logCall);
-router.get('/:clientId', restrictTo('admin', 'sales'), getClientLogs);
+router.post('/', restrictTo('admin', 'manager', 'sales'), logCall);
+router.get('/:clientId', restrictTo('admin', 'manager', 'sales'), getClientLogs);
 
 module.exports = router;
 

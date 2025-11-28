@@ -28,8 +28,8 @@ router.get('/user/:userId', protect, restrictTo('manager', 'admin'), getUserAtte
 router.get('/user/:userId/stats', protect, restrictTo('manager', 'admin'), getUserAttendanceStats);
 router.get('/user/:userId/summary', protect, getUserAttendanceSummary); // Accessible by user themselves or admin/manager
 
-// Admin only - manual attendance update
-router.put('/user/:userId/manual', protect, restrictTo('admin'), updateAttendanceManually);
+// Admin and manager - manual attendance update
+router.put('/user/:userId/manual', protect, restrictTo('admin', 'manager'), updateAttendanceManually);
 
 // Recent attendance with location (last 7 days) - accessible by user themselves or admin
 router.get('/recent/:userId', protect, getRecentAttendanceWithLocation);

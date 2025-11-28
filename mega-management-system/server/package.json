@@ -10,6 +10,7 @@
     "test:watch": "jest --watch",
     "seed:products": "node src/scripts/seedProducts.js",
     "seed:users": "node src/scripts/seedUsers.js",
+    "seed:test-users": "node src/scripts/seedTestUsers.js",
     "clear:fake-data": "node src/scripts/clearFakeData.js"
   },
   "dependencies": {
