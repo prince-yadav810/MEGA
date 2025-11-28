@@ -2,6 +2,7 @@ const PDFDocument = require('pdfkit');
 const { PDFDocument: PDFLibDocument } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 
 /**
  * Quotation PDF Generation Service
@@ -31,13 +32,42 @@ class QuotationPdfService {
   static HEADER_LIGHT = '#2c5282';
 
   /**
+   * Fetch image from URL and return as buffer
+   * @param {string} url - Image URL
+   * @returns {Promise<Buffer>} Image buffer
+   */
+  static fetchImageFromUrl(url) {
+    return new Promise((resolve, reject) => {
+      if (!url) {
+        reject(new Error('No URL provided'));
+        return;
+      }
+
+      // Convert http to https for Cloudinary URLs
+      const imageUrl = url.replace(/^http:/, 'https:');
+
+      https.get(imageUrl, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to fetch image: ${response.statusCode}`));
+          return;
+        }
+
+        const chunks = [];
+        response.on('data', (chunk) => chunks.push(chunk));
+        response.on('end', () => resolve(Buffer.concat(chunks)));
+        response.on('error', reject);
+      }).on('error', reject);
+    });
+  }
+
+  /**
    * Generate quotation PDF
    * @param {Object} data - Quotation data
    * @param {string} outputPath - Path where PDF will be saved
    * @returns {Promise<string>} Path to generated PDF
    */
   static async generateQuotationPDF(data, outputPath) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         // Create PDF document
         const doc = new PDFDocument({
@@ -61,12 +91,12 @@ class QuotationPdfService {
         const tableEndY = this.addItemsTable(doc, data);
         const calcEndY = this.addCalculations(doc, data, tableEndY);
         const footerEndY = this.addFooterSections(doc, data, calcEndY);
-        
-        // Add Advertisement Section if products exist
+
+        // Add Advertisement Section if products exist (async for image fetching)
         if (data.advertisementProducts && data.advertisementProducts.length > 0) {
-          this.addAdvertisementSection(doc, data, footerEndY);
+          await this.addAdvertisementSection(doc, data, footerEndY);
         }
-        
+
         this.addBottomFooter(doc);
 
         // Finalize PDF
@@ -721,9 +751,9 @@ class QuotationPdfService {
   }
 
   /**
-   * Add advertisement section with product grid
+   * Add advertisement section with product grid (with images)
    */
-  static addAdvertisementSection(doc, data, startY) {
+  static async addAdvertisementSection(doc, data, startY) {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
     const margin = 50;
@@ -736,7 +766,7 @@ class QuotationPdfService {
     // Banner styling
     const bannerHeight = 40;
 
-    if (currentY + bannerHeight + 120 > pageHeight - bottomMargin) {
+    if (currentY + bannerHeight + 140 > pageHeight - bottomMargin) {
       doc.addPage();
       currentY = margin;
     }
@@ -773,11 +803,14 @@ class QuotationPdfService {
     const columns = 3;
     const gap = 18;
     const cardWidth = (contentWidth - (gap * (columns - 1))) / columns;
-    const cardHeight = 110; // Compact card height for better layout
-    const cardPadding = 10;
+    const cardHeight = 110; // Optimized height to fit content without extra space
+    const cardPadding = 8;
+    const imageSize = 70; // Image width/height
 
     // Iterate through products
-    data.advertisementProducts.forEach((product, index) => {
+    for (let index = 0; index < data.advertisementProducts.length; index++) {
+      const product = data.advertisementProducts[index];
+
       // Check if we need a new page (check before starting a row)
       if (currentY + cardHeight > pageHeight - bottomMargin) {
         doc.addPage();
@@ -831,50 +864,134 @@ class QuotationPdfService {
         .fillColor(this.PRIMARY_COLOR)
         .fill();
 
-      // Product Name (prominent)
+      // Product Image (left side)
+      const imageX = x + cardPadding;
+      const imageY = currentY + 10;
+
+      try {
+        // Get primary image URL
+        let imageUrl = null;
+        if (product.images && product.images.length > 0) {
+          const primaryImage = product.images.find(img => img.isPrimary);
+          imageUrl = primaryImage ? primaryImage.url : product.images[0].url;
+        }
+
+        if (imageUrl) {
+          // Fetch and render image
+          const imageBuffer = await this.fetchImageFromUrl(imageUrl);
+          doc.image(imageBuffer, imageX, imageY, {
+            width: imageSize,
+            height: imageSize,
+            fit: [imageSize, imageSize]
+          });
+        } else {
+          // No image available - draw placeholder
+          doc.rect(imageX, imageY, imageSize, imageSize)
+            .strokeColor('#e0e0e0')
+            .lineWidth(1)
+            .stroke();
+          doc.fontSize(8)
+            .fillColor('#999999')
+            .text('No Image', imageX, imageY + 30, {
+              width: imageSize,
+              align: 'center'
+            });
+        }
+      } catch (error) {
+        // Image fetch failed - draw placeholder
+        console.error(`Failed to load image for product ${product.name}:`, error.message);
+        doc.rect(imageX, imageY, imageSize, imageSize)
+          .strokeColor('#e0e0e0')
+          .lineWidth(1)
+          .stroke();
+        doc.fontSize(8)
+          .fillColor('#999999')
+          .text('Image\nUnavailable', imageX, imageY + 25, {
+            width: imageSize,
+            align: 'center'
+          });
+      }
+
+      // Content area (right side of image)
+      const contentX = imageX + imageSize + 8;
+      const contentWidth = cardWidth - imageSize - (cardPadding * 2) - 8;
+      let contentY = currentY + 8;
+
+      // Product Name (prominent, in theme blue color)
       doc.font('Helvetica-Bold')
-        .fontSize(10)
-        .fillColor(this.TEXT_COLOR)
-        .text(product.name, x + cardPadding, currentY + 12, {
-          width: cardWidth - (cardPadding * 2),
-          height: 28,
+        .fontSize(9)
+        .fillColor(this.PRIMARY_COLOR)
+        .text(product.name, contentX, contentY, {
+          width: contentWidth,
+          height: 24,
           ellipsis: true,
           align: 'left'
         });
 
-      // Category badge with background
-      if (product.category) {
-        const categoryY = currentY + 42;
-        doc.rect(x + cardPadding, categoryY, cardWidth - (cardPadding * 2), 16)
-          .fillColor('#e8f4fd')
-          .fill();
-        doc.font('Helvetica-Bold')
-          .fontSize(7)
-          .fillColor(this.PRIMARY_COLOR)
-          .text(product.category.toUpperCase(), x + cardPadding + 5, categoryY + 4, {
-            width: cardWidth - (cardPadding * 2) - 10,
-            align: 'left'
-          });
-      }
+      contentY += 26;
 
-      // Product Description with better spacing
-      if (product.description) {
-        const descY = product.category ? currentY + 64 : currentY + 48;
+      // Product Description (only if not empty)
+      if (product.description && product.description.trim().length > 0) {
         doc.font('Helvetica')
-          .fontSize(8)
+          .fontSize(7)
           .fillColor('#555555')
-          .text(product.description.substring(0, 80).replace(/\n/g, ' ') + (product.description.length > 80 ? '...' : ''),
-            x + cardPadding,
-            descY,
+          .text(
+            product.description.substring(0, 60).replace(/\n/g, ' ') + (product.description.length > 60 ? '...' : ''),
+            contentX,
+            contentY,
             {
-              width: cardWidth - (cardPadding * 2),
-              height: 36,
+              width: contentWidth,
+              height: 20,
               align: 'left',
               ellipsis: true
             }
           );
+        contentY += 22;
       }
-    });
+
+      // Product Specifications (properly handle Mongoose Map)
+      if (product.specifications) {
+        // Convert Mongoose Map to plain object/array
+        let specs = [];
+
+        if (product.specifications instanceof Map) {
+          // It's a Map - convert to array and filter out Mongoose internal properties
+          specs = Array.from(product.specifications.entries())
+            .filter(([key, value]) => !key.startsWith('$') && value !== null && value !== undefined);
+        } else if (typeof product.specifications === 'object' && product.specifications !== null) {
+          // It's an object - convert to array and filter out Mongoose internal properties
+          specs = Object.entries(product.specifications)
+            .filter(([key, value]) => !key.startsWith('$') && value !== null && value !== undefined);
+        }
+
+        // Only display if we have actual specifications
+        if (specs.length > 0) {
+          doc.font('Helvetica-Bold')
+            .fontSize(7)
+            .fillColor(this.PRIMARY_COLOR)
+            .text('Specifications:', contentX, contentY, {
+              width: contentWidth,
+              align: 'left'
+            });
+          contentY += 10;
+
+          // Display up to 3 specifications
+          specs.slice(0, 3).forEach(([key, value]) => {
+            const specText = `• ${key}: ${value}`;
+            doc.font('Helvetica')
+              .fontSize(6.5)
+              .fillColor('#666666')
+              .text(specText, contentX, contentY, {
+                width: contentWidth,
+                height: 8,
+                ellipsis: true,
+                align: 'left'
+              });
+            contentY += 9;
+          });
+        }
+      }
+    }
 
     // Return the final Y position for proper spacing after section
     return currentY + cardHeight + 20;

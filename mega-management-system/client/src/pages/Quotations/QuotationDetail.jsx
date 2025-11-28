@@ -423,36 +423,36 @@ const QuotationDetail = () => {
         </button>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-primary-100 rounded-lg">
-              <FileText className="h-8 w-8 text-primary-600" />
+          <div className="flex items-center space-x-2 md:space-x-4">
+            <div className="p-2 md:p-3 bg-primary-100 rounded-lg">
+              <FileText className="h-6 w-6 md:h-8 md:w-8 text-primary-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{quotation.refNo}</h1>
-              <p className="text-gray-600">{quotation.clientName}</p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">{quotation.refNo}</h1>
+              <p className="text-sm md:text-base text-gray-600">{quotation.clientName}</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 md:space-x-3">
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="inline-flex items-center px-2 py-2 md:px-4 md:py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               {isDownloading ? (
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                <Loader2 className="h-5 w-5 md:mr-2 animate-spin" />
               ) : (
-                <Download className="h-5 w-5 mr-2" />
+                <Download className="h-5 w-5 md:mr-2" />
               )}
-              Download PDF
+              <span className="hidden md:inline">Download PDF</span>
             </button>
 
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              className="inline-flex items-center px-2 py-2 md:px-4 md:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
-              <Trash2 className="h-5 w-5 mr-2" />
-              Delete
+              <Trash2 className="h-5 w-5 md:mr-2" />
+              <span className="hidden md:inline">Delete</span>
             </button>
           </div>
         </div>
