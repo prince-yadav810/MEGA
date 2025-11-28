@@ -141,23 +141,29 @@ export default function ProductCatalog() {
         <div className="p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Product Catalog</h1>
-              <p className="text-gray-600 mt-1">
+              {/* Desktop Title */}
+              <h1 className="hidden sm:block text-3xl font-bold text-gray-900">Product Catalog</h1>
+              <p className="hidden sm:block text-gray-600 mt-1">
                 Manage your product inventory ({pagination.total} products)
               </p>
+
+              {/* Mobile - Just show count */}
+              <h1 className="sm:hidden text-xl font-bold text-gray-900">
+                {pagination.total} Products
+              </h1>
             </div>
 
             <div className="flex gap-2">
               <button
                 onClick={handleAddProduct}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="hidden sm:flex px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
                 Add Product
               </button>
               <button
                 onClick={fetchProducts}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                className="hidden sm:flex px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors items-center gap-2"
               >
                 <RefreshCw className="w-5 h-5" />
                 Refresh
@@ -326,6 +332,14 @@ export default function ProductCatalog() {
           }}
         />
       )}
+
+      {/* Floating Action Button (Mobile) */}
+      <button
+        onClick={handleAddProduct}
+        className="sm:hidden fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors z-20"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </div>
   );
 }

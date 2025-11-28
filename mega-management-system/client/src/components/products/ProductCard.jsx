@@ -19,13 +19,6 @@ export default function ProductCard({ product, onEdit, onDelete, onView }) {
             e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
           }}
         />
-
-        {/* Category Badge */}
-        <div className="absolute top-2 left-2">
-          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-500 text-white">
-            {product.category}
-          </span>
-        </div>
       </div>
 
       {/* Product Info */}
@@ -39,9 +32,16 @@ export default function ProductCard({ product, onEdit, onDelete, onView }) {
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-gray-600 mb-4 line-clamp-2" title={product.description}>
+        <p className="text-sm text-gray-600 mb-3 line-clamp-2" title={product.description}>
           {product.description || 'No description available'}
         </p>
+
+        {/* Category */}
+        <div className="mb-4">
+          <span className="inline-block px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+            {product.category}
+          </span>
+        </div>
 
         {/* Actions */}
         <div className="flex gap-2">
