@@ -138,19 +138,14 @@ export default function ProductCatalog() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="sm:p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between md:gap-4">
             <div>
               {/* Desktop Title */}
-              <h1 className="hidden sm:block text-3xl font-bold text-gray-900">Product Catalog</h1>
-              <p className="hidden sm:block text-gray-600 mt-1">
+              <h1 className="hidden sm:block text-xl font-semibold text-gray-900">Product Catalog</h1>
+              <p className="hidden sm:block text-sm text-gray-600 mt-0.5">
                 Manage your product inventory ({pagination.total} products)
               </p>
-
-              {/* Mobile - Just show count */}
-              <h1 className="sm:hidden text-xl font-bold text-gray-900">
-                {pagination.total} Products
-              </h1>
             </div>
 
             <div className="flex gap-2">
@@ -175,7 +170,7 @@ export default function ProductCatalog() {
 
       {/* Filters */}
       <div className="bg-white border-b">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div className="lg:col-span-2">
@@ -222,20 +217,23 @@ export default function ProductCatalog() {
             </div>
           </div>
 
-          {/* Clear Filters */}
-          <div className="mt-4">
+          {/* Clear Filters and Product Count */}
+          <div className="mt-4 flex items-center justify-between">
             <button
               onClick={handleClearFilters}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
             >
               Clear Filters
             </button>
+            <span className="text-sm text-gray-600">
+              {pagination.total} {pagination.total === 1 ? 'product' : 'products'}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Products Grid */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
