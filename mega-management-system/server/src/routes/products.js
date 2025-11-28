@@ -19,16 +19,16 @@ router.get('/', protect, getAllProducts);
 router.get('/categories', protect, getCategories);
 router.get('/:id', protect, getProductById);
 
-// Manager/Admin only routes
-router.post('/', protect, restrictTo('manager', 'admin'), createProduct);
-router.put('/:id', protect, restrictTo('manager', 'admin'), updateProduct);
-router.delete('/:id', protect, restrictTo('manager', 'admin'), deleteProduct);
+// Manager/Admin/Super Admin only routes
+router.post('/', protect, restrictTo('super_admin', 'manager', 'admin'), createProduct);
+router.put('/:id', protect, restrictTo('super_admin', 'manager', 'admin'), updateProduct);
+router.delete('/:id', protect, restrictTo('super_admin', 'manager', 'admin'), deleteProduct);
 
-// Image management routes (manager/admin only)
-router.delete('/:id/images/:imageId', protect, restrictTo('manager', 'admin'), deleteProductImage);
-router.patch('/:id/images/:imageId/primary', protect, restrictTo('manager', 'admin'), setPrimaryImage);
+// Image management routes (super_admin/manager/admin only)
+router.delete('/:id/images/:imageId', protect, restrictTo('super_admin', 'manager', 'admin'), deleteProductImage);
+router.patch('/:id/images/:imageId/primary', protect, restrictTo('super_admin', 'manager', 'admin'), setPrimaryImage);
 
-// Bulk upload route (manager/admin only)
-router.post('/bulk-upload', protect, restrictTo('manager', 'admin'), bulkUpload);
+// Bulk upload route (super_admin/manager/admin only)
+router.post('/bulk-upload', protect, restrictTo('super_admin', 'manager', 'admin'), bulkUpload);
 
 module.exports = router;

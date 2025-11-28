@@ -12,6 +12,16 @@ const seedTestUsers = async () => {
     // Test users to create
     const testUsers = [
       {
+        name: 'Super Admin',
+        email: 'superadmin@mega.com',
+        password: 'SuperAdmin@123456!',
+        phone: '+91 98765 43209',
+        department: 'Management',
+        role: 'super_admin',
+        avatar: '',
+        isActive: true
+      },
+      {
         name: 'Admin User',
         email: 'admin@mega.com',
         password: 'Admin@123456!',
@@ -58,6 +68,9 @@ const seedTestUsers = async () => {
 
     console.log('✅ Test user seeding completed!');
     console.log('\n📝 Login Credentials:\n');
+    console.log('Super Admin Account:');
+    console.log('  Email: superadmin@mega.com');
+    console.log('  Password: SuperAdmin@123456!\n');
     console.log('Admin Account:');
     console.log('  Email: admin@mega.com');
     console.log('  Password: Admin@123456!\n');
