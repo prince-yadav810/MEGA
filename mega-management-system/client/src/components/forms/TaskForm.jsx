@@ -270,9 +270,9 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                             : 'border-gray-300 hover:border-gray-400 text-gray-700'
                         }`}
                       >
-                        {member.profileImage?.url ? (
+                        {member.profileImage?.url || member.avatar ? (
                           <img
-                            src={member.profileImage.url}
+                            src={member.profileImage?.url || member.avatar}
                             alt={member.name}
                             className="w-6 h-6 rounded-full object-cover"
                           />

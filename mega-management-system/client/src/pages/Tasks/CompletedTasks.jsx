@@ -401,9 +401,9 @@ const CompletedTasks = ({ onViewChange }) => {
                                 className="w-8 h-8 rounded-full border-2 border-white"
                                 title={assignee.name}
                               >
-                                {assignee.profileImage?.url ? (
+                                {assignee.profileImage?.url || assignee.avatar ? (
                                   <img
-                                    src={assignee.profileImage.url}
+                                    src={assignee.profileImage?.url || assignee.avatar}
                                     alt={assignee.name}
                                     className="w-full h-full rounded-full object-cover"
                                   />

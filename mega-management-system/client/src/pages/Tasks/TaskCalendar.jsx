@@ -607,9 +607,9 @@ const TaskCalendar = ({ onViewChange }) => {
                           key={assignee._id || assignee.id || index}
                           className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200"
                         >
-                          {assignee.profileImage?.url ? (
+                          {assignee.profileImage?.url || assignee.avatar ? (
                             <img
-                              src={assignee.profileImage.url}
+                              src={assignee.profileImage?.url || assignee.avatar}
                               alt={assignee.name}
                               className="w-6 h-6 rounded-full object-cover"
                             />
@@ -900,9 +900,9 @@ const TaskCalendar = ({ onViewChange }) => {
                                 key={assignee._id || assignee.id || idx}
                                 className="w-6 h-6 rounded-full border-2 border-white"
                               >
-                                {assignee.profileImage?.url ? (
+                                {assignee.profileImage?.url || assignee.avatar ? (
                                   <img
-                                    src={assignee.profileImage.url}
+                                    src={assignee.profileImage?.url || assignee.avatar}
                                     alt={assignee.name}
                                     className="w-full h-full rounded-full object-cover"
                                   />

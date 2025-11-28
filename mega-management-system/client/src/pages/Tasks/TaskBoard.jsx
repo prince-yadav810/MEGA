@@ -621,9 +621,9 @@ const TaskBoard = ({ onViewChange }) => {
               className="w-7 h-7 rounded-full border-2 border-white ring-1 ring-gray-200"
               title={assignee.name}
             >
-              {assignee.profileImage?.url ? (
+              {assignee.profileImage?.url || assignee.avatar ? (
                 <img
-                  src={assignee.profileImage.url}
+                  src={assignee.profileImage?.url || assignee.avatar}
                   alt={assignee.name}
                   className="w-full h-full rounded-full object-cover"
                 />
