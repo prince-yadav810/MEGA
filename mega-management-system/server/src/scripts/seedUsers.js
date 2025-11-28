@@ -9,36 +9,65 @@ const seedUsers = async () => {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mega-management');
     console.log('Connected to MongoDB');
 
-    // Create admin user from .env if provided
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-
-    if (adminEmail && adminPassword) {
-      const existingAdmin = await User.findOne({ email: adminEmail.toLowerCase() });
-      if (!existingAdmin) {
-        const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
-        const adminUser = await User.create({
-          name: 'Admin',
-          email: adminEmail.toLowerCase(),
-          password: hashedAdminPassword,
-          phone: '+91 99999 99999',
-          department: 'Management',
-          role: 'manager',
-          avatar: '',
-          isActive: true
-        });
-        console.log(`\n✓ Manager user created successfully:`);
-        console.log(`  - ${adminUser.name} (${adminUser.email}) - ID: ${adminUser._id}`);
-      } else {
-        console.log(`\n✓ Manager user already exists: ${adminEmail}`);
+    // Define users to create
+    const usersToCreate = [
+      {
+        name: 'Super Admin',
+        email: process.env.SUPER_ADMIN_EMAIL,
+        password: process.env.SUPER_ADMIN_PASSWORD,
+        phone: '+91 88888 88888',
+        department: 'Management',
+        role: 'super_admin',
+        label: 'Super Admin'
+      },
+      {
+        name: 'Admin',
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD,
+        phone: '+91 99999 99999',
+        department: 'Management',
+        role: 'admin',
+        label: 'Admin'
+      },
+      {
+        name: 'Manager',
+        email: process.env.MANAGER_EMAIL,
+        password: process.env.MANAGER_PASSWORD,
+        phone: '+91 77777 77777',
+        department: 'Management',
+        role: 'manager',
+        label: 'Manager'
       }
-    } else {
-      console.log('\n⚠️  No manager credentials found in .env (ADMIN_EMAIL, ADMIN_PASSWORD)');
-      console.log('Please add ADMIN_EMAIL and ADMIN_PASSWORD to your .env file to create a manager account.');
+    ];
+
+    // Create each user
+    for (const userData of usersToCreate) {
+      if (userData.email && userData.password) {
+        const existingUser = await User.findOne({ email: userData.email.toLowerCase() });
+        if (!existingUser) {
+          const hashedPassword = await bcrypt.hash(userData.password, 10);
+          const newUser = await User.create({
+            name: userData.name,
+            email: userData.email.toLowerCase(),
+            password: hashedPassword,
+            phone: userData.phone,
+            department: userData.department,
+            role: userData.role,
+            avatar: '',
+            isActive: true
+          });
+          console.log(`\n✓ ${userData.label} user created successfully:`);
+          console.log(`  - ${newUser.name} (${newUser.email}) - Role: ${newUser.role} - ID: ${newUser._id}`);
+        } else {
+          console.log(`\n✓ ${userData.label} user already exists: ${userData.email}`);
+        }
+      } else {
+        console.log(`\n⚠️  No ${userData.label} credentials found in .env`);
+      }
     }
 
     console.log('\n✅ User seeding completed!');
-    console.log('\n💡 Add team members through the application UI (Team Management page) instead of seeding them.');
+    console.log('\n💡 You can now login with any of the created accounts.');
 
     process.exit(0);
   } catch (error) {

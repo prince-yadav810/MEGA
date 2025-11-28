@@ -81,8 +81,8 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       name: 'Team',
       icon: UserCog,
       path: '/users',
-      // Only managers can access Team tab
-      roles: ['manager']
+      // Super Admin, Admin, and Managers can access Team tab
+      roles: ['super_admin', 'admin', 'manager']
     },
     {
       id: 'settings',

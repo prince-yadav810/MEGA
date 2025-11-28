@@ -98,7 +98,7 @@ function Layout() {
             <Route
               path="users"
               element={
-                <RoleBasedRoute allowedRoles={['manager', 'admin']}>
+                <RoleBasedRoute allowedRoles={['super_admin', 'admin', 'manager']}>
                   <UserManagement />
                 </RoleBasedRoute>
               }
@@ -106,7 +106,7 @@ function Layout() {
             <Route
               path="users/:userId"
               element={
-                <RoleBasedRoute allowedRoles={['manager', 'admin']}>
+                <RoleBasedRoute allowedRoles={['super_admin', 'admin', 'manager']}>
                   <EmployeeDetail />
                 </RoleBasedRoute>
               }
