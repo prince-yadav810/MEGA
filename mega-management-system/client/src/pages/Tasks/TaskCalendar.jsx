@@ -607,9 +607,17 @@ const TaskCalendar = ({ onViewChange }) => {
                           key={assignee._id || assignee.id || index}
                           className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200"
                         >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white text-xs flex items-center justify-center font-bold">
-                            {assignee.name?.substring(0, 2).toUpperCase() || assignee.avatar}
-                          </div>
+                          {assignee.profileImage?.url ? (
+                            <img
+                              src={assignee.profileImage.url}
+                              alt={assignee.name}
+                              className="w-6 h-6 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white text-xs flex items-center justify-center font-bold">
+                              {assignee.name?.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
                           <span className="text-sm font-medium text-gray-700">{assignee.name}</span>
                         </div>
                       ))}
@@ -890,9 +898,19 @@ const TaskCalendar = ({ onViewChange }) => {
                             {task.assignees.slice(0, 3).map((assignee, idx) => (
                               <div
                                 key={assignee._id || assignee.id || idx}
-                                className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white text-xs flex items-center justify-center font-bold border-2 border-white"
+                                className="w-6 h-6 rounded-full border-2 border-white"
                               >
-                                {assignee.name?.substring(0, 1).toUpperCase()}
+                                {assignee.profileImage?.url ? (
+                                  <img
+                                    src={assignee.profileImage.url}
+                                    alt={assignee.name}
+                                    className="w-full h-full rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-primary-400 to-primary-600 text-white text-xs flex items-center justify-center font-bold rounded-full">
+                                    {assignee.name?.substring(0, 1).toUpperCase()}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>

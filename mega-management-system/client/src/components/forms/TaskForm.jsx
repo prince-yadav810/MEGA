@@ -68,7 +68,8 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
             id: user._id,
             name: user.name,
             email: user.email,
-            avatar: user.avatar || user.name?.substring(0, 2).toUpperCase() || '??'
+            avatar: user.avatar || user.name?.substring(0, 2).toUpperCase() || '??',
+            profileImage: user.profileImage
           }));
           setTeamMembers(users);
         }
@@ -269,9 +270,17 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                             : 'border-gray-300 hover:border-gray-400 text-gray-700'
                         }`}
                       >
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium">
-                          {member.avatar}
-                        </div>
+                        {member.profileImage?.url ? (
+                          <img
+                            src={member.profileImage.url}
+                            alt={member.name}
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium">
+                            {member.name?.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
                         <span className="text-sm font-medium">{member.name}</span>
                       </button>
                     ))}

@@ -395,13 +395,23 @@ const CompletedTasks = ({ onViewChange }) => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex -space-x-1">
-                            {task.assignees.slice(0, 3).map((assignee) => (
+                            {task.assignees.slice(0, 3).map((assignee, index) => (
                               <div
-                                key={assignee.id}
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium border-2 border-white"
+                                key={assignee._id || assignee.id || index}
+                                className="w-8 h-8 rounded-full border-2 border-white"
                                 title={assignee.name}
                               >
-                                {assignee.avatar}
+                                {assignee.profileImage?.url ? (
+                                  <img
+                                    src={assignee.profileImage.url}
+                                    alt={assignee.name}
+                                    className="w-full h-full rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-primary-500 to-primary-600 text-white text-xs flex items-center justify-center font-medium rounded-full">
+                                    {assignee.name?.substring(0, 2).toUpperCase()}
+                                  </div>
+                                )}
                               </div>
                             ))}
                             {task.assignees.length > 3 && (

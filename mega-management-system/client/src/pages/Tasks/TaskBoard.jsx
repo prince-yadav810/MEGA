@@ -618,10 +618,20 @@ const TaskBoard = ({ onViewChange }) => {
           {task.assignees?.slice(0, 3).map((assignee, index) => (
             <div
               key={assignee._id || assignee.id || index}
-              className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white text-xs flex items-center justify-center font-semibold border-2 border-white ring-1 ring-gray-200"
+              className="w-7 h-7 rounded-full border-2 border-white ring-1 ring-gray-200"
               title={assignee.name}
             >
-              {assignee.name?.substring(0, 2).toUpperCase() || assignee.avatar}
+              {assignee.profileImage?.url ? (
+                <img
+                  src={assignee.profileImage.url}
+                  alt={assignee.name}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-primary-400 to-primary-600 text-white text-xs flex items-center justify-center font-semibold rounded-full">
+                  {assignee.name?.substring(0, 2).toUpperCase()}
+                </div>
+              )}
             </div>
           ))}
           {task.assignees?.length > 3 && (
