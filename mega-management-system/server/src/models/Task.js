@@ -82,10 +82,24 @@ TaskSchema.index({ dueDate: 1 });
 TaskSchema.index({ assignees: 1 });
 TaskSchema.index({ createdBy: 1 });
 
+// TTL index - automatically delete completed tasks after 15 days (1296000 seconds)
+// This will delete the entire task document including all metadata (assignees, priority, status, dueDate, etc.)
+// MongoDB's TTL process runs every 60 seconds, so deletion may be delayed by up to 1 minute after expiry
+TaskSchema.index({ completedDate: 1 }, { 
+  expireAfterSeconds: 1296000,  // 15 days = 15 * 24 * 60 * 60 = 1296000 seconds
+  partialFilterExpression: { completedDate: { $exists: true, $ne: null } }
+});
+
 // Update completedDate when status changes to completed
 TaskSchema.pre('save', function(next) {
-  if (this.isModified('status') && this.status === 'completed' && !this.completedDate) {
-    this.completedDate = new Date();
+  if (this.isModified('status')) {
+    if (this.status === 'completed' && !this.completedDate) {
+      // Task just completed - set completedDate for TTL index
+      this.completedDate = new Date();
+    } else if (this.status !== 'completed' && this.completedDate) {
+      // Task was un-completed - remove completedDate to prevent TTL deletion
+      this.completedDate = null;
+    }
   }
   next();
 });

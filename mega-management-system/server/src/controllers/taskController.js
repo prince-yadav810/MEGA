@@ -239,6 +239,20 @@ exports.updateTask = async (req, res) => {
       delete updateData.client;
     }
 
+    // Handle completedDate for TTL index auto-deletion
+    // Tasks with status 'completed' will be auto-deleted 15 days after completion
+    if (req.body.status) {
+      if (req.body.status === 'completed' && previousStatus !== 'completed') {
+        // Task just completed - set completedDate for TTL index
+        updateData.completedDate = new Date();
+        console.log('✅ Task marked as completed - will auto-delete after 15 days');
+      } else if (req.body.status !== 'completed' && previousStatus === 'completed') {
+        // Task was un-completed - remove completedDate to prevent TTL deletion
+        updateData.completedDate = null;
+        console.log('♻️  Task un-completed - removed auto-deletion');
+      }
+    }
+
     updateData.updatedBy = req.user._id;
 
     console.log('Updating task with data:', updateData);
