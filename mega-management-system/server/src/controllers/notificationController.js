@@ -7,9 +7,11 @@ const createNotification = async (notificationData, io) => {
   try {
     const notification = await Notification.create(notificationData);
 
-    // Emit Socket.io event if io is available
-    if (io) {
-      io.emit('notification:new', notification);
+    // Emit Socket.io event to specific user if io is available
+    if (io && notification.userId) {
+      // Emit to user-specific room (format: user:${userId})
+      io.to(`user:${notification.userId}`).emit('notification:new', notification);
+      console.log(`📬 Notification sent to user:${notification.userId}`);
     }
 
     return notification;

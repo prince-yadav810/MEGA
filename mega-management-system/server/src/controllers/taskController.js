@@ -149,7 +149,7 @@ exports.createTask = async (req, res) => {
       req.io.emit('task:created', task);
     }
 
-    // Create notifications for assignees
+    // Create notifications for assignees ONLY (not everyone)
     if (task.assignees && task.assignees.length > 0) {
       await notifyMultipleUsers(
         task.assignees.map(a => a._id || a),
@@ -157,7 +157,7 @@ exports.createTask = async (req, res) => {
           type: 'success',
           category: 'task',
           title: 'New Task Assigned',
-          message: `You have been assigned to task: "${task.title}"`,
+          message: `You have been assigned to task: "${task.title}" by ${req.user.name}`,
           entityType: 'task',
           entityId: task._id,
           actionUrl: '/workspace/tasks',
@@ -166,6 +166,7 @@ exports.createTask = async (req, res) => {
         },
         req.io
       );
+      console.log(`✉️  Notifications sent to ${task.assignees.length} assignee(s)`);
     }
 
     res.status(201).json({
@@ -205,6 +206,11 @@ exports.updateTask = async (req, res) => {
         message: 'Task not found'
       });
     }
+
+    // Store previous values for change tracking
+    const previousStatus = task.status;
+    const previousPriority = task.priority;
+    const previousAssignees = task.assignees.map(id => id.toString());
 
     // Clean up assignees if provided - filter out invalid IDs
     let updateData = { ...req.body };
@@ -252,15 +258,82 @@ exports.updateTask = async (req, res) => {
       req.io.emit('task:updated', task);
     }
 
-    // Create notifications for assignees
-    if (task.assignees && task.assignees.length > 0) {
+    // --- NOTIFICATION LOGIC ---
+    
+    // 1. Find NEW assignees (people who weren't assigned before)
+    const newAssignees = task.assignees.filter(
+      assignee => !previousAssignees.includes(assignee._id.toString())
+    );
+
+    // 2. Notify ONLY NEW assignees about task assignment
+    if (newAssignees.length > 0) {
       await notifyMultipleUsers(
-        task.assignees.map(a => a._id || a),
+        newAssignees.map(a => a._id),
+        {
+          type: 'success',
+          category: 'task',
+          title: 'New Task Assigned',
+          message: `You have been assigned to task: "${task.title}" by ${req.user.name}`,
+          entityType: 'task',
+          entityId: task._id,
+          actionUrl: '/workspace/tasks',
+          createdBy: req.user.name || 'System',
+          isAssignment: true
+        },
+        req.io
+      );
+      console.log(`✉️  Assignment notification sent to ${newAssignees.length} new assignee(s)`);
+    }
+
+    // 3. Prepare change messages for existing assignees
+    const changes = [];
+    const statusLabels = {
+      todo: 'To Do',
+      in_progress: 'In Progress',
+      completed: 'Completed'
+    };
+    const priorityLabels = {
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      urgent: 'Urgent'
+    };
+
+    // Track status change
+    if (req.body.status && previousStatus !== req.body.status) {
+      changes.push(`Status: ${statusLabels[previousStatus] || previousStatus} → ${statusLabels[req.body.status] || req.body.status}`);
+    }
+
+    // Track priority change
+    if (req.body.priority && previousPriority !== req.body.priority) {
+      changes.push(`Priority: ${priorityLabels[previousPriority] || previousPriority} → ${priorityLabels[req.body.priority] || req.body.priority}`);
+    }
+
+    // Track title change
+    if (req.body.title && req.body.title !== task.title) {
+      changes.push('Title updated');
+    }
+
+    // Track description change
+    if (req.body.description !== undefined && req.body.description !== task.description) {
+      changes.push('Description updated');
+    }
+
+    // Track due date change
+    if (req.body.dueDate && new Date(req.body.dueDate).getTime() !== new Date(task.dueDate).getTime()) {
+      changes.push('Due date updated');
+    }
+
+    // 4. Notify ALL assignees (including old ones) if there were significant changes
+    if (changes.length > 0 && task.assignees.length > 0) {
+      const changeMessage = changes.join(', ');
+      await notifyMultipleUsers(
+        task.assignees.map(a => a._id),
         {
           type: 'info',
           category: 'task',
           title: 'Task Updated',
-          message: `Task "${task.title}" has been updated`,
+          message: `"${task.title}" updated by ${req.user.name}: ${changeMessage}`,
           entityType: 'task',
           entityId: task._id,
           actionUrl: '/workspace/tasks',
@@ -268,6 +341,7 @@ exports.updateTask = async (req, res) => {
         },
         req.io
       );
+      console.log(`✉️  Update notification sent to ${task.assignees.length} assignee(s): ${changeMessage}`);
     }
 
     res.json({
@@ -291,7 +365,9 @@ exports.updateTask = async (req, res) => {
 // @access  Private
 exports.deleteTask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id).populate('assignees', '_id name');
+    const task = await Task.findById(req.params.id)
+      .populate('assignees', '_id name')
+      .populate('createdBy', '_id name');
 
     if (!task) {
       return res.status(404).json({
@@ -302,6 +378,7 @@ exports.deleteTask = async (req, res) => {
 
     const taskTitle = task.title;
     const assignees = task.assignees;
+    const creator = task.createdBy;
 
     await task.deleteOne();
 
@@ -310,20 +387,34 @@ exports.deleteTask = async (req, res) => {
       req.io.emit('task:deleted', { id: req.params.id });
     }
 
-    // Create notifications for assignees
+    // Collect all users to notify (assignees + creator)
+    const usersToNotify = new Set();
+    
+    // Add all assignees
     if (assignees && assignees.length > 0) {
+      assignees.forEach(a => usersToNotify.add(a._id.toString()));
+    }
+    
+    // Add creator (if not already in the set and if creator exists)
+    if (creator && creator._id) {
+      usersToNotify.add(creator._id.toString());
+    }
+
+    // Send notifications to all relevant users
+    if (usersToNotify.size > 0) {
       await notifyMultipleUsers(
-        assignees.map(a => a._id),
+        Array.from(usersToNotify),
         {
           type: 'warning',
           category: 'task',
           title: 'Task Deleted',
-          message: `Task "${taskTitle}" has been deleted`,
+          message: `Task "${taskTitle}" has been deleted by ${req.user.name}`,
           actionUrl: '/workspace/tasks',
           createdBy: req.user.name || 'System'
         },
         req.io
       );
+      console.log(`✉️  Delete notification sent to ${usersToNotify.size} user(s) (creator + assignees)`);
     }
 
     res.json({

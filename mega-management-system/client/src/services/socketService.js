@@ -6,10 +6,15 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.listeners = new Map();
+    this.userId = null;
   }
 
-  connect(url) {
+  connect(url, userId = null) {
     if (this.socket?.connected) {
+      // If userId is provided and different, rejoin room
+      if (userId && userId !== this.userId) {
+        this.joinUserRoom(userId);
+      }
       return this.socket;
     }
 
@@ -29,6 +34,10 @@ class SocketService {
 
     this.socket.on('connect', () => {
       console.log('✅ Socket.io connected:', this.socket.id);
+      // Join user room on connection
+      if (userId) {
+        this.joinUserRoom(userId);
+      }
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -39,14 +48,40 @@ class SocketService {
       console.error('Socket.io error:', error);
     });
 
+    // Rejoin room on reconnection
+    this.socket.on('reconnect', () => {
+      console.log('🔄 Socket.io reconnected');
+      if (this.userId) {
+        this.joinUserRoom(this.userId);
+      }
+    });
+
     return this.socket;
+  }
+
+  joinUserRoom(userId) {
+    if (!this.socket || !userId) return;
+    
+    // Leave old room if exists
+    if (this.userId && this.userId !== userId) {
+      this.socket.emit('leave-user-room', this.userId);
+    }
+    
+    this.userId = userId;
+    this.socket.emit('join-user-room', userId);
+    console.log(`📍 Joined user room: user:${userId}`);
   }
 
   disconnect() {
     if (this.socket) {
+      // Leave user room before disconnecting
+      if (this.userId) {
+        this.socket.emit('leave-user-room', this.userId);
+      }
       this.socket.disconnect();
       this.socket = null;
       this.listeners.clear();
+      this.userId = null;
     }
   }
 

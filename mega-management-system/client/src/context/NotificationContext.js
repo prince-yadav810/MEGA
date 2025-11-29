@@ -31,8 +31,8 @@ export const NotificationProvider = ({ children }) => {
 
   // Initialize Socket.io connection
   useEffect(() => {
-    if (user) {
-      socketService.connect();
+    if (user && user._id) {
+      socketService.connect(null, user._id);
 
       // Listen for new notifications
       socketService.on('notification:new', (notification) => {
