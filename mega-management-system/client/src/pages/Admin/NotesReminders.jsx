@@ -8,6 +8,7 @@ import reminderService from '../../services/reminderService';
 import { useNotifications } from '../../context/NotificationContext';
 import toast from 'react-hot-toast';
 import { formatNaturalDate, formatDateTime, formatTime, getSmartDefaults, formatRepeatPattern } from '../../utils/formatters';
+import EmployeeWalletSection from '../../components/wallet/EmployeeWalletSection';
 
 const NotesReminders = () => {
   const [notes, setNotes] = useState([]);
@@ -871,6 +872,11 @@ const NotesReminders = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Wallet Section - Below Reminders, Above Documents */}
+        <div className="mt-8">
+          <EmployeeWalletSection />
         </div>
       </div>
 

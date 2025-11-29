@@ -84,30 +84,30 @@ export default function EmployeeWalletSection() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Wallet className="w-5 h-5 text-blue-600" />
           <h2 className="text-xl font-semibold text-gray-800">My Wallet</h2>
         </div>
         <button
           onClick={() => setShowAddExpenseModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
-          Record Expense
+          <span>Record Expense</span>
         </button>
       </div>
 
       {/* Wallet Balance Card */}
-      <div className="border-2 border-gray-200 rounded-lg p-6 mb-6 bg-white">
+      <div className="border-2 border-gray-200 rounded-lg p-4 sm:p-6 mb-6 bg-white">
         <div className="text-sm text-gray-600 mb-2">Current Balance</div>
-        <div className={`text-4xl font-bold ${walletData?.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+        <div className={`text-3xl sm:text-4xl font-bold ${walletData?.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
           ₹{walletData?.balance?.toFixed(2) || '0.00'}
         </div>
         {walletData?.balance < 0 && (
           <div className="mt-3 flex items-center gap-2 text-sm bg-red-50 text-red-700 px-3 py-2 rounded border border-red-200">
-            <AlertCircle className="w-4 h-4" />
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>Your balance is negative. Please contact admin.</span>
           </div>
         )}
@@ -126,10 +126,10 @@ export default function EmployeeWalletSection() {
             {transactions.map((transaction) => (
               <div
                 key={transaction._id}
-                className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                className="flex flex-col sm:flex-row sm:items-start justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition gap-3"
               >
-                <div className="flex items-start gap-3 flex-1">
-                  <div className={`p-2 rounded-full ${
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className={`p-2 rounded-full flex-shrink-0 ${
                     transaction.type === 'credit'
                       ? 'bg-green-100 text-green-600'
                       : 'bg-red-100 text-red-600'
@@ -141,8 +141,8 @@ export default function EmployeeWalletSection() {
                     )}
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-medium text-gray-800">
                         {transaction.type === 'credit' ? 'Money Received' : 'Expense'}
                       </span>
@@ -154,10 +154,10 @@ export default function EmployeeWalletSection() {
                     </div>
 
                     {transaction.description && (
-                      <p className="text-sm text-gray-600 mb-1">{transaction.description}</p>
+                      <p className="text-sm text-gray-600 mb-1 break-words">{transaction.description}</p>
                     )}
 
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {moment(transaction.createdAt).format('DD/MM/YYYY hh:mm A')}
@@ -169,7 +169,7 @@ export default function EmployeeWalletSection() {
                   </div>
                 </div>
 
-                <div className={`text-lg font-semibold ${
+                <div className={`text-lg font-semibold sm:mt-0 ${
                   transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount?.toFixed(2)}

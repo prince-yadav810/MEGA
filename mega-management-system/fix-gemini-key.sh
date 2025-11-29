@@ -81,3 +81,4 @@ echo "📊 Monitor logs with:"
 echo "   gcloud beta logging tail"
 echo ""
 
+
