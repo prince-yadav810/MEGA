@@ -19,10 +19,10 @@ router.get('/', protect, getAllProducts);
 router.get('/categories', protect, getCategories);
 router.get('/:id', protect, getProductById);
 
-// Manager/Admin/Super Admin only routes
-router.post('/', protect, restrictTo('super_admin', 'manager', 'admin'), createProduct);
-router.put('/:id', protect, restrictTo('super_admin', 'manager', 'admin'), updateProduct);
-router.delete('/:id', protect, restrictTo('super_admin', 'manager', 'admin'), deleteProduct);
+// Manager/Admin/Super Admin/Employee routes - Employees can create products
+router.post('/', protect, restrictTo('super_admin', 'manager', 'admin', 'employee'), createProduct);
+router.put('/:id', protect, restrictTo('super_admin', 'manager', 'admin', 'employee'), updateProduct);
+router.delete('/:id', protect, restrictTo('super_admin', 'manager', 'admin', 'employee'), deleteProduct);
 
 // Image management routes (super_admin/manager/admin only)
 router.delete('/:id/images/:imageId', protect, restrictTo('super_admin', 'manager', 'admin'), deleteProductImage);

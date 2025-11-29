@@ -11,8 +11,8 @@ router.put('/preferences', protect, userController.updateUserPreferences);
 
 // Admin routes - Only super_admin/managers/admins can access these routes
 
-// Get all users (team members)
-router.get('/', protect, restrictTo('super_admin', 'manager', 'admin'), userController.getAllUsers);
+// Get all users (team members) - Accessible to all authenticated users for task assignment
+router.get('/', protect, userController.getAllUsers);
 
 // Get single user by ID
 router.get('/:id', protect, restrictTo('super_admin', 'manager', 'admin'), userController.getUserById);
