@@ -5,7 +5,7 @@ import { Upload, X, Camera, Image as ImageIcon } from 'lucide-react';
 
 /**
  * Reusable image upload component with preview
- * Supports drag & drop and file selection
+ * Supports drag & drop (desktop) and camera/gallery (mobile)
  */
 const ImageUploadPreview = ({
   label,
@@ -18,6 +18,7 @@ const ImageUploadPreview = ({
   helpText = ''
 }) => {
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
@@ -92,9 +93,14 @@ const ImageUploadPreview = ({
     onImageRemove();
   };
 
-  // Handle click to open file selector
+  // Handle click to open file selector (gallery)
   const handleClick = () => {
     fileInputRef.current?.click();
+  };
+
+  // Handle camera capture (mobile)
+  const handleCamera = () => {
+    cameraInputRef.current?.click();
   };
 
   return (
@@ -121,14 +127,23 @@ const ImageUploadPreview = ({
         onDragOver={handleDrag}
         onDrop={handleDrop}
       >
-        {/* Hidden file input */}
+        {/* Hidden file input for gallery (no camera) */}
         <input
           ref={fileInputRef}
           type="file"
           accept={accept}
           onChange={handleInputChange}
           className="hidden"
-          capture="environment" // Enable camera on mobile
+        />
+
+        {/* Hidden file input for camera (mobile only) */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept={accept}
+          capture="environment"
+          onChange={handleInputChange}
+          className="hidden"
         />
 
         {/* Preview or Upload UI */}
@@ -159,30 +174,52 @@ const ImageUploadPreview = ({
             </div>
           </div>
         ) : (
-          <div
-            onClick={handleClick}
-            className="flex flex-col items-center justify-center p-6 cursor-pointer"
-          >
-            <div className="flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-gray-100">
-              {/* Mobile: show camera icon, Desktop: show upload icon */}
-              <Camera className="h-6 w-6 text-gray-400 md:hidden" />
-              <Upload className="h-6 w-6 text-gray-400 hidden md:block" />
+          <>
+            {/* Mobile View - Camera and Gallery Buttons */}
+            <div className="md:hidden p-6 space-y-3">
+              <div className="text-center mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-1">Choose an option:</p>
+                <p className="text-xs text-gray-500">JPG or PNG (max {maxSize}MB)</p>
+              </div>
+              
+              <button
+                type="button"
+                onClick={handleCamera}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
+              >
+                <Camera className="h-5 w-5" />
+                <span className="font-medium">Take Photo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClick}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <ImageIcon className="h-5 w-5" />
+                <span className="font-medium">Upload from Gallery</span>
+              </button>
             </div>
 
-            <p className="text-sm text-gray-600 text-center mb-1">
-              <span className="font-medium text-primary-600 md:hidden">
-                Take photo
-              </span>
-              <span className="font-medium text-primary-600 hidden md:inline">
-                Click to upload
-              </span>
-              <span className="text-gray-500"> or drag and drop</span>
-            </p>
+            {/* Desktop View - Drag and Drop */}
+            <div
+              onClick={handleClick}
+              className="hidden md:flex flex-col items-center justify-center p-6 cursor-pointer"
+            >
+              <div className="flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-gray-100">
+                <Upload className="h-6 w-6 text-gray-400" />
+              </div>
 
-            <p className="text-xs text-gray-500">
-              JPG or PNG (max {maxSize}MB)
-            </p>
-          </div>
+              <p className="text-sm text-gray-600 text-center mb-1">
+                <span className="font-medium text-primary-600">Click to upload</span>
+                <span className="text-gray-500"> or drag and drop</span>
+              </p>
+
+              <p className="text-xs text-gray-500">
+                JPG or PNG (max {maxSize}MB)
+              </p>
+            </div>
+          </>
         )}
       </div>
 
