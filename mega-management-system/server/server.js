@@ -130,6 +130,7 @@ app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
 app.use('/api/whatsapp', require('./src/routes/whatsapp'));
 app.use('/api/settings', require('./src/routes/settings'));
 app.use('/api/wallet', require('./src/routes/wallet'));
+app.use('/api/documents', require('./src/routes/documents'));
 
 // Health check
 app.get('/api/health', (req, res) => {

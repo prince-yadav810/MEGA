@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Pin, Edit2, Trash2, X, Calendar, Clock, Repeat, Bell, Copy, Check, ChevronDown, ChevronUp, Upload, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Paperclip, ChevronRight, AlertCircle, Globe, Lock } from 'lucide-react';
 import noteService from '../../services/noteService';
 import reminderService from '../../services/reminderService';
+import documentService from '../../services/documentService';
 import { useNotifications } from '../../context/NotificationContext';
 import toast from 'react-hot-toast';
 import { formatNaturalDate, formatDateTime, formatTime, getSmartDefaults, formatRepeatPattern } from '../../utils/formatters';
@@ -31,6 +32,7 @@ const NotesReminders = () => {
   const [showFileUploadModal, setShowFileUploadModal] = useState(false);
   const [currentFile, setCurrentFile] = useState(null);
   const [fileNote, setFileNote] = useState('');
+  const [fileVisibility, setFileVisibility] = useState('private');
   const [renamingFile, setRenamingFile] = useState(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -89,49 +91,12 @@ const NotesReminders = () => {
 
   const fetchFiles = async () => {
     try {
-      // Fetch all notes and reminders with attachments to display in Files section
-      const [notesRes, remindersRes] = await Promise.all([
-        noteService.getAllNotes(),
-        reminderService.getAllReminders()
-      ]);
+      // Fetch documents from the new document service
+      const response = await documentService.getAllDocuments();
       
-      const allFiles = [];
-      
-      // Extract files from notes
-      if (notesRes.success && notesRes.data) {
-        notesRes.data.forEach(note => {
-          if (note.attachments && note.attachments.length > 0) {
-            note.attachments.forEach(att => {
-              allFiles.push({
-                ...att,
-                sourceType: 'note',
-                sourceId: note._id,
-                sourceName: note.heading,
-                noteContent: note.content
-              });
-            });
-          }
-        });
+      if (response.success) {
+        setFiles(response.data || []);
       }
-      
-      // Extract files from reminders
-      if (remindersRes.success && remindersRes.data) {
-        remindersRes.data.forEach(reminder => {
-          if (reminder.attachments && reminder.attachments.length > 0) {
-            reminder.attachments.forEach(att => {
-              allFiles.push({
-                ...att,
-                sourceType: 'reminder',
-                sourceId: reminder._id,
-                sourceName: reminder.title,
-                noteContent: ''
-              });
-            });
-          }
-        });
-      }
-      
-      setFiles(allFiles);
     } catch (error) {
       console.error('Error fetching files:', error);
     }
@@ -199,6 +164,7 @@ const NotesReminders = () => {
   const openFileModal = (file) => {
     setCurrentFile(file);
     setFileNote('');
+    setFileVisibility('private');
     setShowFileUploadModal(true);
   };
 
@@ -206,13 +172,12 @@ const NotesReminders = () => {
     if (!currentFile) return;
     
     try {
-      // Create a note with this file as attachment
-      const noteData = {
-        heading: currentFile.name,
-        content: fileNote || 'File attachment'
-      };
-      
-      const response = await noteService.createNote(noteData, [currentFile]);
+      // Upload document using the new document service
+      const response = await documentService.uploadDocument(
+        currentFile,
+        fileNote,
+        fileVisibility
+      );
       
       if (response.success) {
         // Remove from uploading queue
@@ -220,36 +185,30 @@ const NotesReminders = () => {
         setShowFileUploadModal(false);
         setCurrentFile(null);
         setFileNote('');
+        setFileVisibility('private');
         
         // Refresh files
         await fetchFiles();
-        await fetchData();
         
-        toast.success('File uploaded successfully');
+        toast.success('Document uploaded successfully');
       }
     } catch (error) {
-      toast.error('Error uploading file');
+      toast.error(error.response?.data?.message || 'Error uploading document');
     }
   };
 
   const handleDeleteFile = async (file) => {
-    if (!window.confirm('Are you sure you want to delete this file?')) return;
+    if (!window.confirm('Are you sure you want to delete this document?')) return;
 
     try {
-      let response;
-      if (file.sourceType === 'note') {
-        response = await noteService.deleteAttachment(file.sourceId, file._id);
-      } else {
-        response = await reminderService.deleteAttachment(file.sourceId, file._id);
-      }
+      const response = await documentService.deleteDocument(file._id);
       
       if (response.success) {
-        toast.success('File deleted successfully');
+        toast.success('Document deleted successfully');
         await fetchFiles();
-        await fetchData();
       }
     } catch (error) {
-      toast.error('Error deleting file');
+      toast.error(error.response?.data?.message || 'Error deleting document');
     }
   };
 
@@ -270,21 +229,15 @@ const NotesReminders = () => {
     }
 
     try {
-      let response;
-      if (renamingFile.sourceType === 'note') {
-        response = await noteService.renameAttachment(renamingFile.sourceId, renamingFile._id, renameValue);
-      } else {
-        response = await reminderService.renameAttachment(renamingFile.sourceId, renamingFile._id, renameValue);
-      }
+      const response = await documentService.renameDocument(renamingFile._id, renameValue);
       
       if (response.success) {
-        toast.success('File renamed successfully');
+        toast.success('Document renamed successfully');
         cancelRename();
         await fetchFiles();
-        await fetchData();
       }
     } catch (error) {
-      toast.error('Error renaming file');
+      toast.error(error.response?.data?.message || 'Error renaming document');
     }
   };
 
@@ -1487,6 +1440,42 @@ const NotesReminders = () => {
                   placeholder="Add a description or note about this file..."
                 />
               </div>
+
+              {/* Visibility Toggle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Visibility</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFileVisibility('private')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                      fileVisibility === 'private'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Lock className="h-4 w-4" />
+                    <span className="font-medium">Only Me</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFileVisibility('public')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                      fileVisibility === 'public'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Globe className="h-4 w-4" />
+                    <span className="font-medium">Everyone</span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {fileVisibility === 'private'
+                    ? 'Only you can see this document'
+                    : 'All team members can see this document'}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-200">
@@ -1495,6 +1484,7 @@ const NotesReminders = () => {
                   setShowFileUploadModal(false);
                   setCurrentFile(null);
                   setFileNote('');
+                  setFileVisibility('private');
                 }}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -1601,10 +1591,23 @@ const NotesReminders = () => {
             {files.map((file) => (
               <div
                 key={file._id}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow group"
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow group relative"
               >
+                {/* Visibility Badge */}
+                <div className="absolute top-2 right-2">
+                  {file.visibility === 'public' ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-600 rounded text-xs" title="Visible to everyone">
+                      <Globe className="h-3 w-3" />
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded text-xs" title="Only visible to you">
+                      <Lock className="h-3 w-3" />
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className="flex items-center space-x-3 flex-1 min-w-0 pr-8">
                     <div className="text-primary-600 flex-shrink-0">
                       {getFileIcon(file.fileType)}
                     </div>
@@ -1630,64 +1633,64 @@ const NotesReminders = () => {
                   </div>
                 </div>
 
-                {file.noteContent && (
+                {file.note && (
                   <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-700">
-                    <p className="line-clamp-2">{file.noteContent}</p>
+                    <p className="line-clamp-2">{file.note}</p>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                  <span className="text-xs text-gray-500 capitalize">
-                    {file.sourceType}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-200 mb-2">
+                  <span className="text-xs text-gray-500">
+                    by {file.uploadedByName}
                   </span>
-                  <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {renamingFile && renamingFile._id === file._id ? (
-                      <>
-                        <button
-                          onClick={handleRenameFile}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
-                          title="Save"
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={cancelRename}
-                          className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                          title="Cancel"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => downloadFile(file.url)}
-                          className="p-1.5 text-primary-600 hover:bg-primary-50 rounded transition-colors"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => startRenameFile(file)}
-                          className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                          title="Rename"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteFile(file)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <span className="text-xs text-gray-400">
+                    {new Date(file.uploadedAt).toLocaleDateString()}
+                  </span>
                 </div>
 
-                <div className="mt-2 text-xs text-gray-400">
-                  {new Date(file.uploadedAt).toLocaleDateString()}
+                <div className="flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {renamingFile && renamingFile._id === file._id ? (
+                    <>
+                      <button
+                        onClick={handleRenameFile}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                        title="Save"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={cancelRename}
+                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => downloadFile(file.url)}
+                        className="p-1.5 text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                        title="Download"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => startRenameFile(file)}
+                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                        title="Rename"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFile(file)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
