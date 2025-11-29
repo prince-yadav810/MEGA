@@ -17,6 +17,7 @@ const remindersRoutes = require('./src/routes/reminders');
 const callLogRoutes = require('./src/routes/callLogRoutes');
 const paymentReminderScheduler = require('./src/services/paymentReminderScheduler');
 const attendanceCleanupScheduler = require('./src/services/attendanceCleanupScheduler');
+const attendanceLocationCleanupService = require('./src/services/attendanceLocationCleanupService');
 
 // Connect to database
 connectDB();
@@ -32,6 +33,7 @@ if (!DISABLE_CRON) {
     
     paymentReminderScheduler.start();
     attendanceCleanupScheduler.start();
+    attendanceLocationCleanupService.start();  // Start location cleanup service
   }, 5000); // Wait 5 seconds after server start to ensure DB is connected
 } else {
   console.log('⚠️  Internal cron disabled. Use /api/scheduler/trigger endpoint for Cloud Scheduler.');
@@ -239,6 +241,40 @@ app.post('/api/scheduler/attendance-cleanup/trigger', async (req, res) => {
 // Get attendance cleanup scheduler statistics
 app.get('/api/scheduler/attendance-cleanup/stats', (req, res) => {
   const stats = attendanceCleanupScheduler.getStats();
+  res.json(stats);
+});
+
+// Manual trigger for attendance location cleanup (admin only, for testing)
+app.post('/api/scheduler/attendance-location-cleanup/trigger', async (req, res) => {
+  try {
+    // Verify request in production
+    const userAgent = req.get('User-Agent') || '';
+    const isCloudScheduler = userAgent.includes('Google-Cloud-Scheduler');
+    const hasSchedulerKey = req.get('X-Scheduler-Key') === process.env.SCHEDULER_SECRET;
+
+    // Allow if from Cloud Scheduler OR has valid secret OR in development
+    if (!isCloudScheduler && !hasSchedulerKey && process.env.NODE_ENV === 'production') {
+      console.log('⚠️  Unauthorized attendance location cleanup trigger attempt');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('🔧 Attendance location cleanup trigger received');
+    const result = await attendanceLocationCleanupService.triggerCleanup();
+
+    res.json({
+      success: true,
+      message: 'Attendance location cleanup triggered',
+      ...result
+    });
+  } catch (error) {
+    console.error('Attendance location cleanup trigger error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get attendance location cleanup service statistics
+app.get('/api/scheduler/attendance-location-cleanup/stats', (req, res) => {
+  const stats = attendanceLocationCleanupService.getStats();
   res.json(stats);
 });
 

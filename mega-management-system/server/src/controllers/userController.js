@@ -217,6 +217,7 @@ exports.updateUser = async (req, res) => {
  */
 exports.deleteUser = async (req, res) => {
   try {
+    const Attendance = require('../models/Attendance');
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -234,11 +235,18 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
+    // Delete related data
+    // 1. Delete all attendance records for this user
+    await Attendance.deleteMany({ user: req.params.id });
+    console.log(`🗑️  Deleted attendance records for user: ${user.name}`);
+
+    // 2. Delete user from MongoDB (includes all embedded data: advances, wallet, salary, etc.)
     await User.findByIdAndDelete(req.params.id);
+    console.log(`🗑️  Deleted user: ${user.name}`);
 
     res.status(200).json({
       success: true,
-      message: 'User deleted successfully'
+      message: 'User and all related data deleted successfully'
     });
 
   } catch (error) {
