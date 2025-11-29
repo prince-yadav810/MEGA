@@ -278,6 +278,10 @@ const SystemSettingsSchema = new mongoose.Schema({
     paymentReminderNotifications: {
       type: Boolean,
       default: true // Notify all employees when payment reminders are sent
+    },
+    productCreationNotifications: {
+      type: Boolean,
+      default: true // Notify all employees, managers, and admins when products are created
     }
   },
 

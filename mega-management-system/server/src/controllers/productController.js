@@ -1,6 +1,8 @@
 const Product = require('../models/Product');
+const User = require('../models/User');
+const SystemSettings = require('../models/SystemSettings');
 const cloudinary = require('../config/cloudinary');
-const { createNotification } = require('./notificationController');
+const { createNotification, notifyMultipleUsers } = require('./notificationController');
 
 // @desc    Get all products with pagination, search, and filters
 // @route   GET /api/products
@@ -154,19 +156,45 @@ exports.createProduct = async (req, res) => {
 
     const product = await Product.create(productData);
 
-    // Create notification for user
+    // Notify all employees, managers, and admins (not super admins) based on system settings
     if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'success',
-        category: 'product',
-        title: 'Product Created',
-        message: `Product "${product.name}" has been added to the inventory`,
-        entityType: 'product',
-        entityId: product._id,
-        actionUrl: '/products',
-        createdBy: req.user.name || 'System'
-      }, req.io);
+      try {
+        // Check if product creation notifications are enabled in system settings
+        const settings = await SystemSettings.getSettings();
+        
+        if (settings.notifications.productCreationNotifications) {
+          // Get all active users who are NOT super admins
+          const employeesManagersAndAdmins = await User.find({
+            isActive: true,
+            role: { $in: ['employee', 'manager', 'admin'] }
+          }).select('_id');
+
+          const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+          if (userIds.length > 0) {
+            await notifyMultipleUsers(
+              userIds,
+              {
+                type: 'success',
+                category: 'product',
+                title: 'New Product Created',
+                message: `Product "${product.name}" has been created by ${req.user.name}`,
+                entityType: 'product',
+                entityId: product._id,
+                actionUrl: '/products',
+                createdBy: req.user.name || 'System'
+              },
+              req.io
+            );
+            console.log(`✉️  Product creation notification sent to ${userIds.length} user(s) (employees, managers & admins)`);
+          }
+        } else {
+          console.log(`📵 Product creation notifications are disabled in system settings`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending product creation notifications:', notifyError);
+        // Don't fail the request if notification fails
+      }
     }
 
     res.status(201).json({
@@ -264,19 +292,45 @@ exports.updateProduct = async (req, res) => {
       }
     );
 
-    // Create notification for user
+    // Notify all employees, managers, and admins (not super admins) based on system settings
     if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'success',
-        category: 'product',
-        title: 'Product Updated',
-        message: `Product "${product.name}" has been updated successfully`,
-        entityType: 'product',
-        entityId: product._id,
-        actionUrl: '/products',
-        createdBy: req.user.name || 'System'
-      }, req.io);
+      try {
+        // Check if product creation notifications are enabled in system settings
+        const settings = await SystemSettings.getSettings();
+        
+        if (settings.notifications.productCreationNotifications) {
+          // Get all active users who are NOT super admins
+          const employeesManagersAndAdmins = await User.find({
+            isActive: true,
+            role: { $in: ['employee', 'manager', 'admin'] }
+          }).select('_id');
+
+          const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+          if (userIds.length > 0) {
+            await notifyMultipleUsers(
+              userIds,
+              {
+                type: 'info',
+                category: 'product',
+                title: 'Product Updated',
+                message: `Product "${product.name}" has been updated by ${req.user.name}`,
+                entityType: 'product',
+                entityId: product._id,
+                actionUrl: '/products',
+                createdBy: req.user.name || 'System'
+              },
+              req.io
+            );
+            console.log(`✉️  Product update notification sent to ${userIds.length} user(s) (employees, managers & admins)`);
+          }
+        } else {
+          console.log(`📵 Product update notifications are disabled in system settings`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending product update notifications:', notifyError);
+        // Don't fail the request if notification fails
+      }
     }
 
     res.status(200).json({

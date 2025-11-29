@@ -18,7 +18,8 @@ const NotificationsTab = () => {
   });
 
   const [systemSettings, setSystemSettings] = useState({
-    paymentReminderNotifications: true
+    paymentReminderNotifications: true,
+    productCreationNotifications: true
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -85,7 +86,8 @@ const NotificationsTab = () => {
       const response = await settingsService.getSettings();
       if (response.success && response.data) {
         setSystemSettings({
-          paymentReminderNotifications: response.data.notifications?.paymentReminderNotifications ?? true
+          paymentReminderNotifications: response.data.notifications?.paymentReminderNotifications ?? true,
+          productCreationNotifications: response.data.notifications?.productCreationNotifications ?? true
         });
       }
     } catch (error) {
@@ -149,7 +151,8 @@ const NotificationsTab = () => {
     try {
       const response = await settingsService.updateSettings({
         notifications: {
-          paymentReminderNotifications: systemSettings.paymentReminderNotifications
+          paymentReminderNotifications: systemSettings.paymentReminderNotifications,
+          productCreationNotifications: systemSettings.productCreationNotifications
         }
       });
 
@@ -349,6 +352,23 @@ const NotificationsTab = () => {
                   <ToggleSwitch
                     enabled={systemSettings.paymentReminderNotifications}
                     onToggle={() => handleSystemToggle('paymentReminderNotifications')}
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">
+                      Product Notifications
+                    </label>
+                    <p className="text-xs text-gray-600 mt-1">
+                      When enabled, all employees, managers, and admins will receive notifications when products are created or updated. The notification will include the product name and who performed the action.
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={systemSettings.productCreationNotifications}
+                    onToggle={() => handleSystemToggle('productCreationNotifications')}
                   />
                 </div>
               </div>
