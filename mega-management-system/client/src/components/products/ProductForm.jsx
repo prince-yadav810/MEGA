@@ -225,11 +225,11 @@ export default function ProductForm({ product, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 pb-24 sm:pb-4 overflow-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[75vh] sm:max-h-[90vh] overflow-hidden flex flex-col my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-900">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-6 border-b flex-shrink-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
             {isEditMode ? 'Edit Product' : 'Add New Product'}
           </h2>
           <button
@@ -240,9 +240,9 @@ export default function ProductForm({ product, onClose, onSuccess }) {
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-140px)]">
-          <div className="p-6 space-y-6">
+        {/* Form - Scrollable */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0">
+          <div className="p-4 sm:p-6 space-y-6">
             {/* Basic Information */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
@@ -500,19 +500,19 @@ export default function ProductForm({ product, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="border-t p-6 bg-gray-50 flex justify-end gap-3">
+          {/* Footer - Always visible at bottom */}
+          <div className="border-t p-4 sm:p-6 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+              className="px-4 sm:px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-300"
+              className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-300"
             >
               {loading ? 'Saving...' : isEditMode ? 'Update Product' : 'Create Product'}
             </button>
