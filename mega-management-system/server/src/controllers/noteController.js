@@ -2,7 +2,8 @@
 // REPLACE entire file with this
 
 const Note = require('../models/Note');
-const { createNotification } = require('./notificationController');
+const User = require('../models/User');
+const { createNotification, notifyMultipleUsers } = require('./notificationController');
 const cloudinary = require('../config/cloudinary');
 
 exports.getAllNotes = async (req, res) => {
@@ -107,19 +108,40 @@ exports.createNote = async (req, res) => {
 
     await note.save();
 
-    // Create notification for user
-    if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'success',
-        category: 'note',
-        title: 'Note Created',
-        message: `Note "${heading}" has been created successfully`,
-        entityType: 'note',
-        entityId: note._id,
-        actionUrl: '/notes-reminders',
-        createdBy: req.user.name || 'Team Member'
-      }, req.io);
+    // Send notifications only for public notes
+    if (req.user && visibility === 'public') {
+      const hasAttachments = attachments.length > 0;
+      
+      // Notify all users except super admins for public notes
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          const attachmentText = hasAttachments ? ` with ${attachments.length} file(s)` : '';
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'info',
+              category: 'note',
+              title: 'New Public Note',
+              message: `"${heading}" has been created by ${req.user.name}${attachmentText}`,
+              entityType: 'note',
+              entityId: note._id,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public note notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public note notifications:', notifyError);
+      }
     }
 
     res.status(201).json({ success: true, data: note, message: 'Note created successfully' });
@@ -201,19 +223,40 @@ exports.updateNote = async (req, res) => {
 
     await note.save();
 
-    // Create notification for user
-    if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'success',
-        category: 'note',
-        title: 'Note Updated',
-        message: `Note "${note.heading}" has been updated successfully`,
-        entityType: 'note',
-        entityId: note._id,
-        actionUrl: '/notes-reminders',
-        createdBy: req.user.name || 'Team Member'
-      }, req.io);
+    // Send notifications only for public notes when files are added
+    if (req.user && note.visibility === 'public' && req.files && req.files.attachments) {
+      // Notify all users except super admins when files are added to public notes
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          const filesAdded = Array.isArray(req.files.attachments) 
+            ? req.files.attachments.length 
+            : 1;
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'info',
+              category: 'note',
+              title: 'Files Added to Public Note',
+              message: `${filesAdded} file(s) added to "${note.heading}" by ${req.user.name}`,
+              entityType: 'note',
+              entityId: note._id,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public note file upload notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public note file upload notifications:', notifyError);
+      }
     }
 
     res.json({ success: true, data: note, message: 'Note updated successfully' });
@@ -251,6 +294,10 @@ exports.deleteNote = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Note not found' });
     }
 
+    // Check if note is public before deleting
+    const isPublic = note.visibility === 'public';
+    const noteHeading = note.heading;
+
     // Delete all attachments from Cloudinary
     if (note.attachments && note.attachments.length > 0) {
       for (const attachment of note.attachments) {
@@ -264,19 +311,36 @@ exports.deleteNote = async (req, res) => {
 
     await Note.findByIdAndDelete(id);
 
-    // Create notification for user
-    if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'warning',
-        category: 'note',
-        title: 'Note Deleted',
-        message: `Note "${note.heading}" has been deleted successfully`,
-        entityType: 'note',
-        entityId: null,
-        actionUrl: '/notes-reminders',
-        createdBy: req.user.name || 'Team Member'
-      }, req.io);
+    // Send notifications if note was public
+    if (req.user && isPublic) {
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'warning',
+              category: 'note',
+              title: 'Public Note Deleted',
+              message: `"${noteHeading}" has been deleted by ${req.user.name}`,
+              entityType: 'note',
+              entityId: null,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public note deletion notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public note deletion notifications:', notifyError);
+      }
     }
 
     res.json({ success: true, message: 'Note deleted successfully' });
@@ -300,6 +364,10 @@ exports.deleteAttachment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Attachment not found' });
     }
 
+    // Check if note is public
+    const isPublic = note.visibility === 'public';
+    const attachmentName = attachment.filename;
+
     // Delete from Cloudinary
     try {
       await cloudinary.uploader.destroy(attachment.publicId);
@@ -310,6 +378,38 @@ exports.deleteAttachment = async (req, res) => {
     // Remove from note
     note.attachments.pull(attachmentId);
     await note.save();
+
+    // Send notifications if note is public
+    if (req.user && isPublic) {
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'warning',
+              category: 'note',
+              title: 'File Deleted from Public Note',
+              message: `File "${attachmentName}" deleted from "${note.heading}" by ${req.user.name}`,
+              entityType: 'note',
+              entityId: note._id,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public note file deletion notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public note file deletion notifications:', notifyError);
+      }
+    }
 
     res.json({ success: true, message: 'Attachment deleted successfully', data: note });
   } catch (error) {

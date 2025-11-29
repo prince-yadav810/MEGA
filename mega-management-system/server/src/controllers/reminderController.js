@@ -2,7 +2,8 @@
 // REPLACE entire file with this
 
 const Reminder = require('../models/Reminder');
-const { createNotification } = require('./notificationController');
+const User = require('../models/User');
+const { createNotification, notifyMultipleUsers } = require('./notificationController');
 const cloudinary = require('../config/cloudinary');
 
 exports.getAllReminders = async (req, res) => {
@@ -98,19 +99,40 @@ exports.createReminder = async (req, res) => {
 
     await reminder.save();
 
-    // Create notification for user
-    if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'success',
-        category: 'reminder',
-        title: 'Reminder Created',
-        message: `Reminder "${reminder.title}" has been created successfully`,
-        entityType: 'reminder',
-        entityId: reminder._id,
-        actionUrl: '/notes-reminders',
-        createdBy: req.user.name || 'Team Member'
-      }, req.io);
+    // Send notifications only for public reminders
+    if (req.user && reminderData.visibility === 'public') {
+      const hasAttachments = attachments.length > 0;
+      
+      // Notify all users except super admins for public reminders
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          const attachmentText = hasAttachments ? ` with ${attachments.length} file(s)` : '';
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'warning',
+              category: 'reminder',
+              title: 'New Public Reminder',
+              message: `"${reminder.title}" has been created by ${req.user.name}${attachmentText}`,
+              entityType: 'reminder',
+              entityId: reminder._id,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public reminder notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public reminder notifications:', notifyError);
+      }
     }
 
     res.status(201).json({ success: true, data: reminder, message: 'Reminder created successfully' });
@@ -184,19 +206,40 @@ exports.updateReminder = async (req, res) => {
     Object.assign(reminder, reminderData);
     await reminder.save();
 
-    // Create notification for user
-    if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'success',
-        category: 'reminder',
-        title: 'Reminder Updated',
-        message: `Reminder "${reminder.title}" has been updated successfully`,
-        entityType: 'reminder',
-        entityId: reminder._id,
-        actionUrl: '/notes-reminders',
-        createdBy: req.user.name || 'Team Member'
-      }, req.io);
+    // Send notifications only for public reminders when files are added
+    if (req.user && reminder.visibility === 'public' && req.files && req.files.attachments) {
+      // Notify all users except super admins when files are added to public reminders
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          const filesAdded = Array.isArray(req.files.attachments) 
+            ? req.files.attachments.length 
+            : 1;
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'warning',
+              category: 'reminder',
+              title: 'Files Added to Public Reminder',
+              message: `${filesAdded} file(s) added to "${reminder.title}" by ${req.user.name}`,
+              entityType: 'reminder',
+              entityId: reminder._id,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public reminder file upload notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public reminder file upload notifications:', notifyError);
+      }
     }
 
     res.json({ success: true, data: reminder, message: 'Reminder updated successfully' });
@@ -215,6 +258,10 @@ exports.deleteReminder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Reminder not found' });
     }
 
+    // Check if reminder is public before deleting
+    const isPublic = reminder.visibility === 'public';
+    const reminderTitle = reminder.title;
+
     // Delete all attachments from Cloudinary
     if (reminder.attachments && reminder.attachments.length > 0) {
       for (const attachment of reminder.attachments) {
@@ -228,19 +275,36 @@ exports.deleteReminder = async (req, res) => {
 
     await Reminder.findByIdAndDelete(id);
 
-    // Create notification for user
-    if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'warning',
-        category: 'reminder',
-        title: 'Reminder Deleted',
-        message: `Reminder "${reminder.title}" has been deleted successfully`,
-        entityType: 'reminder',
-        entityId: null,
-        actionUrl: '/notes-reminders',
-        createdBy: req.user.name || 'Team Member'
-      }, req.io);
+    // Send notifications if reminder was public
+    if (req.user && isPublic) {
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'warning',
+              category: 'reminder',
+              title: 'Public Reminder Deleted',
+              message: `"${reminderTitle}" has been deleted by ${req.user.name}`,
+              entityType: 'reminder',
+              entityId: null,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public reminder deletion notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public reminder deletion notifications:', notifyError);
+      }
     }
 
     res.json({ success: true, message: 'Reminder deleted successfully' });
@@ -367,6 +431,10 @@ exports.deleteAttachment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Attachment not found' });
     }
 
+    // Check if reminder is public
+    const isPublic = reminder.visibility === 'public';
+    const attachmentName = attachment.filename;
+
     // Delete from Cloudinary
     try {
       await cloudinary.uploader.destroy(attachment.publicId);
@@ -377,6 +445,38 @@ exports.deleteAttachment = async (req, res) => {
     // Remove from reminder
     reminder.attachments.pull(attachmentId);
     await reminder.save();
+
+    // Send notifications if reminder is public
+    if (req.user && isPublic) {
+      try {
+        const employeesManagersAndAdmins = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesManagersAndAdmins.map(u => u._id);
+
+        if (userIds.length > 0) {
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'warning',
+              category: 'reminder',
+              title: 'File Deleted from Public Reminder',
+              message: `File "${attachmentName}" deleted from "${reminder.title}" by ${req.user.name}`,
+              entityType: 'reminder',
+              entityId: reminder._id,
+              actionUrl: '/notes-reminders',
+              createdBy: req.user.name || 'Team Member'
+            },
+            req.io
+          );
+          console.log(`✉️  Public reminder file deletion notification sent to ${userIds.length} user(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending public reminder file deletion notifications:', notifyError);
+      }
+    }
 
     res.json({ success: true, message: 'Attachment deleted successfully', data: reminder });
   } catch (error) {
