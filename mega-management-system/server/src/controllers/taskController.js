@@ -109,6 +109,19 @@ exports.createTask = async (req, res) => {
     const assignees = req.body.assignees?.filter(id => id && id.toString().match(/^[0-9a-fA-F]{24}$/)) || [];
     console.log('Filtered assignees:', assignees);
 
+    // Validate that no super admin is assigned - super admins are observers only
+    if (assignees.length > 0) {
+      const assignedUsers = await User.find({ _id: { $in: assignees } });
+      const superAdmins = assignedUsers.filter(user => user.role === 'super_admin');
+      
+      if (superAdmins.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Super admins cannot be assigned tasks. They are observers only.'
+        });
+      }
+    }
+
     const taskData = {
       ...req.body,
       assignees, // Use cleaned assignees
@@ -200,6 +213,19 @@ exports.updateTask = async (req, res) => {
       updateData.assignees = req.body.assignees.filter(id =>
         id && id.toString().match(/^[0-9a-fA-F]{24}$/)
       );
+
+      // Validate that no super admin is assigned - super admins are observers only
+      if (updateData.assignees.length > 0) {
+        const assignedUsers = await User.find({ _id: { $in: updateData.assignees } });
+        const superAdmins = assignedUsers.filter(user => user.role === 'super_admin');
+        
+        if (superAdmins.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Super admins cannot be assigned tasks. They are observers only.'
+          });
+        }
+      }
     }
 
     // Remove client if it's not a valid ObjectId

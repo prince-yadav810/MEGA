@@ -64,13 +64,17 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         const response = await userService.getAllUsers();
         if (response.success) {
           // Map users to match the format expected by the form
-          const users = response.data.map(user => ({
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar || user.name?.substring(0, 2).toUpperCase() || '??',
-            profileImage: user.profileImage
-          }));
+          // Filter out super admin users - they should not be assigned tasks
+          const users = response.data
+            .filter(user => user.role !== 'super_admin') // Exclude super admins
+            .map(user => ({
+              id: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              avatar: user.avatar || user.name?.substring(0, 2).toUpperCase() || '??',
+              profileImage: user.profileImage
+            }));
           setTeamMembers(users);
         }
       } catch (error) {
