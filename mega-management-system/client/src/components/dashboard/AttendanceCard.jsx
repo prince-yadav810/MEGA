@@ -8,39 +8,22 @@ const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => 
   const handleCheckIn = async () => {
     try {
       setLoading(true);
-      
-      // Get user's location
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            
-            // Reverse geocode to get address
-            const address = await reverseGeocode(latitude, longitude);
-            
-            const checkInData = {
-              location: {
-                coordinates: { latitude, longitude },
-                address: address
-              }
-            };
-            
-            await attendanceService.checkIn(checkInData);
-            if (onCheckIn) onCheckIn();
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            alert('Please enable location access to check in');
-            setLoading(false);
-          }
-        );
-      } else {
-        alert('Geolocation is not supported by your browser');
-        setLoading(false);
-      }
+
+      // Use the service's helper function to get location
+      const location = await attendanceService.getCurrentLocation();
+
+      // Call check-in with correct parameters (latitude, longitude, notes)
+      await attendanceService.checkIn(
+        location.latitude,
+        location.longitude,
+        '' // notes - empty for dashboard quick check-in
+      );
+
+      if (onCheckIn) onCheckIn();
+      setLoading(false);
     } catch (error) {
       console.error('Check-in failed:', error);
-      alert('Check-in failed. Please try again.');
+      alert(error.message || 'Check-in failed. Please try again.');
       setLoading(false);
     }
   };
@@ -48,47 +31,23 @@ const AttendanceCard = ({ userRole, attendanceData, onCheckIn, onCheckOut }) => 
   const handleCheckOut = async () => {
     try {
       setLoading(true);
-      
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            const address = await reverseGeocode(latitude, longitude);
-            
-            const checkOutData = {
-              location: {
-                coordinates: { latitude, longitude },
-                address: address
-              }
-            };
-            
-            await attendanceService.checkOut(checkOutData);
-            if (onCheckOut) onCheckOut();
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            alert('Please enable location access to check out');
-            setLoading(false);
-          }
-        );
-      }
+
+      // Use the service's helper function to get location
+      const location = await attendanceService.getCurrentLocation();
+
+      // Call check-out with correct parameters (latitude, longitude, notes)
+      await attendanceService.checkOut(
+        location.latitude,
+        location.longitude,
+        '' // notes - empty for dashboard quick check-out
+      );
+
+      if (onCheckOut) onCheckOut();
+      setLoading(false);
     } catch (error) {
       console.error('Check-out failed:', error);
-      alert('Check-out failed. Please try again.');
+      alert(error.message || 'Check-out failed. Please try again.');
       setLoading(false);
-    }
-  };
-
-  const reverseGeocode = async (lat, lng) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-      );
-      const data = await response.json();
-      return data.display_name || 'Unknown Location';
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      return 'Unknown Location';
     }
   };
 

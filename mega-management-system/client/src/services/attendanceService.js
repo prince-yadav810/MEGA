@@ -166,8 +166,15 @@ const attendanceService = {
   // Helper function to get user's current location
   getCurrentLocation: () => {
     return new Promise((resolve, reject) => {
+      // Check if geolocation is supported
       if (!navigator.geolocation) {
         reject(new Error('Geolocation is not supported by your browser'));
+        return;
+      }
+
+      // Check if running on HTTPS (required for Safari and most modern browsers)
+      if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        reject(new Error('Location services require HTTPS. Please access the site via HTTPS.'));
         return;
       }
 
@@ -183,13 +190,17 @@ const attendanceService = {
           let errorMessage = 'Unable to retrieve location';
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
+              errorMessage = 'Location permission denied.\n\n' +
+                'Please enable location access:\n' +
+                '• Desktop: Click the location icon in your browser\'s address bar\n' +
+                '• Safari on iOS: Settings > Safari > Location > Allow\n' +
+                '• Chrome on Android: Settings > Site Settings > Location > Allow';
               break;
             case error.POSITION_UNAVAILABLE:
-              errorMessage = 'Location information is unavailable.';
+              errorMessage = 'Location information is unavailable. Please check your device settings.';
               break;
             case error.TIMEOUT:
-              errorMessage = 'Location request timed out.';
+              errorMessage = 'Location request timed out. Please try again.';
               break;
             default:
               errorMessage = 'An unknown error occurred while getting location.';
@@ -198,7 +209,7 @@ const attendanceService = {
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 15000, // Increased from 10s to 15s for better Safari compatibility
           maximumAge: 0
         }
       );

@@ -38,8 +38,8 @@ const WelcomeCard = ({ userName, userRole }) => {
     });
   };
 
-  // Display proper name instead of role for admins
-  const displayName = userRole === 'admin' || userRole === 'manager' ? 'Nirmal Dewasi' : userName;
+  // Use the actual user's name from auth context
+  const displayName = userName;
 
   return (
     <div className="bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl p-4 text-white shadow-lg">
