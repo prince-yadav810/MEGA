@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { createNotification } = require('./notificationController');
 
 /**
  * Get all team members
@@ -284,6 +285,29 @@ exports.addAdvance = async (req, res) => {
 
     await user.save();
 
+    // Get admin/manager details for notification
+    const admin = await User.findById(req.user.id).select('name');
+
+    // Notify employee (non-blocking - don't fail if notification fails)
+    if (req.io) {
+      try {
+        await createNotification({
+          userId: user._id,
+          type: 'success',
+          category: 'payment',
+          title: 'Advance Payment Received',
+          message: `${admin.name} gave you an advance of ₹${amount.toFixed(2)}${reason ? `. Reason: ${reason}` : ''}`,
+          entityType: 'payment',
+          actionUrl: '/workspace/team',
+          createdBy: admin.name
+        }, req.io);
+        console.log(`📬 Advance notification sent to employee: ${user.name}`);
+      } catch (notificationError) {
+        console.error('Notification error (non-blocking):', notificationError);
+        // Continue - notification failure shouldn't fail the entire operation
+      }
+    }
+
     // Return updated user without password
     const userResponse = await User.findById(user._id).select('-password');
 
@@ -338,6 +362,10 @@ exports.updateAdvance = async (req, res) => {
       });
     }
 
+    // Store old amount to compare
+    const oldAmount = advance.amount;
+    const amountChanged = oldAmount !== amount;
+
     // Update advance fields
     advance.amount = amount;
     advance.reason = reason || advance.reason;
@@ -346,6 +374,29 @@ exports.updateAdvance = async (req, res) => {
     }
 
     await user.save();
+
+    // Get admin/manager details for notification
+    const admin = await User.findById(req.user.id).select('name');
+
+    // Notify employee if amount changed (non-blocking - don't fail if notification fails)
+    if (req.io && amountChanged) {
+      try {
+        await createNotification({
+          userId: user._id,
+          type: 'info',
+          category: 'payment',
+          title: 'Advance Payment Updated',
+          message: `${admin.name} updated your advance from ₹${oldAmount.toFixed(2)} to ₹${amount.toFixed(2)}${reason ? `. Reason: ${reason}` : ''}`,
+          entityType: 'payment',
+          actionUrl: '/workspace/team',
+          createdBy: admin.name
+        }, req.io);
+        console.log(`📬 Advance update notification sent to employee: ${user.name}`);
+      } catch (notificationError) {
+        console.error('Notification error (non-blocking):', notificationError);
+        // Continue - notification failure shouldn't fail the entire operation
+      }
+    }
 
     // Return updated user without password
     const userResponse = await User.findById(user._id).select('-password');
