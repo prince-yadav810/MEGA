@@ -11,7 +11,7 @@ const walletService = {
     } catch (error) {
       console.error('Get wallet error:', error);
       throw error;
-    }
+    } 
   },
 
   // Get transaction history

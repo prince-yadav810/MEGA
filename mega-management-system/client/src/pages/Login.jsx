@@ -7,7 +7,6 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showAccountInfo, setShowAccountInfo] = useState(false);
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -49,26 +48,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-primary-100 to-primary-200 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 -left-4 w-72 h-72 bg-primary-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+      <div className="absolute top-0 -right-4 w-72 h-72 bg-primary-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-primary-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000" style={{ animationDelay: '4s' }}></div>
+      <div className="absolute top-40 -right-20 w-72 h-72 bg-primary-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000" style={{ animationDelay: '5s' }}></div>
+
+      <div className="w-full max-w-md relative z-10">
         {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/50 animate-fade-in">
           {/* Logo/Brand Section */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
+            <div className="inline-flex items-center justify-center mb-4 transform hover:scale-105 transition-transform duration-300">
+              <img 
+                src="/mega-logo.png" 
+                alt="MEGA Logo" 
+                className="w-24 h-24 object-contain drop-shadow-md"
+              />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               MEGA Management
@@ -95,7 +92,7 @@ const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@mega.com"
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed bg-white/50 hover:bg-white"
                 autoComplete="email"
               />
             </div>
@@ -115,7 +112,7 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all disabled:bg-gray-100 disabled:cursor-not-allowed bg-white/50 hover:bg-white"
                 autoComplete="current-password"
               />
             </div>
@@ -124,7 +121,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-semibold py-3 px-4 rounded-lg transition-all transform hover:-translate-y-0.5 hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center disabled:transform-none disabled:shadow-none"
             >
               {isLoading ? (
                 <>
@@ -155,67 +152,10 @@ const Login = () => {
               )}
             </button>
           </form>
-
-          {/* Account Types Info */}
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => setShowAccountInfo(!showAccountInfo)}
-              className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              {showAccountInfo ? '▼' : '►'} Account Types & Demo Credentials
-            </button>
-
-            {showAccountInfo && (
-              <div className="mt-4 space-y-4 text-sm">
-                {/* Manager Account */}
-                <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                      </svg>
-                    </div>
-                    <h3 className="font-semibold text-purple-900">Manager Account</h3>
-                  </div>
-                  <p className="text-purple-700 text-xs mb-3">
-                    Full access to all features including team management
-                  </p>
-                  <div className="bg-white rounded p-2 font-mono text-xs">
-                    <div className="text-gray-600">Email: <span className="text-purple-900 font-semibold">admin@mega.com</span></div>
-                    <div className="text-gray-600">Password: <span className="text-purple-900 font-semibold">ChangeThisPassword123!</span></div>
-                  </div>
-                </div>
-
-                {/* Employee Account */}
-                <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                    <h3 className="font-semibold text-blue-900">Employee Account</h3>
-                  </div>
-                  <p className="text-blue-700 text-xs mb-3">
-                    Access to all features except team management
-                  </p>
-                  <div className="bg-white rounded p-2 font-mono text-xs">
-                    <div className="text-gray-600">Email: <span className="text-blue-900 font-semibold">rajesh@mega.com</span></div>
-                    <div className="text-gray-600">Password: <span className="text-blue-900 font-semibold">password123</span></div>
-                  </div>
-                </div>
-
-                <p className="text-xs text-gray-500 text-center">
-                  Your account type is determined by your credentials. Contact your manager for access.
-                </p>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Copyright */}
-        <div className="text-center mt-6 text-sm text-gray-600">
+        <div className="text-center mt-6 text-sm text-gray-600 relative z-10">
           &copy; {new Date().getFullYear()} MEGA Management. All rights reserved.
         </div>
       </div>
