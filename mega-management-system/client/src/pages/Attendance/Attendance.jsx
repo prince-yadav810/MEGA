@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, Calendar, CheckCircle, XCircle, AlertCircle, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import attendanceService from '../../services/attendanceService';
+import userService from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
 import AttendanceCalendarGrid from '../../components/attendance/AttendanceCalendarGrid';
 import SimplifiedAttendanceStats from '../../components/attendance/SimplifiedAttendanceStats';
 import SalaryCalculator from '../../components/attendance/SalaryCalculator';
 import CompactAdvancePayments from '../../components/attendance/CompactAdvancePayments';
-import RecentAttendanceHistory from '../../components/attendance/RecentAttendanceHistory';
+import EmployeeAdvancePayments from '../../components/attendance/EmployeeAdvancePayments';
 import moment from 'moment';
 
 const Attendance = () => {
@@ -20,18 +21,34 @@ const Attendance = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(moment().month());
   const [selectedYear, setSelectedYear] = useState(moment().year());
+  const [userData, setUserData] = useState(null); // For advances data
 
   // Fetch today's attendance and history
   useEffect(() => {
     fetchTodayAttendance();
     fetchAttendanceHistory();
     fetchAttendanceSummary();
+    fetchUserData();
   }, [user]);
 
   // Fetch summary when month/year changes
   useEffect(() => {
     fetchAttendanceSummary();
   }, [selectedMonth, selectedYear]);
+
+  const fetchUserData = async () => {
+    try {
+      if (user && (user._id || user.id)) {
+        const userId = user._id || user.id;
+        const response = await userService.getUser(userId);
+        if (response.success) {
+          setUserData(response.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
 
   const fetchTodayAttendance = async () => {
     try {
@@ -44,7 +61,7 @@ const Attendance = () => {
 
   const fetchAttendanceHistory = async () => {
     try {
-      const response = await attendanceService.getMyAttendance(null, null, 30);
+      const response = await attendanceService.getMyAttendance(null, null, 7);
       setAttendanceHistory(response.data || []);
     } catch (error) {
       console.error('Error fetching attendance history:', error);
@@ -408,9 +425,9 @@ const Attendance = () => {
           </>
         )}
 
-        {/* Recent Attendance History with Location (Last 7 Days) */}
-        {user && (
-          <RecentAttendanceHistory userId={user._id} isOwnRecord={true} />
+        {/* Employee Advance Payments Section */}
+        {userData && userData.advances && userData.advances.length > 0 && (
+          <EmployeeAdvancePayments advances={userData.advances} />
         )}
 
         {/* Attendance History */}
@@ -419,7 +436,7 @@ const Attendance = () => {
             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-2.5 rounded-lg mr-3 shadow-sm">
               <Calendar className="w-5 h-5 text-purple-600" />
             </div>
-            Recent Attendance History
+            Attendance History (Last 7 Days)
           </h2>
 
           {attendanceHistory.length > 0 ? (

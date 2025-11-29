@@ -7,11 +7,13 @@ import noteService from '../../services/noteService';
 import reminderService from '../../services/reminderService';
 import documentService from '../../services/documentService';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { formatNaturalDate, formatDateTime, formatTime, getSmartDefaults, formatRepeatPattern } from '../../utils/formatters';
 import EmployeeWalletSection from '../../components/wallet/EmployeeWalletSection';
 
 const NotesReminders = () => {
+  const { user } = useAuth();
   const [notes, setNotes] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -827,10 +829,12 @@ const NotesReminders = () => {
           </div>
         </div>
 
-        {/* Wallet Section - Below Reminders, Above Documents */}
-        <div className="mt-8">
-          <EmployeeWalletSection />
-        </div>
+        {/* Wallet Section - Below Reminders, Above Documents (Employee Only) */}
+        {user && user.role === 'employee' && (
+          <div className="mt-8">
+            <EmployeeWalletSection />
+          </div>
+        )}
       </div>
 
       {/* Note Modal */}

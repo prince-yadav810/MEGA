@@ -10,6 +10,7 @@ import CallsCard from '../components/dashboard/CallsCard';
 import QuotationsCard from '../components/dashboard/QuotationsCard';
 import RemindersCard from '../components/dashboard/RemindersCard';
 import PaymentRemindersCard from '../components/dashboard/PaymentRemindersCard';
+import EmployeeWalletSection from '../components/wallet/EmployeeWalletSection';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -144,6 +145,13 @@ const Dashboard = () => {
               dateRange={dashboardData?.reminders?.dateRange || 'today'}
             />
           </div>
+
+          {/* Employee Wallet Section - Only for Employees (2 cols) */}
+          {!isAdmin && user?.role === 'employee' && (
+            <div className="md:col-span-2 lg:col-span-2">
+              <EmployeeWalletSection />
+            </div>
+          )}
 
           {/* Payment Reminders (Full Width) - Only for Admin/Manager */}
           {isAdmin && (
