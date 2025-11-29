@@ -34,10 +34,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect to login for 401 errors that are NOT from password change
+    // (password change returns 401 when current password is incorrect)
+    const isPasswordChangeEndpoint = error.config?.url?.includes('/auth/change-password');
+    
+    if (error.response?.status === 401 && !isPasswordChangeEndpoint) {
+      // Token is invalid or expired - redirect to login
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );

@@ -87,15 +87,34 @@ const ProfileTab = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
 
-    // Validation
+    // Validate current password is provided
+    if (!passwordForm.currentPassword || !passwordForm.currentPassword.trim()) {
+      toast.error('Please enter your current password');
+      return;
+    }
+
+    // Validate new password is provided
+    if (!passwordForm.newPassword || !passwordForm.newPassword.trim()) {
+      toast.error('Please enter a new password');
+      return;
+    }
+
+    // Validation - passwords match
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error('New passwords do not match');
       return;
     }
 
+    // Validate password requirements
     const allValid = Object.values(passwordValidation).every(v => v);
     if (!allValid) {
-      toast.error('Password does not meet requirements');
+      toast.error('New password does not meet all requirements');
+      return;
+    }
+
+    // Check if new password is same as current
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      toast.error('New password must be different from current password');
       return;
     }
 
@@ -105,6 +124,8 @@ const ProfileTab = () => {
         passwordForm.currentPassword,
         passwordForm.newPassword
       );
+      
+      // Success case
       if (response.success) {
         toast.success(response.message || 'Password changed successfully!');
         setPasswordForm({
@@ -112,12 +133,27 @@ const ProfileTab = () => {
           newPassword: '',
           confirmPassword: ''
         });
+        setPasswordValidation({
+          minLength: false,
+          hasUpperCase: false,
+          hasLowerCase: false,
+          hasNumber: false,
+          hasSpecialChar: false
+        });
         setIsChangingPassword(false);
       } else {
+        // This shouldn't happen in normal flow, but handle it anyway
         toast.error(response.message || 'Failed to change password');
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to change password';
+      // Handle error responses from the server
+      console.error('Password change error:', error);
+      
+      // Extract error message from response
+      const errorMessage = error.response?.data?.message 
+        || error.message 
+        || 'Failed to change password. Please try again.';
+      
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);
