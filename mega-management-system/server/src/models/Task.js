@@ -63,20 +63,6 @@ const TaskSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  timeTracked: {
-    type: String,
-    default: '0h'
-  },
-  estimatedTime: {
-    type: String,
-    default: '0h'
-  },
-  progress: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 100
-  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

@@ -149,7 +149,6 @@ const TaskForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
       priority: formData.priority,
       assignees: formData.assignees, // Array of IDs
       dueDate: formData.dueDate,
-      progress: 0,
       tags: formData.tags,
       // Don't send client as string - backend should handle client lookup or creation
       // For now, omit it if it's just a string name
