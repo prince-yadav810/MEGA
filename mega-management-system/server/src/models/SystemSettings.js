@@ -274,6 +274,10 @@ const SystemSettingsSchema = new mongoose.Schema({
     reminderBeforeDueHours: {
       type: Number,
       default: 24 // 24 hours before due date
+    },
+    paymentReminderNotifications: {
+      type: Boolean,
+      default: true // Notify all employees when payment reminders are sent
     }
   },
 

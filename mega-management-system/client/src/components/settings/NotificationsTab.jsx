@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Volume2, Clock, Save, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { Bell, Volume2, Clock, Save, Loader2, AlertCircle, Inbox, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import userService from '../../services/userService';
+import settingsService from '../../services/settingsService';
+import { useAuth } from '../../context/AuthContext';
 
 const NotificationsTab = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  
   const [settings, setSettings] = useState({
     inAppNotifications: {
       desktopNotifications: true,
@@ -12,14 +17,22 @@ const NotificationsTab = () => {
     taskReminderHours: 24
   });
 
+  const [systemSettings, setSystemSettings] = useState({
+    paymentReminderNotifications: true
+  });
+
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingSystem, setIsSavingSystem] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [permissionStatus, setPermissionStatus] = useState('default');
 
   useEffect(() => {
     loadPreferences();
+    if (isAdmin) {
+      loadSystemSettings();
+    }
     checkNotificationPermission();
-  }, []);
+  }, [isAdmin]);
 
   const checkNotificationPermission = () => {
     if ('Notification' in window) {
@@ -67,6 +80,19 @@ const NotificationsTab = () => {
     }
   };
 
+  const loadSystemSettings = async () => {
+    try {
+      const response = await settingsService.getSettings();
+      if (response.success && response.data) {
+        setSystemSettings({
+          paymentReminderNotifications: response.data.notifications?.paymentReminderNotifications ?? true
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load system settings:', error);
+    }
+  };
+
   const handleInAppToggle = (key) => {
     setSettings(prev => ({
       ...prev,
@@ -108,6 +134,35 @@ const NotificationsTab = () => {
       toast.error(error.response?.data?.message || 'Failed to save settings');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSystemToggle = (key) => {
+    setSystemSettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const handleSaveSystemSettings = async () => {
+    setIsSavingSystem(true);
+    try {
+      const response = await settingsService.updateSettings({
+        notifications: {
+          paymentReminderNotifications: systemSettings.paymentReminderNotifications
+        }
+      });
+
+      if (response.success) {
+        toast.success('System notification settings saved successfully!');
+      } else {
+        toast.error(response.message || 'Failed to save system settings');
+      }
+    } catch (error) {
+      console.error('Error saving system settings:', error);
+      toast.error(error.response?.data?.message || 'Failed to save system settings');
+    } finally {
+      setIsSavingSystem(false);
     }
   };
 
@@ -263,6 +318,55 @@ const NotificationsTab = () => {
           {isSaving ? 'Saving...' : 'Save Notification Settings'}
         </button>
       </div>
+
+      {/* Admin-Only System Notification Settings */}
+      {isAdmin && (
+        <>
+          <div className="pt-6 border-t-2 border-gray-300 mt-6">
+            <div className="flex items-center mb-4">
+              <Shield className="h-5 w-5 text-purple-600 mr-2" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  System Notification Settings
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Configure system-wide notification rules (Admin Only)
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">
+                      Payment Reminder Notifications
+                    </label>
+                    <p className="text-xs text-gray-600 mt-1">
+                      When enabled, all employees and managers will receive notifications when payment reminders are sent to clients. The notification will include the client name, contact person, and message preview.
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={systemSettings.paymentReminderNotifications}
+                    onToggle={() => handleSystemToggle('paymentReminderNotifications')}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <button
+                onClick={handleSaveSystemSettings}
+                disabled={isSavingSystem}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400 flex items-center"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSavingSystem ? 'Saving...' : 'Save System Settings'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

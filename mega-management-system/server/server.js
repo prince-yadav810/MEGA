@@ -27,6 +27,9 @@ const DISABLE_CRON = process.env.DISABLE_CRON === 'true';
 
 if (!DISABLE_CRON) {
   setTimeout(() => {
+    // Set Socket.IO instance for scheduler notifications
+    paymentReminderScheduler.setSocketIO(io);
+    
     paymentReminderScheduler.start();
     attendanceCleanupScheduler.start();
   }, 5000); // Wait 5 seconds after server start to ensure DB is connected

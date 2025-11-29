@@ -389,6 +389,44 @@ exports.sendReminderManually = async (req, res) => {
       
       if (result.success) {
         await reminder.markMessageSent(result.status, result.messageId, '');
+        
+        // Send notifications to all employees & managers if enabled
+        try {
+          const SystemSettings = require('../models/SystemSettings');
+          const settings = await SystemSettings.getSettings();
+          
+          if (settings.notifications.paymentReminderNotifications) {
+            const employeesAndManagers = await User.find({
+              isActive: true,
+              role: { $in: ['employee', 'manager', 'admin'] }
+            }).select('_id');
+
+            if (employeesAndManagers.length > 0) {
+              const messagePreview = reminder.messageTemplate.length > 100 
+                ? reminder.messageTemplate.substring(0, 100) + '...' 
+                : reminder.messageTemplate;
+
+              await notifyMultipleUsers(
+                employeesAndManagers.map(u => u._id),
+                {
+                  type: 'info',
+                  category: 'payment',
+                  title: 'Payment Reminder Sent',
+                  message: `Payment reminder sent to ${reminder.client.companyName} (${reminder.contactPerson.name}) by ${req.user.name}: "${messagePreview}"`,
+                  entityType: 'payment-reminder',
+                  entityId: reminder._id,
+                  actionUrl: '/clients',
+                  createdBy: req.user.name || 'System'
+                },
+                req.io
+              );
+              console.log(`✉️  Notification sent to ${employeesAndManagers.length} user(s)`);
+            }
+          }
+        } catch (notifyError) {
+          console.error('Failed to send notifications:', notifyError);
+          // Don't fail the request if notification fails
+        }
       } else {
         await reminder.markMessageSent('failed', '', result.errorMessage || 'Failed to send');
         return res.status(500).json({

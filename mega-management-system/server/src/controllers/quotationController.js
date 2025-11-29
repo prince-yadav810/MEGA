@@ -284,19 +284,38 @@ exports.uploadExcel = async (req, res) => {
       console.log('🗑️  Temporary Excel file deleted');
     }
 
-    // Step 6: Create notification
+    // Step 6: Notify all employees and managers (not super admins)
     if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'success',
-        category: 'quotation',
-        title: 'Quotation Created',
-        message: `Quotation "${extractedData.refNo}" for ${extractedData.clientName} has been created successfully`,
-        entityType: 'quotation',
-        entityId: quotation._id,
-        actionUrl: '/quotations',
-        createdBy: req.user.name || 'System'
-      }, req.io);
+      try {
+        // Get all active users who are NOT super admins
+        const employeesAndManagers = await User.find({
+          isActive: true,
+          role: { $in: ['employee', 'manager', 'admin'] }
+        }).select('_id');
+
+        const userIds = employeesAndManagers.map(u => u._id);
+
+        if (userIds.length > 0) {
+          await notifyMultipleUsers(
+            userIds,
+            {
+              type: 'success',
+              category: 'quotation',
+              title: 'New Quotation Created',
+              message: `Quotation "${extractedData.refNo}" for ${extractedData.clientName} has been created by ${req.user.name}`,
+              entityType: 'quotation',
+              entityId: quotation._id,
+              actionUrl: '/quotations',
+              createdBy: req.user.name || 'System'
+            },
+            req.io
+          );
+          console.log(`✉️  Quotation creation notification sent to ${userIds.length} user(s) (employees & managers)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending quotation creation notifications:', notifyError);
+        // Don't fail the request if notification fails
+      }
     }
 
     res.status(201).json({
@@ -663,15 +682,8 @@ exports.updateStatus = async (req, res) => {
       });
     }
 
-    const quotation = await Quotation.findByIdAndUpdate(
-      req.params.id,
-      {
-        status,
-        statusNote: note || '',
-        updatedBy: req.user?._id
-      },
-      { new: true, runValidators: true }
-    );
+    // Get the quotation first to store previous status
+    const quotation = await Quotation.findById(req.params.id);
 
     if (!quotation) {
       return res.status(404).json({
@@ -680,17 +692,32 @@ exports.updateStatus = async (req, res) => {
       });
     }
 
-    // Notify all employees and admin about status change
+    const previousStatus = quotation.status;
+
+    // Update the quotation
+    quotation.status = status;
+    quotation.statusNote = note || '';
+    quotation.updatedBy = req.user?._id;
+    await quotation.save();
+
+    // Notify all employees and managers (NOT super admins) about status change
     try {
-      const allUsers = await User.find({ isActive: true }).select('_id');
-      const userIds = allUsers.map(u => u._id);
+      const employeesAndManagers = await User.find({
+        isActive: true,
+        role: { $in: ['employee', 'manager', 'admin'] }
+      }).select('_id');
+
+      const userIds = employeesAndManagers.map(u => u._id);
 
       if (userIds.length > 0) {
-        const statusMessages = {
-          on_hold: 'put on hold',
-          approved: 'approved',
-          rejected: 'rejected'
+        const statusLabels = {
+          on_hold: 'On Hold',
+          approved: 'Approved',
+          rejected: 'Rejected'
         };
+
+        const previousLabel = statusLabels[previousStatus] || previousStatus;
+        const currentLabel = statusLabels[status] || status;
 
         await notifyMultipleUsers(
           userIds,
@@ -698,14 +725,15 @@ exports.updateStatus = async (req, res) => {
             type: status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'warning',
             category: 'quotation',
             title: 'Quotation Status Updated',
-            message: `Quotation "${quotation.refNo}" for ${quotation.clientName} has been ${statusMessages[status]}`,
+            message: `Quotation "${quotation.refNo}" for ${quotation.clientName} status changed by ${req.user?.name}: ${previousLabel} → ${currentLabel}`,
             entityType: 'quotation',
             entityId: quotation._id,
-            actionUrl: `/quotations/${quotation._id}`,
+            actionUrl: `/quotations`,
             createdBy: req.user?.name || 'System'
           },
           req.io
         );
+        console.log(`✉️  Status change notification sent to ${userIds.length} user(s): ${previousLabel} → ${currentLabel}`);
       }
     } catch (notifyError) {
       console.error('Error sending notifications:', notifyError);
@@ -742,20 +770,60 @@ exports.updatePriority = async (req, res) => {
       });
     }
 
-    const quotation = await Quotation.findByIdAndUpdate(
-      req.params.id,
-      {
-        priority,
-        updatedBy: req.user?._id
-      },
-      { new: true, runValidators: true }
-    );
+    // Get the quotation first to store previous priority
+    const quotation = await Quotation.findById(req.params.id);
 
     if (!quotation) {
       return res.status(404).json({
         success: false,
         message: 'Quotation not found'
       });
+    }
+
+    const previousPriority = quotation.priority;
+
+    // Update the quotation
+    quotation.priority = priority;
+    quotation.updatedBy = req.user?._id;
+    await quotation.save();
+
+    // Notify all employees and managers (NOT super admins) about priority change
+    try {
+      const employeesAndManagers = await User.find({
+        isActive: true,
+        role: { $in: ['employee', 'manager', 'admin'] }
+      }).select('_id');
+
+      const userIds = employeesAndManagers.map(u => u._id);
+
+      if (userIds.length > 0) {
+        const priorityLabels = {
+          low: 'Low',
+          high: 'High',
+          extreme: 'Extreme'
+        };
+
+        const previousLabel = priorityLabels[previousPriority] || previousPriority;
+        const currentLabel = priorityLabels[priority] || priority;
+
+        await notifyMultipleUsers(
+          userIds,
+          {
+            type: priority === 'extreme' ? 'error' : priority === 'high' ? 'warning' : 'info',
+            category: 'quotation',
+            title: 'Quotation Priority Updated',
+            message: `Quotation "${quotation.refNo}" for ${quotation.clientName} priority changed by ${req.user?.name}: ${previousLabel} → ${currentLabel}`,
+            entityType: 'quotation',
+            entityId: quotation._id,
+            actionUrl: `/quotations`,
+            createdBy: req.user?.name || 'System'
+          },
+          req.io
+        );
+        console.log(`✉️  Priority change notification sent to ${userIds.length} user(s): ${previousLabel} → ${currentLabel}`);
+      }
+    } catch (notifyError) {
+      console.error('Error sending notifications:', notifyError);
     }
 
     res.status(200).json({
@@ -923,7 +991,7 @@ exports.createLinkedTask = async (req, res) => {
     // Populate task assignees for response
     await task.populate('assignees', 'name email');
 
-    // Notify assignees
+    // Notify assignees (works like workspace tasks)
     if (task.assignees && task.assignees.length > 0) {
       await notifyMultipleUsers(
         task.assignees.map(a => a._id || a),
@@ -931,7 +999,7 @@ exports.createLinkedTask = async (req, res) => {
           type: 'success',
           category: 'task',
           title: 'New Task Assigned',
-          message: `You have been assigned to task: "${task.title}"`,
+          message: `You have been assigned to task: "${task.title}" by ${req.user?.name}`,
           entityType: 'task',
           entityId: task._id,
           actionUrl: '/workspace/tasks',
@@ -940,6 +1008,7 @@ exports.createLinkedTask = async (req, res) => {
         },
         req.io
       );
+      console.log(`✉️  Linked task assignment notification sent to ${task.assignees.length} assignee(s)`);
     }
 
     res.status(201).json({

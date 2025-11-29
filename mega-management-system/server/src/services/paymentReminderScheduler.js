@@ -2,7 +2,13 @@
 
 const cron = require('node-cron');
 const PaymentReminder = require('../models/PaymentReminder');
+const User = require('../models/User');
+const SystemSettings = require('../models/SystemSettings');
 const whatsappService = require('./whatsappService');
+const { notifyMultipleUsers } = require('../controllers/notificationController');
+
+// Get Socket.IO instance (will be set by server.js)
+let io = null;
 
 class PaymentReminderScheduler {
   constructor() {
@@ -11,6 +17,11 @@ class PaymentReminderScheduler {
     this.lastRunTime = null;
     this.processedCount = 0;
     this.failedCount = 0;
+  }
+
+  // Set Socket.IO instance
+  setSocketIO(socketIO) {
+    io = socketIO;
   }
 
   /**
@@ -130,6 +141,42 @@ class PaymentReminderScheduler {
               console.log(`   🎉 Campaign completed for ${reminder.client.companyName}`);
             } else {
               console.log(`   ⏰ Next scheduled: ${reminder.nextScheduledDate?.toLocaleString() || 'N/A'}`);
+            }
+
+            // Send notifications to all employees & managers if enabled
+            try {
+              const settings = await SystemSettings.getSettings();
+              if (settings.notifications.paymentReminderNotifications) {
+                const employeesAndManagers = await User.find({
+                  isActive: true,
+                  role: { $in: ['employee', 'manager', 'admin'] }
+                }).select('_id');
+
+                if (employeesAndManagers.length > 0 && io) {
+                  const messagePreview = reminder.messageTemplate.length > 100 
+                    ? reminder.messageTemplate.substring(0, 100) + '...' 
+                    : reminder.messageTemplate;
+
+                  await notifyMultipleUsers(
+                    employeesAndManagers.map(u => u._id),
+                    {
+                      type: 'info',
+                      category: 'payment',
+                      title: 'Payment Reminder Sent',
+                      message: `Payment reminder sent to ${reminder.client.companyName} (${reminder.contactPerson.name}): "${messagePreview}"`,
+                      entityType: 'payment-reminder',
+                      entityId: reminder._id,
+                      actionUrl: '/clients',
+                      createdBy: 'System'
+                    },
+                    io
+                  );
+                  console.log(`   📧 Notification sent to ${employeesAndManagers.length} user(s)`);
+                }
+              }
+            } catch (notifyError) {
+              console.error('   ⚠️ Failed to send notifications:', notifyError.message);
+              // Don't fail the reminder if notification fails
             }
           } else {
             // Mark as failed but don't stop the campaign
