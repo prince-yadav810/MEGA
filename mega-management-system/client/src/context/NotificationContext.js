@@ -71,7 +71,6 @@ export const NotificationProvider = ({ children }) => {
   const addNotification = useCallback((notification) => {
     const newNotification = {
       id: Date.now(),
-      time: 'Just now',
       read: false,
       ...notification
     };
