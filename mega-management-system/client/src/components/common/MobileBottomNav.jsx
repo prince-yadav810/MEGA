@@ -14,10 +14,12 @@ import {
   Inbox
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   const location = useLocation();
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
 
   const navigationItems = [
     {
@@ -149,14 +151,21 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
                 to={item.path}
                 onClick={() => setActiveTab && setActiveTab(item.id)}
                 className={`
-                  flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-200 min-w-[70px]
+                  flex flex-col items-center py-2 px-3 rounded-lg transition-all duration-200 min-w-[70px] relative
                   ${active
                     ? 'text-primary-600 bg-primary-50'
                     : 'text-gray-500 hover:text-gray-700'
                   }
                 `}
               >
-                <Icon className={`h-5 w-5 mb-1 ${active ? 'text-primary-600' : ''}`} />
+                <div className="relative">
+                  <Icon className={`h-5 w-5 mb-1 ${active ? 'text-primary-600' : ''}`} />
+                  {item.id === 'inbox' && unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-error-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </div>
                 <span className={`text-xs font-medium whitespace-nowrap ${active ? 'text-primary-700' : ''}`}>
                   {item.name}
                 </span>

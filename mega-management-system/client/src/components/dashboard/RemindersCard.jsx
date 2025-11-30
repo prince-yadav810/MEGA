@@ -137,7 +137,7 @@ const RemindersCard = ({ reminders = [], dateRange = 'today' }) => {
       )}
 
       <Link
-        to="/admin/notes-reminders"
+        to="/notes-reminders"
         className="mt-4 w-full bg-purple-50 text-purple-700 px-4 py-2 rounded-lg flex items-center justify-center space-x-2 hover:bg-purple-100 transition-colors"
       >
         <span>View All Reminders</span>

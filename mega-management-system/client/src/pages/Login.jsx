@@ -11,10 +11,10 @@ const Login = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect to workspace if already logged in
+  // Redirect to dashboard if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/workspace');
+      navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
 
@@ -39,7 +39,7 @@ const Login = () => {
     try {
       await login(email, password);
       toast.success('Login successful!');
-      navigate('/workspace');
+      navigate('/dashboard');
     } catch (error) {
       toast.error(error.message || 'Login failed. Please check your credentials.');
     } finally {
