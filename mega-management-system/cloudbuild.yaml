@@ -56,7 +56,7 @@ steps:
       - '--port'
       - '8080'
       - '--set-env-vars'
-      - 'NODE_ENV=production,DISABLE_CRON=true,JWT_EXPIRE=7d'
+      - 'NODE_ENV=production,DISABLE_CRON=true,JWT_EXPIRE=7d,CLIENT_URL=https://app.megaenterprise.in'
       # IMPORTANT: Set these secrets in Google Cloud Secret Manager first, then uncomment:
       # gcloud secrets create MONGODB_URI --data-file=-
       # gcloud secrets create JWT_SECRET --data-file=-
@@ -67,9 +67,6 @@ steps:
       # gcloud secrets create CLOUDINARY_API_SECRET --data-file=-
       - '--set-secrets'
       - 'MONGODB_URI=MONGODB_URI:latest,JWT_SECRET=JWT_SECRET:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_VISION_API_KEY=GOOGLE_VISION_API_KEY:latest,CLOUDINARY_CLOUD_NAME=CLOUDINARY_CLOUD_NAME:latest,CLOUDINARY_API_KEY=CLOUDINARY_API_KEY:latest,CLOUDINARY_API_SECRET=CLOUDINARY_API_SECRET:latest'
-      # Set CLIENT_URL to your Cloud Run service URL after first deployment
-      # - '--update-env-vars'
-      # - 'CLIENT_URL=https://mega-management-xxxxx.asia-south1.run.app'
 
 # Store images in Container Registry
 images:

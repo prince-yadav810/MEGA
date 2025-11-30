@@ -45,7 +45,9 @@ const server = http.createServer(app);
 // CORS Configuration - Allow both local and production origins
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://mega-management-411708517030.asia-south1.run.app'
+  'https://mega-management-411708517030.asia-south1.run.app',
+  'https://app.megaenterprise.in',
+  'https://megaenterprise.in'
 ];
 
 const corsOptions = {

@@ -241,15 +241,33 @@ gcloud builds submit --config cloudbuild.yaml
 
 ## Custom Domain (Optional)
 
+### Map to app.megaenterprise.in (Recommended)
+
+For a professional setup with subdomain structure:
+- **megaenterprise.in** → Landing page
+- **app.megaenterprise.in** → Management application
+
 ```bash
 # Map custom domain
 gcloud run domain-mappings create \
   --service mega-management \
-  --domain your-domain.com \
+  --domain app.megaenterprise.in \
   --region asia-south1
 ```
 
 Follow DNS configuration instructions provided by GCP.
+
+**See [SUBDOMAIN_SETUP.md](SUBDOMAIN_SETUP.md) for complete subdomain configuration guide.**
+
+### Map to main domain (Alternative)
+
+```bash
+# Map main domain
+gcloud run domain-mappings create \
+  --service mega-management \
+  --domain megaenterprise.in \
+  --region asia-south1
+```
 
 ---
 

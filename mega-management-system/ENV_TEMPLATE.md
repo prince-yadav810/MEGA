@@ -29,7 +29,13 @@ JWT_EXPIRE=30d
 # ============================================
 # Client URL (Frontend)
 # ============================================
+# For local development
 CLIENT_URL=http://localhost:3000
+
+# For production (use your app subdomain)
+# CLIENT_URL=https://app.megaenterprise.in
+# Note: If using subdomain (app.megaenterprise.in), the main domain 
+# (megaenterprise.in) should host your landing page
 
 # ============================================
 # WhatsApp Payment Reminder Configuration
