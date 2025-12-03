@@ -23,6 +23,7 @@ import PrivateRoute from './components/PrivateRoute';
 import RoleBasedRoute from './components/RoleBasedRoute';
 import { NotificationProvider } from './context/NotificationContext.js';
 import { AuthProvider } from './context/AuthContext';
+import NotificationPermissionBanner from './components/common/NotificationPermissionBanner';
 import './App.css';
 
 function Layout() {
@@ -63,60 +64,76 @@ function Layout() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
-      <div className="hidden lg:block">
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={toggleSidebar}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-        />
+    <>
+      <div className="h-screen bg-gray-50 flex overflow-hidden">
+        <div className="hidden lg:block">
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={toggleSidebar}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+        </div>
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Notification Permission Banner */}
+          <NotificationPermissionBanner />
+          
+          <main 
+            className="flex-1 overflow-y-auto bg-gray-50 pb-20 lg:pb-0"
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehaviorY: 'contain',
+              scrollBehavior: 'smooth',
+              transform: 'translateZ(0)',
+              WebkitTransform: 'translateZ(0)',
+              contain: 'layout style paint'
+            }}
+          >
+            <Routes>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="workspace/*" element={<Workspace />} />
+              <Route path="inbox" element={<Inbox />} />
+              <Route
+                path="attendance"
+                element={
+                  <RoleBasedRoute allowedRoles={['employee']}>
+                    <Attendance />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route path="quotations" element={<QuotationsList />} />
+              <Route path="quotations/:id" element={<QuotationDetail />} />
+              <Route path="clients" element={<ClientsList />} />
+              <Route path="clients/:id" element={<ClientDetails />} />
+              <Route path="products" element={<Navigate to="/quotations?view=products" replace />} />
+              <Route path="notes-reminders" element={<NotesReminders />} />
+              <Route path="settings" element={<Settings />} />
+              <Route
+                path="users"
+                element={
+                  <RoleBasedRoute allowedRoles={['manager', 'admin']}>
+                    <UserManagement />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="users/:userId"
+                element={
+                  <RoleBasedRoute allowedRoles={['manager', 'admin']}>
+                    <EmployeeDetail />
+                  </RoleBasedRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/workspace/table" replace />} />
+            </Routes>
+          </main>
+        </div>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 lg:pb-0">
-          <Routes>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="workspace/*" element={<Workspace />} />
-            <Route path="inbox" element={<Inbox />} />
-            <Route
-              path="attendance"
-              element={
-                <RoleBasedRoute allowedRoles={['employee']}>
-                  <Attendance />
-                </RoleBasedRoute>
-              }
-            />
-            <Route path="quotations" element={<QuotationsList />} />
-            <Route path="quotations/:id" element={<QuotationDetail />} />
-            <Route path="clients" element={<ClientsList />} />
-            <Route path="clients/:id" element={<ClientDetails />} />
-            <Route path="products" element={<Navigate to="/quotations?view=products" replace />} />
-            <Route path="notes-reminders" element={<NotesReminders />} />
-            <Route path="settings" element={<Settings />} />
-            <Route
-              path="users"
-              element={
-                <RoleBasedRoute allowedRoles={['manager', 'admin']}>
-                  <UserManagement />
-                </RoleBasedRoute>
-              }
-            />
-            <Route
-              path="users/:userId"
-              element={
-                <RoleBasedRoute allowedRoles={['manager', 'admin']}>
-                  <EmployeeDetail />
-                </RoleBasedRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/workspace/table" replace />} />
-          </Routes>
-        </main>
-      </div>
-
-      <div className="lg:hidden">
+      {/* Mobile Bottom Navigation - Outside overflow container */}
+      <div className="lg:hidden block" style={{ position: 'relative', zIndex: 9999 }}>
         <MobileBottomNav
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -133,7 +150,7 @@ function Layout() {
           },
         }}
       />
-    </div>
+    </>
   );
 }
 

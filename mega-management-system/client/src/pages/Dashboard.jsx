@@ -87,7 +87,13 @@ const Dashboard = () => {
       </div>
 
       {/* Dashboard Content - Magic Bento Layout */}
-      <div className="max-w-7xl mx-auto px-4 py-6 lg:px-6">
+      <div 
+        className="max-w-7xl mx-auto px-4 py-6 lg:px-6"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehaviorY: 'contain'
+        }}
+      >
         {/* Bento Grid Layout - 3 columns for better vertical alignment */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           

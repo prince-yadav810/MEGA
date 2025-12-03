@@ -289,7 +289,7 @@ const CompletedTasks = ({ onViewChange }) => {
       </div>
 
       {/* Stats Cards */}
-      <div className="px-4 py-6 lg:px-6">
+      <div className="px-4 py-6 pb-24 lg:px-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between">

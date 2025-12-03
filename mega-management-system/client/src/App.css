@@ -4,12 +4,34 @@
 /* Base application styles */
 * {
   box-sizing: border-box;
+  /* Remove tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Notification Banner Animation */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.5s ease-out forwards;
 }
 
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+  /* Enable smooth scrolling */
+  scroll-behavior: smooth;
+  /* Prevent overscroll bounce on the whole page */
+  overscroll-behavior: none;
 }
 
 body {
@@ -19,6 +41,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f9fafb;
+  /* Enable momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Allow only vertical scrolling */
+  touch-action: pan-y;
 }
 
 /* Custom scrollbar styles */
@@ -201,6 +227,50 @@ body {
   .mobile-hidden {
     display: none;
   }
+  
+  /* Enhanced mobile scroll performance - Optimized for smooth scrolling */
+  main,
+  .overflow-y-auto,
+  .overflow-auto,
+  .overflow-scroll {
+    /* Enable momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Contain overscroll within the element */
+    overscroll-behavior-y: contain;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+    /* Use CSS containment for better performance */
+    contain: layout style paint;
+  }
+  
+  /* Optimize fixed/sticky elements on mobile only */
+  .fixed,
+  .sticky,
+  [class*="fixed"],
+  [class*="sticky"] {
+    /* GPU acceleration only for fixed/sticky elements */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  /* Optimize animations and transitions for smooth scrolling */
+  * {
+    /* Prevent transform-related jank */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Reduce animation complexity during scroll */
+  @media (hover: none) and (pointer: coarse) {
+    .card-hover,
+    .animate-slide-in,
+    .animate-fade-in,
+    .animate-slide-up {
+      transition-duration: 0.15s;
+    }
+  }
 }
 
 /* Desktop-specific styles */
@@ -290,6 +360,22 @@ body {
 
 .text-pretty {
   text-wrap: pretty;
+}
+
+/* Smooth scroll utility - Apply to any scrollable container for optimal mobile performance */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+/* Mobile smooth scroll optimizations */
+@media (max-width: 768px) {
+  .smooth-scroll {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    contain: layout style paint;
+  }
 }
 
 /* Glass morphism effect */

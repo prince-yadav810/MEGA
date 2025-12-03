@@ -2,7 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Notification Banner Animation */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.5s ease-out forwards;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Smooth scrolling optimization for all devices */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Improve scrolling performance */
+  height: 100%;
+}
+
+body {
+  /* Enable momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  /* Prevent pull-to-refresh jank */
+  touch-action: pan-y;
+  /* Ensure body takes full height */
+  height: 100%;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
 
 /* Custom scrollbar styles */
 ::-webkit-scrollbar {
@@ -58,4 +99,78 @@
 
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
+}
+
+/* Mobile Bottom Navigation - Force visibility on mobile devices */
+@media (max-width: 1023px) {
+  /* Ensure mobile nav is always visible on mobile screens */
+  nav[class*="fixed"][class*="bottom-0"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+  }
+}
+
+/* Mobile-specific smooth scrolling optimizations */
+@media (max-width: 768px) {
+  /* Root container optimization */
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  /* Main scrollable areas should have smooth momentum scrolling */
+  main,
+  .scrollable-content,
+  [class*="overflow-y-auto"],
+  [class*="overflow-auto"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+    /* Use CSS containment for better scroll performance */
+    contain: layout style paint;
+    /* Optimize rendering */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+  
+  /* Prevent scroll jank from fixed/sticky elements */
+  [class*="fixed"],
+  [class*="sticky"] {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  /* Optimize all scrolling containers */
+  .overflow-scroll,
+  .overflow-y-scroll,
+  .overflow-x-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+  }
+  
+  /* Optimize touch interactions */
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    touch-action: manipulation;
+  }
+  
+  /* Prevent iOS zoom on input focus */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }

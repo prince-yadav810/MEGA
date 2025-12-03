@@ -329,7 +329,7 @@ const TaskCalendar = ({ onViewChange }) => {
       {/* Calendar Content */}
       <div className="flex-1 overflow-hidden flex">
         {/* Calendar Grid - Left Side */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 p-6 pb-24 overflow-y-auto">
           {/* Calendar Header */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">

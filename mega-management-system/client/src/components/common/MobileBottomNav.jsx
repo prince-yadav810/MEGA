@@ -136,8 +136,26 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-1 z-50">
-      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+    <nav 
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-1 shadow-lg block"
+      style={{
+        zIndex: 9999,
+        position: 'fixed',
+        display: 'block',
+        visibility: 'visible',
+        transform: 'translateZ(0)',
+        WebkitTransform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden'
+      }}
+    >
+      <div 
+        className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehaviorX: 'contain'
+        }}
+      >
         <div className="flex items-center gap-1 min-w-max">
           {filteredNavigationItems.map((item) => {
             const Icon = item.icon;
@@ -168,7 +186,7 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
           })}
         </div>
       </div>
-    </div>
+    </nav>
   );
 };
 

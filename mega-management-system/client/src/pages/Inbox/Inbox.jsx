@@ -36,7 +36,9 @@ const Inbox = () => {
     markAsRead,
     markAllAsRead,
     removeNotification,
-    fetchNotifications
+    fetchNotifications,
+    showDesktopNotification,
+    browserNotificationsEnabled
   } = useNotifications();
 
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -116,7 +118,7 @@ const Inbox = () => {
     quotation: { icon: FileText, color: 'text-green-600', bg: 'bg-green-100' },
     product: { icon: Package, color: 'text-orange-600', bg: 'bg-orange-100' },
     note: { icon: StickyNote, color: 'text-yellow-600', bg: 'bg-yellow-100' },
-    reminder: { icon: Calendar, color: 'text-red-600', bg: 'bg-red-100' },
+    reminder: { icon: Calendar, color: 'text-amber-600', bg: 'bg-amber-100' },
     payment: { icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-100' },
     system: { icon: Settings, color: 'text-gray-600', bg: 'bg-gray-100' }
   };
@@ -199,6 +201,42 @@ const Inbox = () => {
     }
   };
 
+  // Test notification function
+  const handleTestNotification = () => {
+    const testNotifications = [
+      {
+        title: 'New Task Assigned',
+        message: 'You have been assigned to "Update Website Design" - Due in 2 days',
+        category: 'task',
+        entityType: 'task',
+        _id: 'test-1'
+      },
+      {
+        title: 'Payment Reminder',
+        message: 'Invoice #27788 from RITHWIK PROJECTS is due in 3 days - Amount: ₹45,000',
+        category: 'payment',
+        entityType: 'payment',
+        _id: 'test-2'
+      },
+      {
+        title: 'New Client Added',
+        message: 'Acme Corporation has been added to your clients list',
+        category: 'client',
+        entityType: 'client',
+        _id: 'test-3'
+      }
+    ];
+
+    const randomNotif = testNotifications[Math.floor(Math.random() * testNotifications.length)];
+    
+    if (browserNotificationsEnabled) {
+      showDesktopNotification(randomNotif);
+      toast.success('Test notification sent! Check your desktop/mobile.');
+    } else {
+      toast.error('Please enable desktop notifications first');
+    }
+  };
+
   // Swipeable notification item component for mobile
   const SwipeableNotificationItem = ({ notification, onDelete, onClick }) => {
     const [swipeOffset, setSwipeOffset] = useState(0);
@@ -261,7 +299,11 @@ const Inbox = () => {
           <div className="flex items-start space-x-4">
             {/* Icon */}
             <div className={`flex-shrink-0 p-2 rounded-lg ${
-              isAssignment ? 'bg-indigo-100' : categoryConfig[notification.category]?.bg || 'bg-gray-100'
+              notification.category === 'reminder'
+                ? 'bg-amber-100'
+                : isAssignment 
+                  ? 'bg-indigo-100' 
+                  : categoryConfig[notification.category]?.bg || 'bg-gray-100'
             }`}>
               {getCategoryIcon(notification.category)}
             </div>
@@ -366,13 +408,27 @@ const Inbox = () => {
 
   return (
     <div className="h-full bg-gray-50">
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-5xl mx-auto p-6 pb-24">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Stay updated with all your notifications in one place
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Stay updated with all your notifications in one place
+              </p>
+            </div>
+            {browserNotificationsEnabled && (
+              <button
+                onClick={handleTestNotification}
+                className="flex items-center gap-2 px-4 py-2 bg-primary-100 text-primary-700 hover:bg-primary-200 rounded-lg transition-colors text-sm font-medium"
+                title="Test desktop notification"
+              >
+                <Bell className="h-4 w-4" />
+                Test Notification
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Filters and Actions - Compact Layout */}

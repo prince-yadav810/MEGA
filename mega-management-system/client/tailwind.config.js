@@ -87,5 +87,44 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/forms'),
+    // Custom plugin for smooth scrolling utilities
+    function({ addUtilities, addBase, theme }) {
+      // Add smooth scrolling to all overflow utilities by default
+      addBase({
+        // Global smooth scrolling for mobile
+        '@media (max-width: 768px)': {
+          '.overflow-auto, .overflow-y-auto, .overflow-x-auto, .overflow-scroll, .overflow-y-scroll, .overflow-x-scroll': {
+            '-webkit-overflow-scrolling': 'touch',
+            'overscroll-behavior': 'contain',
+            'scroll-behavior': 'smooth',
+            'transform': 'translateZ(0)',
+            '-webkit-transform': 'translateZ(0)',
+            'contain': 'layout style paint',
+          }
+        }
+      });
+      
+      // Additional utility classes
+      const newUtilities = {
+        '.scroll-smooth-mobile': {
+          '-webkit-overflow-scrolling': 'touch',
+          'overscroll-behavior-y': 'contain',
+          'scroll-behavior': 'smooth',
+        },
+        '.gpu-accelerated': {
+          'transform': 'translateZ(0)',
+          '-webkit-transform': 'translateZ(0)',
+          'backface-visibility': 'hidden',
+          '-webkit-backface-visibility': 'hidden',
+        },
+        '.touch-pan-y': {
+          'touch-action': 'pan-y',
+        },
+        '.touch-manipulation': {
+          'touch-action': 'manipulation',
+        },
+      }
+      addUtilities(newUtilities, ['responsive'])
+    }
   ],
 }

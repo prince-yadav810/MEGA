@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, Volume2, Clock, Save, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import toast from 'react-hot-toast';
 import userService from '../../services/userService';
+import NotificationSettings from '../common/NotificationSettings';
 
 const NotificationsTab = () => {
   const [settings, setSettings] = useState({
@@ -149,8 +150,13 @@ const NotificationsTab = () => {
         </p>
       </div>
 
+      {/* Desktop Notification Settings - New Component */}
+      <div className="mb-6">
+        <NotificationSettings />
+      </div>
+
       {/* Task Reminders */}
-      <div>
+      <div className="pt-4 border-t border-gray-200">
         <div className="flex items-center mb-4">
           <Inbox className="h-5 w-5 text-blue-600 mr-2" />
           <h3 className="text-lg font-semibold text-gray-900">

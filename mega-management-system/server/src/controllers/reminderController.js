@@ -2,7 +2,8 @@
 // REPLACE entire file with this
 
 const Reminder = require('../models/Reminder');
-const { createNotification } = require('./notificationController');
+const { createNotification, notifyMultipleUsers } = require('./notificationController');
+const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
 
 exports.getAllReminders = async (req, res) => {
@@ -327,13 +328,33 @@ exports.checkDueReminders = async (req, res) => {
               await reminder.save();
 
               // Create notification for triggered reminder
-              if (reminder.createdBy) {
+              if (reminder.visibility === 'public') {
+                // For public reminders, notify all users
+                const allUsers = await User.find({ isActive: true }).select('_id');
+                const userIds = allUsers.map(user => user._id);
+                
+                await notifyMultipleUsers(
+                  userIds,
+                  {
+                    type: 'info',
+                    category: 'reminder',
+                    title: '🔔 Public Reminder Alert',
+                    message: `${reminder.title}${reminder.description ? ' - ' + reminder.description : ''}`,
+                    entityType: 'reminder',
+                    entityId: reminder._id,
+                    actionUrl: '/notes-reminders',
+                    createdBy: reminder.createdByName || 'System'
+                  },
+                  req.io
+                );
+              } else if (reminder.createdBy) {
+                // For private reminders, only notify the creator
                 await createNotification({
                   userId: reminder.createdBy,
-                  type: 'warning',
+                  type: 'info',
                   category: 'reminder',
-                  title: 'Reminder Alert',
-                  message: `Reminder: ${reminder.title}${reminder.description ? ' - ' + reminder.description : ''}`,
+                  title: '🔔 Reminder Alert',
+                  message: `${reminder.title}${reminder.description ? ' - ' + reminder.description : ''}`,
                   entityType: 'reminder',
                   entityId: reminder._id,
                   actionUrl: '/notes-reminders',

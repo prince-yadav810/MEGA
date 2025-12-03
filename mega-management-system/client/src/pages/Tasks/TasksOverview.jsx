@@ -543,7 +543,7 @@ const TasksOverview = ({ onViewChange }) => {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pb-24">
         <div className="bg-white mx-4 my-4 lg:mx-6 rounded-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">

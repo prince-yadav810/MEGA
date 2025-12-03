@@ -17,22 +17,15 @@ const remindersRoutes = require('./src/routes/reminders');
 const callLogRoutes = require('./src/routes/callLogRoutes');
 const paymentReminderScheduler = require('./src/services/paymentReminderScheduler');
 const attendanceCleanupScheduler = require('./src/services/attendanceCleanupScheduler');
+const ReminderScheduler = require('./src/services/reminderScheduler');
 
 // Connect to database
 connectDB();
 
-// Start Payment Reminder Scheduler
+// Initialize schedulers
 // In Cloud Run: Set DISABLE_CRON=true and use Cloud Scheduler instead
 const DISABLE_CRON = process.env.DISABLE_CRON === 'true';
-
-if (!DISABLE_CRON) {
-  setTimeout(() => {
-    paymentReminderScheduler.start();
-    attendanceCleanupScheduler.start();
-  }, 5000); // Wait 5 seconds after server start to ensure DB is connected
-} else {
-  console.log('⚠️  Internal cron disabled. Use /api/scheduler/trigger endpoint for Cloud Scheduler.');
-}
+let reminderScheduler = null;
 
 const app = express();
 const server = http.createServer(app);
@@ -97,6 +90,20 @@ app.use((req, res, next) => {
   req.io = io;
   next();
 });
+
+// Initialize Reminder Scheduler with Socket.IO instance
+reminderScheduler = new ReminderScheduler(io);
+
+// Start schedulers after a delay to ensure DB is connected
+if (!DISABLE_CRON) {
+  setTimeout(() => {
+    paymentReminderScheduler.start();
+    attendanceCleanupScheduler.start();
+    reminderScheduler.start();
+  }, 5000); // Wait 5 seconds after server start to ensure DB is connected
+} else {
+  console.log('⚠️  Internal cron disabled. Use /api/scheduler/trigger endpoint for Cloud Scheduler.');
+}
 
 // Static uploads folder - only in development
 // In production (Cloud Run), files are served from Cloudinary
@@ -235,6 +242,42 @@ app.post('/api/scheduler/attendance-cleanup/trigger', async (req, res) => {
 // Get attendance cleanup scheduler statistics
 app.get('/api/scheduler/attendance-cleanup/stats', (req, res) => {
   const stats = attendanceCleanupScheduler.getStats();
+  res.json(stats);
+});
+
+// Manual trigger for reminder checks (admin only, for testing)
+app.post('/api/scheduler/reminders/trigger', async (req, res) => {
+  try {
+    // Verify request in production
+    const userAgent = req.get('User-Agent') || '';
+    const isCloudScheduler = userAgent.includes('Google-Cloud-Scheduler');
+    const hasSchedulerKey = req.get('X-Scheduler-Key') === process.env.SCHEDULER_SECRET;
+
+    // Allow if from Cloud Scheduler OR has valid secret OR in development
+    if (!isCloudScheduler && !hasSchedulerKey && process.env.NODE_ENV === 'production') {
+      console.log('⚠️  Unauthorized reminder check trigger attempt');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('🔧 Reminder check trigger received');
+    const result = await reminderScheduler.triggerCheck();
+
+    const stats = reminderScheduler.getStats();
+    res.json({
+      success: true,
+      message: 'Reminder check triggered',
+      result,
+      stats
+    });
+  } catch (error) {
+    console.error('Reminder check trigger error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get reminder scheduler statistics
+app.get('/api/scheduler/reminders/stats', (req, res) => {
+  const stats = reminderScheduler.getStats();
   res.json(stats);
 });
 

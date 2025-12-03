@@ -1,0 +1,213 @@
+/* Global Mobile Scroll Optimizations */
+
+/* Ensure consistent height for mobile browsers (handles address bar) */
+:root {
+  --mobile-vh: 1vh;
+}
+
+/* Mobile viewport height fix */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --mobile-vh: calc(var(--vh, 1vh) * 1);
+  }
+}
+
+/* Optimize root element for mobile scrolling */
+@media (max-width: 768px) {
+  html {
+    /* Prevent horizontal overflow */
+    overflow-x: hidden;
+    width: 100%;
+    /* Ensure proper height */
+    height: 100%;
+    /* Mobile-specific optimizations */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    /* Prevent horizontal overflow */
+    overflow-x: hidden;
+    width: 100%;
+    /* Ensure proper height */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    /* Force GPU acceleration for smooth scrolling */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  /* Optimize main content area */
+  #root {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Global scroll container optimization */
+  [data-scroll-container],
+  main,
+  .page-content {
+    /* Enable momentum scrolling */
+    -webkit-overflow-scrolling: touch;
+    /* Contain scroll bounce */
+    overscroll-behavior-y: contain;
+    overscroll-behavior-x: none;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+    /* Performance optimization */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    /* CSS containment for better performance */
+    contain: layout style paint;
+  }
+
+  /* Prevent scroll lag from images */
+  img {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: auto;
+  }
+
+  /* Optimize modals and overlays */
+  [role="dialog"],
+  .modal,
+  .overlay {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Optimize dropdown menus */
+  [role="menu"],
+  .dropdown-menu {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Optimize tables on mobile */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Prevent double-tap zoom on buttons */
+  button,
+  a,
+  input[type="button"],
+  input[type="submit"] {
+    touch-action: manipulation;
+  }
+
+  /* Optimize text inputs */
+  input,
+  textarea,
+  select {
+    /* Prevent iOS zoom on focus */
+    font-size: max(16px, 1rem);
+    /* Optimize touch interaction */
+    touch-action: manipulation;
+  }
+
+  /* Optimize animations for mobile performance */
+  @media (hover: none) and (pointer: coarse) {
+    * {
+      /* Reduce animation complexity on mobile */
+      animation-duration: 0.15s !important;
+      transition-duration: 0.15s !important;
+    }
+
+    /* Keep critical animations smooth */
+    .loading-spinner,
+    .progress-bar,
+    [data-animation="critical"] {
+      animation-duration: 0.3s !important;
+    }
+  }
+
+  /* Prevent text selection issues during scroll */
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Re-enable text selection for content elements */
+  p,
+  span,
+  li,
+  td,
+  th,
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Optimize fixed/sticky elements */
+  .fixed,
+  .sticky,
+  [style*="position: fixed"],
+  [style*="position: sticky"] {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Optimize lists */
+  ul,
+  ol {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent pull-to-refresh in PWA */
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  /* Optimize card grids */
+  .grid,
+  [class*="grid-cols"] {
+    contain: layout style paint;
+  }
+
+  /* Smooth scroll for navigation */
+  nav a {
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+  }
+}
+
+/* Tablet-specific optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Apply lighter optimizations for tablets */
+  main,
+  .page-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+  }
+}
+
+/* High refresh rate displays (120Hz+ mobile devices) */
+@media (prefers-reduced-motion: no-preference) {
+  @media (max-width: 768px) {
+    * {
+      /* Enable smooth 60fps scrolling */
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+/* Reduced motion support - respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

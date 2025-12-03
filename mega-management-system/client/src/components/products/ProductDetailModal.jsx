@@ -175,9 +175,9 @@ export default function ProductDetailModal({ product, onClose }) {
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">Specifications</h3>
                     <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                       {Object.entries(product.specifications).map(([key, value]) => (
-                        <div key={key} className="flex border-b border-gray-200 last:border-0 pb-2 last:pb-0">
-                          <span className="font-medium text-gray-700 w-1/3">{key}:</span>
-                          <span className="text-gray-900 w-2/3">{value}</span>
+                        <div key={key} className="flex flex-col sm:flex-row border-b border-gray-200 last:border-0 pb-2 last:pb-0">
+                          <span className="font-medium text-gray-700 sm:w-1/3 mb-1 sm:mb-0">{key}:</span>
+                          <span className="text-gray-900 sm:w-2/3 break-words">{value}</span>
                         </div>
                       ))}
                     </div>

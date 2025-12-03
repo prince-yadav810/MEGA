@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import socketService from '../services/socketService';
 import * as notificationService from '../services/notificationService';
 import { useAuth } from './AuthContext';
+import browserNotificationService from '../utils/browserNotification';
 
 const NotificationContext = createContext();
 
@@ -20,6 +21,8 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState('default');
 
   // Fetch notifications from backend on mount
   useEffect(() => {
@@ -28,6 +31,15 @@ export const NotificationProvider = ({ children }) => {
       fetchUnreadCount();
     }
   }, [user]);
+
+  // Initialize browser notification permission status
+  useEffect(() => {
+    if (browserNotificationService.isNotificationSupported()) {
+      const permission = browserNotificationService.getPermissionStatus();
+      setNotificationPermission(permission);
+      setBrowserNotificationsEnabled(permission === 'granted');
+    }
+  }, []);
 
   // Initialize Socket.io connection
   useEffect(() => {
@@ -39,13 +51,18 @@ export const NotificationProvider = ({ children }) => {
         console.log('📬 New notification received:', notification);
         setNotifications(prev => [notification, ...prev]);
         setUnreadCount(prev => prev + 1);
+
+        // Show desktop notification if enabled
+        if (browserNotificationsEnabled && notification) {
+          showDesktopNotification(notification);
+        }
       });
 
       return () => {
         socketService.off('notification:new');
       };
     }
-  }, [user]);
+  }, [user, browserNotificationsEnabled]);
 
   const fetchNotifications = async () => {
     try {
@@ -67,6 +84,34 @@ export const NotificationProvider = ({ children }) => {
       console.error('Error fetching unread count:', error);
     }
   };
+
+  // Request browser notification permission
+  const requestNotificationPermission = async () => {
+    const permission = await browserNotificationService.requestPermission();
+    setNotificationPermission(permission);
+    setBrowserNotificationsEnabled(permission === 'granted');
+    return permission;
+  };
+
+  // Show desktop notification for a notification object
+  const showDesktopNotification = useCallback((notification) => {
+    if (!browserNotificationsEnabled) return;
+
+    const title = notification.title || 'New Notification';
+    const message = notification.message || '';
+    const category = notification.category || 'system';
+
+    browserNotificationService.showCategorized(
+      category,
+      title,
+      message,
+      {
+        entityType: notification.entityType,
+        entityId: notification.entityId,
+        notificationId: notification._id || notification.id,
+      }
+    );
+  }, [browserNotificationsEnabled]);
 
   const addNotification = useCallback((notification) => {
     const newNotification = {
@@ -245,6 +290,11 @@ export const NotificationProvider = ({ children }) => {
     removeNotification,
     fetchNotifications,
     fetchUnreadCount,
+    // Browser notification support
+    browserNotificationsEnabled,
+    notificationPermission,
+    requestNotificationPermission,
+    showDesktopNotification,
     // Task helpers
     notifyTaskCreated,
     notifyTaskUpdated,
