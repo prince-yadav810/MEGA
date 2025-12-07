@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, Plus, Edit2, ChevronLeft, ChevronRight, CheckCircle, X, Eye, EyeOff, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Building2, DollarSign, Briefcase, Calendar, Plus, Edit2, ChevronLeft, ChevronRight, CheckCircle, X, Eye, EyeOff, Pencil, ChevronDown, ChevronUp, Settings, Trash2, AlertTriangle } from 'lucide-react';
 import userService from '../../services/userService';
 import attendanceService from '../../services/attendanceService';
 import toast from 'react-hot-toast';
@@ -54,6 +54,14 @@ export default function EmployeeDetail() {
   const [editingAdvance, setEditingAdvance] = useState(null);
   const [showAllAdvances, setShowAllAdvances] = useState(false);
 
+  // Settings dropdown state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsRef = useRef(null);
+
+  // Delete confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Ref for scrolling to advance section
   const advanceSectionRef = useRef(null);
 
@@ -67,6 +75,22 @@ export default function EmployeeDetail() {
       fetchAttendanceSummary(selectedMonth, selectedYear);
     }
   }, [userId, selectedMonth, selectedYear]);
+
+  // Click outside handler for settings dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target)) {
+        setIsSettingsOpen(false);
+      }
+    };
+
+    if (isSettingsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isSettingsOpen]);
 
   const fetchEmployee = async () => {
     try {
@@ -313,6 +337,29 @@ export default function EmployeeDetail() {
     }
   };
 
+  // Handle delete employee
+  const handleDeleteClick = () => {
+    setIsSettingsOpen(false);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      setIsDeleting(true);
+      const response = await userService.deleteUser(userId);
+      
+      if (response.success) {
+        toast.success('Employee deleted successfully');
+        navigate('/users');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete employee';
+      toast.error(errorMessage);
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
   if (loadingEmployee) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -363,7 +410,7 @@ export default function EmployeeDetail() {
                 )}
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{employee.name}</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">{employee.name}</h1>
                 <p className="text-sm text-gray-600">{employee.department} • {employee.role}</p>
               </div>
             </div>
@@ -380,19 +427,51 @@ export default function EmployeeDetail() {
                       });
                     }, 100);
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg"
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg text-sm"
                 >
-                  <DollarSign className="w-4 h-4" />
-                  Quick Advance
+                  <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Quick Advance</span>
+                  <span className="sm:hidden">Advance</span>
                 </button>
               )}
-              <button
-                onClick={handleEditClick}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <Edit2 className="w-4 h-4" />
-                Edit
-              </button>
+              {isAdmin && (
+                <div className="relative" ref={settingsRef}>
+                  <button
+                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="hidden md:inline">Settings</span>
+                  </button>
+                  {isSettingsOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                      <ul className="py-1">
+                        <li>
+                          <button
+                            onClick={() => {
+                              setIsSettingsOpen(false);
+                              handleEditClick();
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          >
+                            <Edit2 className="w-4 h-4 mr-2" />
+                            Edit Employee
+                          </button>
+                        </li>
+                        <li className="border-t border-gray-200 mt-1 pt-1">
+                          <button
+                            onClick={handleDeleteClick}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Employee
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -990,6 +1069,81 @@ export default function EmployeeDetail() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Delete Employee</h2>
+              </div>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={isDeleting}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Are you sure you want to delete <span className="font-semibold">{employee?.name}</span>?
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-red-800">
+                  <strong>Warning:</strong> This action cannot be undone. All employee data including:
+                </p>
+                <ul className="text-sm text-red-800 mt-2 ml-4 list-disc space-y-1">
+                  <li>Attendance records</li>
+                  <li>Advance payments</li>
+                  <li>Wallet balance</li>
+                  <li>Personal information</li>
+                </ul>
+                <p className="text-sm text-red-800 mt-2">
+                  will be permanently deleted. The employee will be removed from all assigned tasks.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Employee
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

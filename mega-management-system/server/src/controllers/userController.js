@@ -218,6 +218,7 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const Attendance = require('../models/Attendance');
+    const Task = require('../models/Task');
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -240,7 +241,14 @@ exports.deleteUser = async (req, res) => {
     await Attendance.deleteMany({ user: req.params.id });
     console.log(`🗑️  Deleted attendance records for user: ${user.name}`);
 
-    // 2. Delete user from MongoDB (includes all embedded data: advances, wallet, salary, etc.)
+    // 2. Remove user from all tasks (unassign them from tasks)
+    const tasksUpdated = await Task.updateMany(
+      { assignees: req.params.id },
+      { $pull: { assignees: req.params.id } }
+    );
+    console.log(`🗑️  Removed user from ${tasksUpdated.modifiedCount} task(s)`);
+
+    // 3. Delete user from MongoDB (includes all embedded data: advances, wallet, salary, etc.)
     await User.findByIdAndDelete(req.params.id);
     console.log(`🗑️  Deleted user: ${user.name}`);
 
