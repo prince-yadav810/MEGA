@@ -235,7 +235,7 @@ export default function UserManagement() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Team Management</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Team Management</h1>
             <p className="text-sm text-gray-600 mt-1">Manage employees and track their attendance</p>
           </div>
           <button
@@ -243,7 +243,7 @@ export default function UserManagement() {
               resetForm();
               setShowModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5" />
             Add Employee
@@ -476,6 +476,17 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+
+      {/* Mobile Floating Action Button */}
+      <button
+        onClick={() => {
+          resetForm();
+          setShowModal(true);
+        }}
+        className="sm:hidden fixed bottom-20 right-4 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center justify-center z-10"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </div>
   );
 }
