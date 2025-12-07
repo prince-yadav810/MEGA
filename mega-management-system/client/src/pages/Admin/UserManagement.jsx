@@ -235,8 +235,8 @@ export default function UserManagement() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Team Management</h1>
-            <p className="text-sm text-gray-600 mt-1">Manage employees and track their attendance</p>
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Team Management</h1>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Manage employees and track their attendance</p>
           </div>
           <button
             onClick={() => {
