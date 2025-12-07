@@ -329,7 +329,7 @@ const TaskCalendar = ({ onViewChange }) => {
       {/* Calendar Content */}
       <div className="flex-1 overflow-hidden flex">
         {/* Calendar Grid - Left Side */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 p-6 pb-24 lg:pb-6 overflow-y-auto">
           {/* Calendar Header */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -864,7 +864,7 @@ const TaskCalendar = ({ onViewChange }) => {
             </div>
 
             {/* Tasks List */}
-            <div className="overflow-y-auto p-4 max-h-[calc(70vh-80px)]">
+            <div className="overflow-y-auto p-4 pb-24 max-h-[calc(70vh-80px)]">
               {(tasksByDate[selectedDate.toDateString()] || []).length > 0 ? (
                 <div className="space-y-3">
                   {(tasksByDate[selectedDate.toDateString()] || []).map((task) => {

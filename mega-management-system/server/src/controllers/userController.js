@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { createNotification } = require('./notificationController');
+const cloudinary = require('../config/cloudinary');
 
 /**
  * Get all team members
@@ -455,6 +456,120 @@ exports.getUserTasks = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch user tasks',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Upload user avatar to Cloudinary
+ * @route POST /api/users/:id/avatar
+ */
+exports.uploadUserAvatar = async (req, res) => {
+  try {
+    console.log('📸 User avatar upload request received for user:', req.params.id);
+
+    // Check if file was uploaded
+    if (!req.files || !req.files.avatar) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload an avatar image'
+      });
+    }
+
+    const avatarFile = req.files.avatar;
+    console.log(`📂 File received: ${avatarFile.name} (${avatarFile.size} bytes, ${avatarFile.mimetype})`);
+
+    // Validate file type
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimeTypes.includes(avatarFile.mimetype)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Please upload a JPG, PNG, GIF, or WebP image'
+      });
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (avatarFile.size > maxSize) {
+      return res.status(400).json({
+        success: false,
+        message: 'File size too large. Maximum size is 10MB'
+      });
+    }
+
+    // Find user
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log(`👤 Uploading avatar for user: ${user.name} (${user.email})`);
+
+    // Delete old profile image from Cloudinary if exists
+    if (user.profileImage && user.profileImage.publicId) {
+      try {
+        console.log(`🗑️  Deleting old avatar: ${user.profileImage.publicId}`);
+        await cloudinary.uploader.destroy(user.profileImage.publicId);
+        console.log('✅ Old avatar deleted successfully');
+      } catch (deleteError) {
+        console.error('⚠️  Error deleting old avatar:', deleteError.message);
+        // Continue with upload even if deletion fails
+      }
+    }
+
+    // Upload to Cloudinary
+    console.log('☁️  Uploading to Cloudinary...');
+    const result = await cloudinary.uploader.upload(avatarFile.tempFilePath, {
+      folder: 'mega/avatars',
+      public_id: `user_${user._id}_${Date.now()}`,
+      resource_type: 'image',
+      type: 'upload',
+      access_mode: 'public',
+      transformation: [
+        { width: 500, height: 500, crop: 'fill', gravity: 'face' },
+        { quality: 'auto', fetch_format: 'auto' }
+      ]
+    });
+
+    console.log('✅ Cloudinary upload successful!');
+    console.log(`   URL: ${result.secure_url}`);
+    console.log(`   Public ID: ${result.public_id}`);
+
+    // Update user profile image
+    user.profileImage = {
+      url: result.secure_url,
+      publicId: result.public_id
+    };
+
+    // Also update avatar field for backward compatibility
+    user.avatar = result.secure_url;
+
+    await user.save();
+
+    console.log('💾 User profile updated successfully');
+
+    res.status(200).json({
+      success: true,
+      message: 'Avatar uploaded successfully',
+      data: {
+        avatar: result.secure_url,
+        profileImage: {
+          url: result.secure_url,
+          publicId: result.public_id
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Upload user avatar error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload avatar',
       error: error.message
     });
   }

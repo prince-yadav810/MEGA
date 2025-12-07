@@ -107,67 +107,77 @@ class QuotationPdfService {
             // Post-process PDF to remove blank pages
             const pdfBytes = fs.readFileSync(outputPath);
             const pdfDoc = await PDFLibDocument.load(pdfBytes);
-            const pages = pdfDoc.getPages();
+            let pages = pdfDoc.getPages();
             
             // Find and remove blank pages (pages with only footer, minimal content)
-            const pagesToRemove = [];
+            // Only check last pages as they're most likely to be blank
+            let removedCount = 0;
+            const maxPagesToCheck = Math.min(3, pages.length - 1); // Check up to last 3 pages, never the first
             
-            // Check each page (except first) to see if it's blank
-            for (let i = pages.length - 1; i >= 1; i--) {
+            for (let checked = 0; checked < maxPagesToCheck; checked++) {
+              pages = pdfDoc.getPages(); // Refresh pages array after each removal
+              if (pages.length <= 1) break; // Never remove if only 1 page left
+              
+              const lastPageIndex = pages.length - 1;
+              const lastPage = pages[lastPageIndex];
+              
               try {
-                const page = pages[i];
-                const contentStream = page.node.get('Contents');
-                
-                // Check if page has substantial content
-                // A blank page would have minimal content (just footer)
+                // Get content streams from the page
+                const contents = lastPage.node.get('Contents');
                 let isBlank = false;
                 
-                if (contentStream) {
-                  // Check content stream size/length
-                  // If it's an array (multiple content streams), check length
-                  if (Array.isArray(contentStream)) {
-                    // If only 1-2 content streams, might be just footer
-                    // But be conservative - only mark as blank if we're very sure
-                    if (contentStream.length <= 1) {
-                      // Might be blank, but let's check the actual content
-                      // For now, we'll be conservative and not remove
-                      isBlank = false;
-                    }
-                  } else {
-                    // Single content stream - check if it's minimal
-                    // This is harder to determine, so we'll be conservative
-                    isBlank = false;
+                if (!contents) {
+                  // No content stream at all - definitely blank
+                  isBlank = true;
+                } else if (contents.objectType === 'PDFArray' || Array.isArray(contents)) {
+                  // Multiple content streams - check how many
+                  const contentArray = contents.objectType === 'PDFArray' ? contents.asArray() : contents;
+                  // If very few content streams (just footer), might be blank
+                  // Footer typically adds 1-2 small content streams
+                  if (contentArray.length <= 2) {
+                    // Check the total content size - footer is small
+                    // We'll be more aggressive here since blank pages are a problem
+                    isBlank = true;
                   }
                 } else {
-                  // No content stream - definitely blank
-                  isBlank = true;
+                  // Single content stream - likely just footer
+                  // Check if this is a minimal page (footer only)
+                  try {
+                    const contentRef = contents.objectType === 'PDFRef' ? contents : null;
+                    if (contentRef) {
+                      const contentStream = pdfDoc.context.lookup(contentRef);
+                      if (contentStream && contentStream.getContents) {
+                        const bytes = contentStream.getContents();
+                        // Footer-only pages typically have very small content (< 2000 bytes)
+                        // Regular content pages have much more
+                        if (bytes && bytes.length < 1500) {
+                          isBlank = true;
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    // If we can't check content size, be conservative
+                    isBlank = false;
+                  }
                 }
                 
-                // Only remove if we're confident it's blank
-                // And only remove from the end (last pages that are likely blank)
-                if (isBlank && i === pages.length - 1) {
-                  // Only remove last page if it's clearly blank
-                  pagesToRemove.push(i);
+                if (isBlank) {
+                  pdfDoc.removePage(lastPageIndex);
+                  removedCount++;
+                  console.log(`  🗑️ Removed blank page ${lastPageIndex + 1}`);
+                } else {
+                  // If this page isn't blank, stop checking
+                  break;
                 }
               } catch (error) {
-                // If we can't check, keep the page to be safe
-                continue;
+                // If we can't check, stop and keep remaining pages
+                console.error('Error checking page:', error.message);
+                break;
               }
             }
             
-            // Remove pages in reverse order (to maintain indices)
-            // Only remove if we have more than 1 page
-            if (pages.length > 1 && pagesToRemove.length > 0) {
-              pagesToRemove.sort((a, b) => b - a).forEach(pageIndex => {
-                try {
-                  // Safety check: never remove the first page (index 0)
-                  if (pageIndex > 0 && pageIndex < pages.length) {
-                    pdfDoc.removePage(pageIndex);
-                  }
-                } catch (error) {
-                  // Ignore errors when removing pages
-                }
-              });
+            if (removedCount > 0) {
+              console.log(`  ✅ Removed ${removedCount} blank page(s)`);
             }
             
             // Save the cleaned PDF
@@ -498,7 +508,9 @@ class QuotationPdfService {
       const quantityHeight = doc.heightOfString(item.quantity.toString(), { width: columns.quantity.width });
       const unitHeight = doc.heightOfString(item.unit || '', { width: columns.unit.width });
       const rateHeight = doc.heightOfString(this.formatCurrency(item.rate), { width: columns.rate.width });
-      const gstHeight = doc.heightOfString(`${item.gstPercent}%`, { width: columns.gst.width });
+      // For height calculation, use the converted GST value
+      const gstDisplayValue = item.gstPercent < 1 && item.gstPercent > 0 ? Math.round(item.gstPercent * 100) : Math.round(item.gstPercent);
+      const gstHeight = doc.heightOfString(`${gstDisplayValue}%`, { width: columns.gst.width });
       const amountHeight = doc.heightOfString(this.formatCurrency(item.amount), { width: columns.amount.width - 15 });
       
       // Find the maximum height among all cells in this row
@@ -571,7 +583,9 @@ class QuotationPdfService {
       doc.text(item.quantity.toString(), columns.quantity.x + 10, textY, { width: columns.quantity.width, lineBreak: true });
       doc.text(item.unit || '', columns.unit.x + 10, textY, { width: columns.unit.width, lineBreak: true });
       doc.text(this.formatCurrency(item.rate), columns.rate.x + 10, textY, { width: columns.rate.width, lineBreak: true });
-      doc.text(`${item.gstPercent}%`, columns.gst.x + 10, textY, { width: columns.gst.width, lineBreak: true });
+      // Fix GST display: if value is less than 1, it's likely a decimal (0.18) and should be converted to percentage (18)
+      const displayGst = item.gstPercent < 1 && item.gstPercent > 0 ? Math.round(item.gstPercent * 100) : Math.round(item.gstPercent);
+      doc.text(`${displayGst}%`, columns.gst.x + 10, textY, { width: columns.gst.width, lineBreak: true });
       doc.text(this.formatCurrency(item.amount), columns.amount.x + 5, textY, { width: columns.amount.width - 15, align: 'right', lineBreak: true });
 
       yPosition += actualRowHeight;
@@ -581,19 +595,24 @@ class QuotationPdfService {
   }
 
   /**
-   * Add calculations box (Subtotal, GST, Grand Total)
+   * Add calculations box (Total only - no GST calculation as rates vary by product)
    */
   static addCalculations(doc, data, tableEndY) {
     const pageHeight = doc.page.height;
-    const calcHeight = 60; // Height needed for calculations section
-    const bottomMargin = 50; // Bottom margin
+    const calcHeight = 30; // Height needed for calculations section (just one line)
+    const footerSectionHeight = 80; // Height needed for footer sections below
+    const bottomFooterHeight = 45; // Height of bottom footer
     
     // Check if we need a new page for calculations
     let yPosition = tableEndY + 10;
     
-    // Only add new page if calculations won't fit on current page
-    // Be conservative - only add page if absolutely necessary
-    if (yPosition + calcHeight > pageHeight - bottomMargin) {
+    // Total space needed for calculations + footer sections + bottom footer
+    const totalNeeded = calcHeight + footerSectionHeight + bottomFooterHeight;
+    
+    // Only add new page if there's truly not enough space for everything
+    // Be very conservative to avoid blank pages
+    if (yPosition + totalNeeded > pageHeight && yPosition > 300) {
+      // Only add page if we're past the halfway point of the page
       doc.addPage();
       yPosition = 50;
     }
@@ -601,34 +620,15 @@ class QuotationPdfService {
     const boxLeft = 350;
     const boxWidth = 195;
 
-    doc.fontSize(10)
-      .fillColor(this.TEXT_COLOR)
-      .font('Helvetica');
-
-    // Subtotal
-    doc.text('Subtotal (Excl GST):', boxLeft, yPosition, { lineBreak: false });
-    doc.text(this.formatCurrency(data.subtotal), boxLeft + 100, yPosition, { width: 95, align: 'right', lineBreak: false });
-
-    // GST
-    doc.text('GST @ 18%:', boxLeft, yPosition + 18, { lineBreak: false });
-    doc.text(this.formatCurrency(data.gst), boxLeft + 100, yPosition + 18, { width: 95, align: 'right', lineBreak: false });
-
-    // Separator line
-    doc.moveTo(boxLeft, yPosition + 32)
-      .lineTo(boxLeft + boxWidth, yPosition + 32)
-      .strokeColor(this.TEXT_COLOR)
-      .lineWidth(0.5)
-      .stroke();
-
-    // Grand Total
+    // Total (Excl GST) - Bold and prominent
     doc.fontSize(11)
       .font('Helvetica-Bold')
       .fillColor(this.PRIMARY_COLOR);
 
-    doc.text('GRAND TOTAL:', boxLeft, yPosition + 38, { lineBreak: false });
-    doc.text(this.formatCurrency(data.grandTotal), boxLeft + 100, yPosition + 38, { width: 95, align: 'right', lineBreak: false });
+    doc.text('TOTAL (Excl GST):', boxLeft, yPosition, { lineBreak: false });
+    doc.text(this.formatCurrency(data.subtotal), boxLeft + 100, yPosition, { width: 95, align: 'right', lineBreak: false });
 
-    return yPosition + 55;
+    return yPosition + 25;
   }
 
   /**
@@ -642,25 +642,24 @@ class QuotationPdfService {
     const bottomMargin = 50;
     
     // Calculate Y position - ensure it fits on current page
-    let yStart = calcEndY + 20; // Position after calculations
+    let yStart = calcEndY + 15; // Position after calculations (reduced gap)
     
-    // Check if we're already on a new page (if calcEndY is near top, we just added a page)
-    const isNewPage = calcEndY < 100;
+    // Total space needed for footer sections
+    const totalNeeded = footerHeight + bottomFooterHeight;
     
-    // Only add new page if footer sections won't fit AND we're not already on a new page
-    if (yStart + footerHeight + bottomFooterHeight > pageHeight - bottomMargin) {
-      if (!isNewPage) {
-        // Only add new page if we're not already on a fresh page
-        doc.addPage();
-        yStart = 50;
-      } else {
-        // We're already on a new page, try to fit footer here
-        // Adjust position to fit if possible
-        const maxY = pageHeight - footerHeight - bottomFooterHeight - bottomMargin;
-        if (yStart > maxY) {
-          yStart = Math.max(50, maxY);
-        }
-      }
+    // Available space on current page
+    const availableSpace = pageHeight - yStart - bottomMargin;
+    
+    // Only add new page if footer sections absolutely won't fit (be conservative)
+    // We need at least totalNeeded space
+    if (availableSpace < totalNeeded && yStart > 200) {
+      // Only add new page if we're not near the top of the page already
+      doc.addPage();
+      yStart = 50;
+    } else if (availableSpace < totalNeeded) {
+      // We're near the top but still don't have enough space - compact the footer
+      // This shouldn't happen normally, but handle gracefully
+      yStart = Math.max(50, pageHeight - totalNeeded - bottomMargin - 10);
     }
 
     doc.fontSize(9)
@@ -758,115 +757,107 @@ class QuotationPdfService {
     const pageHeight = doc.page.height;
     const margin = 50;
     const contentWidth = pageWidth - (margin * 2);
-    const bottomMargin = 60; // Space for footer
+    const bottomMargin = 50; // Space for footer
 
-    // Add more spacing before section starts
-    let currentY = startY + 30;
+    // Skip if no products
+    if (!data.advertisementProducts || data.advertisementProducts.length === 0) {
+      return startY;
+    }
+
+    // Add spacing before section starts
+    let currentY = startY + 20;
 
     // Banner styling
-    const bannerHeight = 40;
+    const bannerHeight = 35;
 
-    if (currentY + bannerHeight + 140 > pageHeight - bottomMargin) {
+    // Check if we have enough space for banner + at least one row
+    const cardHeight = 105; // Slightly reduced
+    const minSpaceNeeded = bannerHeight + 20 + cardHeight;
+    
+    if (currentY + minSpaceNeeded > pageHeight - bottomMargin) {
       doc.addPage();
       currentY = margin;
     }
 
-    // Add "We Also Provide" Banner with improved styling
-    // Background with gradient effect
+    // Add "We Also Provide" Banner
     doc.rect(margin, currentY, contentWidth, bannerHeight)
       .fillColor('#f0f4f8')
       .fill();
 
-    // Left accent bar (thicker)
     doc.rect(margin, currentY, 5, bannerHeight)
       .fillColor(this.PRIMARY_COLOR)
       .fill();
 
-    // Right accent bar
     doc.rect(margin + contentWidth - 5, currentY, 5, bannerHeight)
       .fillColor(this.PRIMARY_COLOR)
       .fill();
 
-    // Banner text centered
     doc.font('Helvetica-Bold')
       .fontSize(14)
       .fillColor(this.PRIMARY_COLOR)
-      .text('WE ALSO PROVIDE', margin + 20, currentY + 12, {
+      .text('WE ALSO PROVIDE', margin + 20, currentY + 10, {
         width: contentWidth - 40,
         align: 'center',
         characterSpacing: 2
       });
 
-    currentY += bannerHeight + 25;
+    currentY += bannerHeight + 15;
 
-    // Grid configuration - 3 Columns with better spacing
+    // Grid configuration - 3 Columns
     const columns = 3;
-    const gap = 18;
+    const gap = 15;
     const cardWidth = (contentWidth - (gap * (columns - 1))) / columns;
-    const cardHeight = 110; // Optimized height to fit content without extra space
     const cardPadding = 8;
-    const imageSize = 70; // Image width/height
+    const imageSize = 65;
+
+    // Track the current row's Y position
+    let rowStartY = currentY;
+    let lastRowEndY = currentY;
 
     // Iterate through products
     for (let index = 0; index < data.advertisementProducts.length; index++) {
       const product = data.advertisementProducts[index];
-
-      // Check if we need a new page (check before starting a row)
-      if (currentY + cardHeight > pageHeight - bottomMargin) {
-        doc.addPage();
-        currentY = margin;
-
-        // Add continuation banner on new page
-        doc.rect(margin, currentY, contentWidth, 30)
-          .fillColor('#f0f4f8')
-          .fill();
-        doc.rect(margin, currentY, 5, 30)
-          .fillColor(this.PRIMARY_COLOR)
-          .fill();
-        doc.font('Helvetica-Bold')
-          .fontSize(11)
-          .fillColor(this.PRIMARY_COLOR)
-          .text('WE ALSO PROVIDE (Continued)', margin + 15, currentY + 9, {
-            width: contentWidth - 30,
-            align: 'center'
-          });
-        currentY += 45;
-      }
-
       const colIndex = index % columns;
-      const x = margin + (colIndex * (cardWidth + gap));
-
-      // Move Y down only after completing a row
-      if (index > 0 && index % columns === 0) {
-        currentY += cardHeight + gap;
-
-        // Check page break again after row increment
-        if (currentY + cardHeight > pageHeight - bottomMargin) {
+      
+      // At the start of a new row (except first row), move Y down
+      if (index > 0 && colIndex === 0) {
+        rowStartY = lastRowEndY + gap;
+        
+        // Check if new row fits on current page
+        if (rowStartY + cardHeight > pageHeight - bottomMargin) {
           doc.addPage();
-          currentY = margin;
+          rowStartY = margin;
+          
+          // Add small continuation indicator
+          doc.font('Helvetica')
+            .fontSize(9)
+            .fillColor('#666666')
+            .text('Products (continued)', margin, rowStartY, { align: 'left' });
+          rowStartY += 20;
         }
       }
 
-      // Draw Product Card with improved styling
-      // Card background
-      doc.rect(x, currentY, cardWidth, cardHeight)
+      const x = margin + (colIndex * (cardWidth + gap));
+      const cardY = rowStartY;
+
+      // Draw Product Card
+      doc.rect(x, cardY, cardWidth, cardHeight)
         .fillColor('#ffffff')
         .fill();
 
-      // Card border with slight shadow effect
-      doc.rect(x, currentY, cardWidth, cardHeight)
+      doc.rect(x, cardY, cardWidth, cardHeight)
         .strokeColor('#d0d5dd')
         .lineWidth(1)
         .stroke();
 
       // Top accent line
-      doc.rect(x, currentY, cardWidth, 3)
+      doc.rect(x, cardY, cardWidth, 3)
         .fillColor(this.PRIMARY_COLOR)
         .fill();
 
       // Product Image (left side)
       const imageX = x + cardPadding;
-      const imageY = currentY + 10;
+      const imageY = cardY + 10;
 
       try {
         // Get primary image URL
@@ -914,15 +905,18 @@ class QuotationPdfService {
 
       // Content area (right side of image)
       const contentX = imageX + imageSize + 8;
-      const contentWidth = cardWidth - imageSize - (cardPadding * 2) - 8;
-      let contentY = currentY + 8;
+      const cardContentWidth = cardWidth - imageSize - (cardPadding * 2) - 8;
+      let contentY = cardY + 8;
+      
+      // Track the end of this row
+      lastRowEndY = cardY + cardHeight;
 
       // Product Name (prominent, in theme blue color)
       doc.font('Helvetica-Bold')
         .fontSize(9)
         .fillColor(this.PRIMARY_COLOR)
         .text(product.name, contentX, contentY, {
-          width: contentWidth,
+          width: cardContentWidth,
           height: 24,
           ellipsis: true,
           align: 'left'
@@ -940,7 +934,7 @@ class QuotationPdfService {
             contentX,
             contentY,
             {
-              width: contentWidth,
+              width: cardContentWidth,
               height: 20,
               align: 'left',
               ellipsis: true
@@ -951,38 +945,33 @@ class QuotationPdfService {
 
       // Product Specifications (properly handle Mongoose Map)
       if (product.specifications) {
-        // Convert Mongoose Map to plain object/array
         let specs = [];
 
         if (product.specifications instanceof Map) {
-          // It's a Map - convert to array and filter out Mongoose internal properties
           specs = Array.from(product.specifications.entries())
             .filter(([key, value]) => !key.startsWith('$') && value !== null && value !== undefined);
         } else if (typeof product.specifications === 'object' && product.specifications !== null) {
-          // It's an object - convert to array and filter out Mongoose internal properties
           specs = Object.entries(product.specifications)
             .filter(([key, value]) => !key.startsWith('$') && value !== null && value !== undefined);
         }
 
-        // Only display if we have actual specifications
         if (specs.length > 0) {
           doc.font('Helvetica-Bold')
             .fontSize(7)
             .fillColor(this.PRIMARY_COLOR)
             .text('Specifications:', contentX, contentY, {
-              width: contentWidth,
+              width: cardContentWidth,
               align: 'left'
             });
           contentY += 10;
 
-          // Display up to 3 specifications
           specs.slice(0, 3).forEach(([key, value]) => {
             const specText = `• ${key}: ${value}`;
             doc.font('Helvetica')
               .fontSize(6.5)
               .fillColor('#666666')
               .text(specText, contentX, contentY, {
-                width: contentWidth,
+                width: cardContentWidth,
                 height: 8,
                 ellipsis: true,
                 align: 'left'
@@ -993,8 +982,8 @@ class QuotationPdfService {
       }
     }
 
-    // Return the final Y position for proper spacing after section
-    return currentY + cardHeight + 20;
+    // Return the final Y position (last row end + small margin)
+    return lastRowEndY + 10;
   }
 
   /**

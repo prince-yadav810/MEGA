@@ -165,6 +165,21 @@ const userService = {
       console.error('Error updating preferences:', error);
       throw error;
     }
+  },
+
+  // Upload user avatar
+  uploadAvatar: async (userId, formData) => {
+    try {
+      const response = await api.post(`/users/${userId}/avatar`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      throw error;
+    }
   }
 };
 

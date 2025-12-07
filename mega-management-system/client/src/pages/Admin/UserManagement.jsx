@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, X, Eye, EyeOff, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Search, Filter, X, Eye, EyeOff, User, Upload, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import userService from '../../services/userService';
@@ -21,6 +21,10 @@ export default function UserManagement() {
   const [filterRole, setFilterRole] = useState('all');
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [todayAttendanceMap, setTodayAttendanceMap] = useState({});
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -124,6 +128,72 @@ export default function UserManagement() {
     });
     setEditingUser(null);
     setShowPassword(false);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast.error('File size too large. Maximum size is 5MB');
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+
+    // Store file for upload
+    setAvatarFile(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadAvatarToServer = async (userId) => {
+    if (!avatarFile) return null;
+
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+      formData.append('userId', userId);
+
+      const response = await userService.uploadAvatar(userId, formData);
+      if (response.success) {
+        return response.data.avatar;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast.error('Failed to upload avatar, but user was created/updated');
+      return null;
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -179,6 +249,14 @@ export default function UserManagement() {
         const response = await userService.updateUser(editingUser.id || editingUser._id, updateData);
 
         if (response.success) {
+          // Upload avatar if selected
+          if (avatarFile) {
+            const avatarUrl = await uploadAvatarToServer(editingUser.id || editingUser._id);
+            if (avatarUrl) {
+              response.data.avatar = avatarUrl;
+            }
+          }
+
           toast.success('Team member updated successfully');
           setUsers(users.map(u =>
             (u.id || u._id) === (editingUser.id || editingUser._id) ? response.data : u
@@ -189,6 +267,14 @@ export default function UserManagement() {
         const response = await userService.createUser(formData);
 
         if (response.success) {
+          // Upload avatar if selected
+          if (avatarFile) {
+            const avatarUrl = await uploadAvatarToServer(response.data._id || response.data.id);
+            if (avatarUrl) {
+              response.data.avatar = avatarUrl;
+            }
+          }
+
           toast.success('Team member added successfully');
           setUsers([response.data, ...users]);
         }
@@ -215,6 +301,10 @@ export default function UserManagement() {
       salary: user.salary || 0,
       role: user.role || 'employee'
     });
+    // Set avatar preview if user has one
+    if (user.avatar) {
+      setAvatarPreview(user.avatar);
+    }
     setShowModal(true);
   };
 
@@ -438,19 +528,69 @@ export default function UserManagement() {
                 </div>
               </div>
 
-              {/* Avatar URL (Optional) */}
-              <div>
+              {/* Profile Photo Upload */}
+              <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Profile Photo URL (Optional)
+                  Profile Photo (Optional)
                 </label>
-                <input
-                  type="url"
-                  name="avatar"
-                  value={formData.avatar}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                  placeholder="https://example.com/photo.jpg"
-                />
+                
+                <div className="flex items-center space-x-4">
+                  {/* Avatar Preview */}
+                  <div className="relative group">
+                    {avatarPreview ? (
+                      <img
+                        src={avatarPreview}
+                        alt="Avatar preview"
+                        className="h-20 w-20 rounded-full object-cover border-2 border-gray-300"
+                      />
+                    ) : (
+                      <div className="h-20 w-20 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white text-2xl font-bold">
+                        {formData.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                    )}
+                    {isUploadingAvatar && (
+                      <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload/Remove Buttons */}
+                  <div className="flex-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAvatarClick}
+                        disabled={isUploadingAvatar}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        <Upload className="w-4 h-4" />
+                        {avatarPreview ? 'Change Photo' : 'Upload Photo'}
+                      </button>
+                      {avatarPreview && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          disabled={isUploadingAvatar}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                        >
+                          <X className="w-4 h-4" />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Supported: JPG, PNG, GIF, WebP (Max 5MB)
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Form Actions */}

@@ -34,9 +34,9 @@ class ExcelProcessor {
         subtotal: this.extractSubtotal(worksheet, range)
       };
 
-      // Calculate GST and Grand Total
-      extractedData.gst = extractedData.subtotal * 0.18;
-      extractedData.grandTotal = extractedData.subtotal + extractedData.gst;
+      // Calculate totals (no GST calculation - GST rates vary by product)
+      extractedData.gst = 0; // No overall GST calculation
+      extractedData.grandTotal = extractedData.subtotal; // Grand total = subtotal (no GST added)
 
       this.validateExtractedData(extractedData);
 

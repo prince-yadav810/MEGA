@@ -705,7 +705,7 @@ const TaskBoard = ({ onViewChange }) => {
             </button>
           </div>
         </div>
-        <div className="flex gap-5 px-6 pb-6 min-w-max">
+        <div className="flex gap-5 px-6 pb-24 lg:pb-6 min-w-max">
           {columns.map((column) => (
             <div
               key={column.id}

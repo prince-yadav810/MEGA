@@ -32,6 +32,9 @@ router.post('/:id/advances', protect, restrictTo('super_admin', 'manager', 'admi
 // Update advance payment for user
 router.put('/:id/advances/:advanceId', protect, restrictTo('super_admin', 'manager', 'admin'), userController.updateAdvance);
 
+// Upload user avatar
+router.post('/:id/avatar', protect, restrictTo('super_admin', 'manager', 'admin'), userController.uploadUserAvatar);
+
 // Get user tasks
 router.get('/:id/tasks', protect, restrictTo('super_admin', 'manager', 'admin'), userController.getUserTasks);
 
