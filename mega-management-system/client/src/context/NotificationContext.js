@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import socketService from '../services/socketService';
 import * as notificationService from '../services/notificationService';
+import * as pushService from '../services/pushService';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext();
@@ -21,30 +22,189 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Fetch notifications from backend on mount
+  // Fetch notifications from backend on mount and set up polling
   useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      fetchUnreadCount();
-    }
+    if (!user) return;
+
+    // Initial fetch
+    fetchNotifications();
+    fetchUnreadCount();
+
+    // Set up periodic refresh as fallback (every 30 seconds)
+    // This ensures notifications appear even if Socket.io fails
+    const refreshInterval = setInterval(() => {
+      if (user && document.visibilityState === 'visible') {
+        // Only refresh if tab is visible (to avoid unnecessary requests)
+        fetchUnreadCount(); // Lightweight check
+      }
+    }, 30000); // 30 seconds
+
+    // Refresh when tab becomes visible (but only once, not continuously)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user) {
+        // Small delay to avoid rapid refreshes
+        setTimeout(() => {
+          fetchUnreadCount();
+        }, 500);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user]);
 
   // Initialize Socket.io connection
   useEffect(() => {
-    if (user && user._id) {
-      socketService.connect(null, user._id);
+    if (!user || !user._id) return;
 
+    // Connect socket and join user room
+    const socket = socketService.connect(null, user._id);
+    
+    // Wait for socket to connect before setting up listeners
+    const setupSocketListeners = () => {
       // Listen for new notifications
       socketService.on('notification:new', (notification) => {
-        console.log('📬 New notification received:', notification);
-        setNotifications(prev => [notification, ...prev]);
-        setUnreadCount(prev => prev + 1);
+        console.log('📬 New notification received via Socket.io:', notification);
+        
+        // Add notification to state
+        setNotifications(prev => {
+          // Check if notification already exists (prevent duplicates)
+          const exists = prev.some(n => 
+            (n._id && notification._id && n._id.toString() === notification._id.toString()) ||
+            (n.id && notification.id && n.id === notification.id)
+          );
+          
+          if (exists) {
+            console.log('⚠️  Notification already exists, skipping duplicate');
+            return prev;
+          }
+          
+          return [notification, ...prev];
+        });
+        
+        // Update unread count
+        if (!notification.read) {
+          setUnreadCount(prev => prev + 1);
+        }
+        
+        // Also refresh from server to ensure consistency
+        setTimeout(() => {
+          fetchUnreadCount();
+        }, 500);
       });
 
-      return () => {
-        socketService.off('notification:new');
-      };
+      // Verify socket connection status
+      if (socketService.isConnected()) {
+        console.log('✅ Socket.io already connected');
+      } else {
+        console.warn('⚠️  Socket.io not connected, will connect shortly');
+      }
+    };
+
+    // Setup listeners immediately
+    setupSocketListeners();
+
+    // Also setup listeners after a short delay to ensure socket is ready
+    const timer = setTimeout(() => {
+      if (socketService.isConnected()) {
+        console.log('✅ Socket.io connection verified');
+      } else {
+        console.warn('⚠️  Socket.io not connected, retrying...');
+        socketService.connect(null, user._id);
+      }
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+      socketService.off('notification:new');
+      socketService.off('connect');
+      socketService.off('disconnect');
+    };
+  }, [user]);
+
+  // Initialize push notifications subscription
+  useEffect(() => {
+    if (!user || !user._id) return;
+
+    // Check if push notifications are supported
+    if (!pushService.isPushSupported()) {
+      console.log('ℹ️  Push notifications not supported in this browser');
+      return;
     }
+
+    // Listen for service worker messages (like permission errors)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'NOTIFICATION_PERMISSION_REQUIRED') {
+          console.warn('⚠️  Notification permission required. Please enable notifications in browser settings.');
+          // Optionally show a toast or UI message to user
+        }
+      });
+    }
+
+    // Initialize push subscription
+    const initializePush = async () => {
+      try {
+        // Wait a bit more to ensure service worker is fully ready
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // First, check and request permission if needed
+        let permission = pushService.getNotificationPermission();
+        
+        if (permission === 'default') {
+          // Request permission first
+          try {
+            permission = await pushService.requestNotificationPermission();
+            console.log('Permission result:', permission);
+          } catch (permError) {
+            console.log('ℹ️  Notification permission request cancelled or failed');
+            return; // Can't proceed without permission
+          }
+        }
+        
+        if (permission !== 'granted') {
+          console.warn('⚠️  Notification permission not granted. Push notifications will not work.');
+          console.warn('   Please enable notifications in your browser settings.');
+          return;
+        }
+        
+        // Now check if already subscribed
+        const isSubscribed = await pushService.isSubscribed();
+        
+        if (!isSubscribed) {
+          // Permission granted but not subscribed - subscribe now
+          try {
+            await pushService.subscribeToPush();
+            console.log('✅ Push notifications subscribed');
+          } catch (subError) {
+            // Subscription failed but permission is granted - might be server issue
+            console.warn('⚠️  Failed to subscribe to push notifications:', subError.message);
+          }
+        } else {
+          // Verify subscription is still valid by checking with backend
+          console.log('ℹ️  Already subscribed to push notifications');
+        }
+      } catch (error) {
+        // Don't show error to user - push notifications are optional
+        // Only log if it's not a known expected error
+        if (!error.message?.includes('not supported') && 
+            !error.message?.includes('permission') &&
+            !error.message?.includes('not configured')) {
+          console.error('Error initializing push notifications:', error.message);
+        }
+      }
+    };
+
+    // Small delay to ensure service worker is ready
+    const timer = setTimeout(initializePush, 1000);
+    
+    return () => {
+      clearTimeout(timer);
+    };
   }, [user]);
 
   const fetchNotifications = async () => {

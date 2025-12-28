@@ -97,7 +97,51 @@ RATE_LIMIT_MAX_REQUESTS=100
 # ============================================
 MAX_FILE_SIZE=10485760
 # 10MB = 10485760 bytes
+
+# ============================================
+# Web Push Notifications (PWA)
+# ============================================
+# Generate VAPID keys by running: node src/scripts/generateVapidKeys.js
+# These keys are used for authenticating push notifications
+# IMPORTANT: Generate unique keys for each environment (dev/prod)
+VAPID_PUBLIC_KEY=your_vapid_public_key_here
+VAPID_PRIVATE_KEY=your_vapid_private_key_here
+# VAPID email (optional, used as contact for push service)
+# Format: mailto:your-email@example.com
+VAPID_EMAIL=mailto:your-email@example.com
 ```
+
+## Push Notifications Setup
+
+### Step 1: Generate VAPID Keys
+Run this command in the server directory:
+```bash
+cd server
+node src/scripts/generateVapidKeys.js
+```
+
+Copy the generated keys to your `.env` file.
+
+### Step 2: Requirements
+- **HTTPS Required**: Push notifications only work over HTTPS (or localhost for development)
+- **Service Worker**: Automatically registered when app loads
+- **Browser Support**: 
+  - ✅ Chrome/Edge (Android & Desktop)
+  - ✅ Firefox (Android & Desktop)
+  - ✅ Safari (iOS 16.4+ and macOS)
+  - ❌ Older browsers
+
+### Step 3: Testing
+1. Deploy with HTTPS enabled
+2. Add website to home screen (mobile) or install as PWA (desktop)
+3. Grant notification permission when prompted
+4. Test by creating a notification in the app
+
+### Step 4: User Experience
+- Users will be prompted for notification permission on first login
+- Notifications work even when app is closed (like native apps)
+- Clicking notification opens the app to relevant page
+- Works on both iOS and Android when added to home screen
 
 ## Quick Start for WhatsApp Testing
 

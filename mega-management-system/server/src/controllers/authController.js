@@ -19,6 +19,17 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Check if database is connected
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.error('Database not connected. Connection state:', mongoose.connection.readyState);
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection unavailable. Please try again later.',
+        error: 'Database not connected'
+      });
+    }
+
     // Find user by email
     const user = await User.findOne({ email: email.toLowerCase() });
 
@@ -74,10 +85,22 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    
+    // Check for specific error types
+    if (error.name === 'MongoServerError' || error.name === 'MongoNetworkError') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error. Please try again later.',
+        error: 'Database unavailable'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Login failed. Please try again.',
-      error: error.message
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
     });
   }
 };

@@ -38,14 +38,19 @@ class SocketService {
       if (userId) {
         this.joinUserRoom(userId);
       }
+      // Emit custom connect event for listeners
+      this.emitToListeners('connect');
     });
 
     this.socket.on('disconnect', (reason) => {
       console.log('❌ Socket.io disconnected:', reason);
+      // Emit custom disconnect event for listeners
+      this.emitToListeners('disconnect', reason);
     });
 
     this.socket.on('error', (error) => {
       console.error('Socket.io error:', error);
+      this.emitToListeners('error', error);
     });
 
     // Rejoin room on reconnection
@@ -54,22 +59,29 @@ class SocketService {
       if (this.userId) {
         this.joinUserRoom(this.userId);
       }
+      this.emitToListeners('reconnect');
     });
 
     return this.socket;
   }
 
   joinUserRoom(userId) {
-    if (!this.socket || !userId) return;
-    
-    // Leave old room if exists
-    if (this.userId && this.userId !== userId) {
-      this.socket.emit('leave-user-room', this.userId);
+    if (!this.socket || !userId) {
+      console.warn('⚠️  Cannot join user room: socket or userId missing');
+      return;
     }
     
-    this.userId = userId;
-    this.socket.emit('join-user-room', userId);
-    console.log(`📍 Joined user room: user:${userId}`);
+    // Ensure userId is a string
+    const userIdStr = userId.toString();
+    
+    // Leave old room if exists
+    if (this.userId && this.userId.toString() !== userIdStr) {
+      this.socket.emit('leave-user-room', this.userId.toString());
+    }
+    
+    this.userId = userIdStr;
+    this.socket.emit('join-user-room', userIdStr);
+    console.log(`📍 Joined user room: user:${userIdStr}`);
   }
 
   disconnect() {
@@ -86,14 +98,39 @@ class SocketService {
   }
 
   on(event, callback) {
+    // Handle built-in socket events
+    if (['connect', 'disconnect', 'error', 'reconnect'].includes(event)) {
+      // Store listener for built-in events
+      this.listeners.set(event, callback);
+      // These are already set up in connect(), just store the callback
+      return;
+    }
+
     if (!this.socket) {
       console.warn('Socket not connected. Call connect() first.');
+      // Try to connect if not connected
+      if (this.userId) {
+        this.connect(null, this.userId);
+      }
       return;
     }
 
     // Store listener for cleanup
     this.listeners.set(event, callback);
     this.socket.on(event, callback);
+    
+    // Log for debugging
+    if (event === 'notification:new') {
+      console.log('📡 Socket listener registered for notification:new');
+    }
+  }
+
+  // Helper to emit to stored listeners
+  emitToListeners(event, data) {
+    const callback = this.listeners.get(event);
+    if (callback) {
+      callback(data);
+    }
   }
 
   off(event) {

@@ -1,6 +1,7 @@
 // File path: server/src/controllers/notificationController.js
 
 const Notification = require('../models/Notification');
+const pushService = require('../services/pushService');
 
 // Helper function to create and emit notification
 const createNotification = async (notificationData, io) => {
@@ -12,6 +13,23 @@ const createNotification = async (notificationData, io) => {
       // Emit to user-specific room (format: user:${userId})
       io.to(`user:${notification.userId}`).emit('notification:new', notification);
       console.log(`📬 Notification sent to user:${notification.userId}`);
+    }
+
+    // Send push notification (works even when app is closed)
+    if (notification.userId) {
+      pushService.sendPushNotification(notification.userId.toString(), {
+        title: notification.title,
+        message: notification.message,
+        category: notification.category,
+        actionUrl: notification.actionUrl,
+        entityType: notification.entityType,
+        entityId: notification.entityId,
+        notificationId: notification._id.toString(),
+        _id: notification._id.toString()
+      }).catch(error => {
+        // Don't fail notification creation if push fails
+        console.error('Error sending push notification:', error.message);
+      });
     }
 
     return notification;
@@ -26,11 +44,14 @@ const notifyMultipleUsers = async (userIds, notificationTemplate, io) => {
   try {
     if (!userIds || userIds.length === 0) return [];
 
+    // Create notifications for all users
+    // Push notifications are automatically sent by createNotification
     const promises = userIds.map(userId =>
       createNotification({ ...notificationTemplate, userId }, io)
     );
 
-    return await Promise.all(promises);
+    const notifications = await Promise.all(promises);
+    return notifications;
   } catch (error) {
     console.error('Error notifying multiple users:', error);
     throw error;

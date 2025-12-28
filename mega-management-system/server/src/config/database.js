@@ -4,12 +4,16 @@ const connectDB = async () => {
   try {
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mega-management';
 
+    if (!mongoURI || mongoURI === 'mongodb://localhost:27017/mega-management') {
+      console.warn('⚠️  MONGODB_URI not set or using default. Database connection may fail in production.');
+    }
+
     const conn = await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
 
     // Clean up stale indexes that might cause duplicate key errors
     try {
@@ -31,8 +35,12 @@ const connectDB = async () => {
     }
 
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    console.log('Application will continue without database. Using localStorage fallback.');
+    console.error(`❌ MongoDB Connection Error: ${error.message}`);
+    console.error('   Connection string:', process.env.MONGODB_URI ? 'Set (hidden)' : 'NOT SET');
+    console.error('   This will cause authentication and data operations to fail!');
+    console.error('   Please check your MONGODB_URI environment variable.');
+    // Don't throw - let the app start, but log the error clearly
+    // The login controller will check connection state before queries
   }
 };
 

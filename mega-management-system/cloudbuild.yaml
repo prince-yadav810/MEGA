@@ -56,7 +56,7 @@ steps:
       - '--port'
       - '8080'
       - '--set-env-vars'
-      - 'NODE_ENV=production,DISABLE_CRON=true,JWT_EXPIRE=7d,CLIENT_URL=https://app.megaenterprise.in'
+      - 'NODE_ENV=production,DISABLE_CRON=true,JWT_EXPIRE=7d,CLIENT_URL=https://app.megaenterprise.in,VAPID_EMAIL=mailto:admin@megaenterprise.in'
       # IMPORTANT: Set these secrets in Google Cloud Secret Manager first, then uncomment:
       # gcloud secrets create MONGODB_URI --data-file=-
       # gcloud secrets create JWT_SECRET --data-file=-

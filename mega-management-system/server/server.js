@@ -7,6 +7,7 @@ dotenv.config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const mongoose = require('mongoose');
 const connectDB = require('./src/config/database');
 const { errorHandler } = require('./src/middleware/errorHandler');
 const http = require('http');
@@ -130,6 +131,7 @@ app.use('/api/quotations', require('./src/routes/quotations'));
 app.use('/api/clients', require('./src/routes/clients'));
 app.use('/api/products', require('./src/routes/products'));
 app.use('/api/notifications', require('./src/routes/notifications'));
+app.use('/api/push', require('./src/routes/pushSubscriptions'));
 app.use('/api/attendance', require('./src/routes/attendance'));
 app.use('/api/api-usage', require('./src/routes/apiUsage'));
 app.use('/api/call-logs', callLogRoutes);
@@ -335,6 +337,9 @@ server.listen(PORT, async () => {
   // Log configuration status for debugging
   console.log('📋 Configuration Status:');
   console.log('  - NODE_ENV:', process.env.NODE_ENV || 'development');
+  console.log('  - MongoDB URI set:', !!process.env.MONGODB_URI);
+  console.log('  - MongoDB connected:', mongoose.connection.readyState === 1 ? '✅ Yes' : '❌ No');
+  console.log('  - JWT Secret set:', !!process.env.JWT_SECRET);
   console.log('  - Cloudinary configured:', !!(
     process.env.CLOUDINARY_CLOUD_NAME &&
     process.env.CLOUDINARY_API_KEY &&
@@ -343,7 +348,14 @@ server.listen(PORT, async () => {
   ));
   console.log('  - Gemini API configured:', !!process.env.GEMINI_API_KEY);
   console.log('  - Vision API configured:', !!process.env.GOOGLE_VISION_API_KEY);
-  console.log('  - MongoDB URI set:', !!process.env.MONGODB_URI);
+  
+  // Warn about critical missing environment variables
+  if (!process.env.MONGODB_URI) {
+    console.error('⚠️  WARNING: MONGODB_URI not set! Authentication will fail!');
+  }
+  if (!process.env.JWT_SECRET) {
+    console.error('⚠️  WARNING: JWT_SECRET not set! Using default secret (not secure for production)!');
+  }
 
   // Validate Cloudinary credentials on startup
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
