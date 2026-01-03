@@ -6,7 +6,6 @@
 steps:
   # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    dir: 'mega-management-system'
     args:
       - 'build'
       - '-t'

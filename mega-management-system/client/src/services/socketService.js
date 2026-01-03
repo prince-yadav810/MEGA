@@ -162,7 +162,6 @@ class SocketService {
       // Socket not ready - queue the listener
       this.pendingListeners.set(event, callback);
       this.listeners.set(event, callback);
-      this.listeners.set(event, callback);
 
       // Try to connect if not already connecting
       if (!this.socket) {
