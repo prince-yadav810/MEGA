@@ -59,38 +59,40 @@ export const NotificationProvider = ({ children }) => {
 
   // Initialize Socket.io connection
   useEffect(() => {
-    if (!user || !user._id) return;
+    // Check for user with either _id or id
+    const userId = user?._id || user?.id;
+    if (!user || !userId) return;
 
     // Connect socket and join user room
-    const socket = socketService.connect(null, user._id);
-    
+    // eslint-disable-next-line no-unused-vars
+    const socket = socketService.connect(null, userId);
+
     // Wait for socket to connect before setting up listeners
     const setupSocketListeners = () => {
       // Listen for new notifications
       socketService.on('notification:new', (notification) => {
         console.log('📬 New notification received via Socket.io:', notification);
-        
+
         // Add notification to state
         setNotifications(prev => {
           // Check if notification already exists (prevent duplicates)
-          const exists = prev.some(n => 
+          const exists = prev.some(n =>
             (n._id && notification._id && n._id.toString() === notification._id.toString()) ||
             (n.id && notification.id && n.id === notification.id)
           );
-          
+
           if (exists) {
-            console.log('⚠️  Notification already exists, skipping duplicate');
             return prev;
           }
-          
+
           return [notification, ...prev];
         });
-        
+
         // Update unread count
         if (!notification.read) {
           setUnreadCount(prev => prev + 1);
         }
-        
+
         // Also refresh from server to ensure consistency
         setTimeout(() => {
           fetchUnreadCount();
@@ -98,11 +100,6 @@ export const NotificationProvider = ({ children }) => {
       });
 
       // Verify socket connection status
-      if (socketService.isConnected()) {
-        console.log('✅ Socket.io already connected');
-      } else {
-        console.warn('⚠️  Socket.io not connected, will connect shortly');
-      }
     };
 
     // Setup listeners immediately
@@ -110,11 +107,8 @@ export const NotificationProvider = ({ children }) => {
 
     // Also setup listeners after a short delay to ensure socket is ready
     const timer = setTimeout(() => {
-      if (socketService.isConnected()) {
-        console.log('✅ Socket.io connection verified');
-      } else {
-        console.warn('⚠️  Socket.io not connected, retrying...');
-        socketService.connect(null, user._id);
+      if (!socketService.isConnected()) {
+        socketService.connect(null, userId);
       }
     }, 1000);
 
@@ -151,10 +145,10 @@ export const NotificationProvider = ({ children }) => {
       try {
         // Wait a bit more to ensure service worker is fully ready
         await new Promise(resolve => setTimeout(resolve, 1500));
-        
+
         // First, check and request permission if needed
         let permission = pushService.getNotificationPermission();
-        
+
         if (permission === 'default') {
           // Request permission first
           try {
@@ -165,16 +159,16 @@ export const NotificationProvider = ({ children }) => {
             return; // Can't proceed without permission
           }
         }
-        
+
         if (permission !== 'granted') {
           console.warn('⚠️  Notification permission not granted. Push notifications will not work.');
           console.warn('   Please enable notifications in your browser settings.');
           return;
         }
-        
+
         // Now check if already subscribed
         const isSubscribed = await pushService.isSubscribed();
-        
+
         if (!isSubscribed) {
           // Permission granted but not subscribed - subscribe now
           try {
@@ -191,9 +185,9 @@ export const NotificationProvider = ({ children }) => {
       } catch (error) {
         // Don't show error to user - push notifications are optional
         // Only log if it's not a known expected error
-        if (!error.message?.includes('not supported') && 
-            !error.message?.includes('permission') &&
-            !error.message?.includes('not configured')) {
+        if (!error.message?.includes('not supported') &&
+          !error.message?.includes('permission') &&
+          !error.message?.includes('not configured')) {
           console.error('Error initializing push notifications:', error.message);
         }
       }
@@ -201,7 +195,7 @@ export const NotificationProvider = ({ children }) => {
 
     // Small delay to ensure service worker is ready
     const timer = setTimeout(initializePush, 1000);
-    
+
     return () => {
       clearTimeout(timer);
     };

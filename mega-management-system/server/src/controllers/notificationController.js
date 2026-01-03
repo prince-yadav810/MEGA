@@ -10,9 +10,13 @@ const createNotification = async (notificationData, io) => {
 
     // Emit Socket.io event to specific user if io is available
     if (io && notification.userId) {
-      // Emit to user-specific room (format: user:${userId})
-      io.to(`user:${notification.userId}`).emit('notification:new', notification);
-      console.log(`📬 Notification sent to user:${notification.userId}`);
+      const roomName = `user:${notification.userId}`;
+
+      // Convert to plain object with virtuals for socket emission
+      const notifData = notification.toJSON();
+
+      // Emit to user-specific room
+      io.to(roomName).emit('notification:new', notifData);
     }
 
     // Send push notification (works even when app is closed)

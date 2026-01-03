@@ -304,14 +304,11 @@ if (process.env.NODE_ENV === 'production') {
 
 // Socket.io events
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-
   // Join user to their personal room when they send their userId
   socket.on('join-user-room', (userId) => {
     if (userId) {
       const roomName = `user:${userId}`;
       socket.join(roomName);
-      console.log(`👤 User ${userId} joined room: ${roomName}`);
     }
   });
 
@@ -320,12 +317,11 @@ io.on('connection', (socket) => {
     if (userId) {
       const roomName = `user:${userId}`;
       socket.leave(roomName);
-      console.log(`👋 User ${userId} left room: ${roomName}`);
     }
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+    // Socket disconnected
   });
 });
 
