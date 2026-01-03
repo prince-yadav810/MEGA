@@ -31,6 +31,20 @@ const NotificationDropdown = () => {
     }
   };
 
+  // Helper to format time in 12-hour AM/PM format
+  const formatTime = (createdAt) => {
+    if (!createdAt) return '';
+    const date = new Date(createdAt);
+    if (isNaN(date.getTime())) return '';
+
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+    return `${hours}:${minutesStr} ${ampm}`;
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -77,9 +91,8 @@ const NotificationDropdown = () => {
                 return (
                   <div
                     key={notifId}
-                    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                      !notification.read ? 'bg-primary-50' : ''
-                    }`}
+                    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${!notification.read ? 'bg-primary-50' : ''
+                      }`}
                     onClick={() => markAsRead(notifId)}
                   >
                     <div className="flex items-start space-x-3">
@@ -94,7 +107,7 @@ const NotificationDropdown = () => {
                           {notification.message}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {notification.timeAgo || notification.time || 'Just now'}
+                          {formatTime(notification.createdAt)}
                         </p>
                       </div>
                       <button

@@ -84,7 +84,7 @@ const getAllNotifications = async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
         .skip(skip)
-        .lean(),
+        .lean({ virtuals: true }),  // Include virtuals (timeAgo) in lean output
       Notification.countDocuments(query)
     ]);
 

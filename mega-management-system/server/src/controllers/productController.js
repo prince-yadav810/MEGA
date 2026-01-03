@@ -156,24 +156,27 @@ exports.createProduct = async (req, res) => {
 
     const product = await Product.create(productData);
 
-    // Notify all employees, managers, and admins (not super admins) based on system settings
+    // --- NOTIFICATION: Notify only admin/managers (not employees, not super_admin) ---
     if (req.user) {
       try {
         // Check if product creation notifications are enabled in system settings
         const settings = await SystemSettings.getSettings();
-        
+
         if (settings.notifications.productCreationNotifications) {
-          // Get all active users who are NOT super admins
-          const employeesManagersAndAdmins = await User.find({
+          // Get only admin/managers (not employees, not super_admin)
+          const adminManagers = await User.find({
             isActive: true,
-            role: { $in: ['employee', 'manager', 'admin'] }
+            role: { $in: ['admin', 'manager'] }
           }).select('_id');
 
-          const userIds = employeesManagersAndAdmins.map(u => u._id);
+          // Exclude self from notifications
+          const usersToNotify = adminManagers
+            .map(u => u._id.toString())
+            .filter(id => id !== req.user.id?.toString());
 
-          if (userIds.length > 0) {
+          if (usersToNotify.length > 0) {
             await notifyMultipleUsers(
-              userIds,
+              usersToNotify,
               {
                 type: 'success',
                 category: 'product',
@@ -186,7 +189,7 @@ exports.createProduct = async (req, res) => {
               },
               req.io
             );
-            console.log(`✉️  Product creation notification sent to ${userIds.length} user(s) (employees, managers & admins)`);
+            console.log(`✉️  Product creation notification sent to ${usersToNotify.length} admin/manager(s)`);
           }
         } else {
           console.log(`📵 Product creation notifications are disabled in system settings`);
@@ -292,24 +295,27 @@ exports.updateProduct = async (req, res) => {
       }
     );
 
-    // Notify all employees, managers, and admins (not super admins) based on system settings
+    // --- NOTIFICATION: Notify only admin/managers (not employees, not super_admin) ---
     if (req.user) {
       try {
         // Check if product creation notifications are enabled in system settings
         const settings = await SystemSettings.getSettings();
-        
+
         if (settings.notifications.productCreationNotifications) {
-          // Get all active users who are NOT super admins
-          const employeesManagersAndAdmins = await User.find({
+          // Get only admin/managers (not employees, not super_admin)
+          const adminManagers = await User.find({
             isActive: true,
-            role: { $in: ['employee', 'manager', 'admin'] }
+            role: { $in: ['admin', 'manager'] }
           }).select('_id');
 
-          const userIds = employeesManagersAndAdmins.map(u => u._id);
+          // Exclude self from notifications
+          const usersToNotify = adminManagers
+            .map(u => u._id.toString())
+            .filter(id => id !== req.user.id?.toString());
 
-          if (userIds.length > 0) {
+          if (usersToNotify.length > 0) {
             await notifyMultipleUsers(
-              userIds,
+              usersToNotify,
               {
                 type: 'info',
                 category: 'product',
@@ -322,7 +328,7 @@ exports.updateProduct = async (req, res) => {
               },
               req.io
             );
-            console.log(`✉️  Product update notification sent to ${userIds.length} user(s) (employees, managers & admins)`);
+            console.log(`✉️  Product update notification sent to ${usersToNotify.length} admin/manager(s)`);
           }
         } else {
           console.log(`📵 Product update notifications are disabled in system settings`);
@@ -389,19 +395,38 @@ exports.deleteProduct = async (req, res) => {
 
     await Product.findByIdAndDelete(req.params.id);
 
-    // Create notification for user
+    // --- NOTIFICATION: Notify all admin/managers (exclude self) ---
     if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'warning',
-        category: 'product',
-        title: 'Product Deleted',
-        message: `Product "${productName}" has been deleted from the inventory`,
-        entityType: 'product',
-        entityId: null,
-        actionUrl: '/products',
-        createdBy: req.user.name || 'System'
-      }, req.io);
+      try {
+        const adminManagers = await User.find({
+          isActive: true,
+          role: { $in: ['admin', 'manager'] }
+        }).select('_id');
+
+        const usersToNotify = adminManagers
+          .map(u => u._id.toString())
+          .filter(id => id !== req.user.id?.toString());
+
+        if (usersToNotify.length > 0) {
+          await notifyMultipleUsers(
+            usersToNotify,
+            {
+              type: 'warning',
+              category: 'product',
+              title: 'Product Deleted',
+              message: `Product "${productName}" has been deleted by ${req.user.name}`,
+              entityType: 'product',
+              entityId: null,
+              actionUrl: '/products',
+              createdBy: req.user.name || 'System'
+            },
+            req.io
+          );
+          console.log(`✉️  Product deleted notification sent to ${usersToNotify.length} admin/manager(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending product delete notifications:', notifyError);
+      }
     }
 
     res.status(200).json({

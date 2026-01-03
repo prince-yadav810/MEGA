@@ -5,17 +5,110 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 /**
  * Google Gemini AI Service
  * Parses business card text into structured client data
+ * 
+ * Robustness features:
+ * - 3-tier model fallback chain
+ * - Exponential backoff retry (3 attempts)
+ * - Graceful degradation with raw text
  */
 
 class GeminiService {
   constructor() {
     // Initialize Gemini API client
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Using gemini-2.5-flash (current 2025 model, fast, good for text parsing)
-    // Note: The library adds the "models/" prefix automatically
+
+    // Model fallback chain (in order of preference)
+    // If primary fails, try next in chain
+    this.modelFallbackChain = [
+      'gemini-2.5-flash',       // Primary: Fast, cheap, current
+      'gemini-2.0-flash-001',   // Fallback 1: Previous generation
+      'gemini-1.5-flash-latest' // Fallback 2: Older but stable
+    ];
+
+    // Current model index (starts with primary)
+    this.currentModelIndex = 0;
+
+    // Initialize with primary model
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash'
+      model: this.modelFallbackChain[0]
     });
+
+    // Track which models are available (populated on first use)
+    this.availableModels = null;
+  }
+
+  /**
+   * Get the next available model in the fallback chain
+   * @returns {Object|null} Model instance or null if no more fallbacks
+   */
+  getNextFallbackModel() {
+    this.currentModelIndex++;
+    if (this.currentModelIndex >= this.modelFallbackChain.length) {
+      this.currentModelIndex = 0; // Reset for next request
+      return null;
+    }
+
+    const modelName = this.modelFallbackChain[this.currentModelIndex];
+    console.log(`⚠️ Trying fallback model: ${modelName}`);
+
+    return this.genAI.getGenerativeModel({ model: modelName });
+  }
+
+  /**
+   * Reset model to primary for next request
+   */
+  resetToDefaultModel() {
+    this.currentModelIndex = 0;
+    this.model = this.genAI.getGenerativeModel({
+      model: this.modelFallbackChain[0]
+    });
+  }
+
+  /**
+   * Sleep utility for exponential backoff
+   * @param {number} ms - Milliseconds to sleep
+   */
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Check if an error is retryable (transient)
+   * @param {Error} error - The error to check
+   * @returns {boolean} True if error is retryable
+   */
+  isRetryableError(error) {
+    const message = error.message?.toLowerCase() || '';
+
+    // NOT retryable - fail fast on these
+    if (message.includes('api key') || message.includes('invalid')) return false;
+    if (message.includes('quota exceeded') && !message.includes('per minute')) return false;
+    if (message.includes('permission denied')) return false;
+
+    // Retryable - transient errors
+    if (message.includes('timeout')) return true;
+    if (message.includes('network')) return true;
+    if (message.includes('econnreset')) return true;
+    if (message.includes('503')) return true;
+    if (message.includes('500')) return true;
+    if (message.includes('per minute')) return true; // Rate limit per minute is retryable
+    if (error.code === 'ETIMEDOUT') return true;
+    if (error.code === 'ECONNRESET') return true;
+
+    return false;
+  }
+
+  /**
+   * Check if error suggests trying a different model
+   * @param {Error} error - The error to check
+   * @returns {boolean} True if should try fallback model
+   */
+  shouldTryFallbackModel(error) {
+    const message = error.message?.toLowerCase() || '';
+    return message.includes('not found') ||
+      message.includes('404') ||
+      message.includes('model') ||
+      message.includes('deprecated');
   }
 
   /**
@@ -90,11 +183,20 @@ Return ONLY the JSON object, nothing else.`;
 
   /**
    * Parses business card text into structured client data using Gemini
+   * Features:
+   * - Exponential backoff retry (3 attempts: 1s, 2s, 4s)
+   * - Model fallback chain on model errors
+   * - Graceful degradation with raw text
+   * 
    * @param {string} cardText - Combined text from business card
-   * @param {number} retryCount - Current retry attempt (max 1 retry)
+   * @param {number} retryCount - Current retry attempt (max 3)
+   * @param {Object} currentModel - Model to use (for fallback)
    * @returns {Promise<Object>} { success: boolean, data: Object, confidence: Object, error: string }
    */
-  async parseBusinessCardText(cardText, retryCount = 0) {
+  async parseBusinessCardText(cardText, retryCount = 0, currentModel = null) {
+    const MAX_RETRIES = 3;
+    const model = currentModel || this.model;
+
     try {
       if (!cardText || cardText.trim().length === 0) {
         return {
@@ -109,7 +211,8 @@ Return ONLY the JSON object, nothing else.`;
       const prompt = this.generatePrompt(cardText);
 
       // Call Gemini API
-      const result = await this.model.generateContent(prompt);
+      console.log(`🤖 Calling Gemini API (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+      const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
 
@@ -117,24 +220,31 @@ Return ONLY the JSON object, nothing else.`;
       const parsedData = this.parseGeminiResponse(text);
 
       if (!parsedData.success) {
-        // Retry once if parsing failed
-        if (retryCount === 0) {
-          console.warn('First parsing attempt failed, retrying...');
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-          return this.parseBusinessCardText(cardText, 1);
+        // Retry with exponential backoff if parsing failed
+        if (retryCount < MAX_RETRIES - 1) {
+          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          console.warn(`⚠️ Parsing attempt ${retryCount + 1} failed, retrying in ${delay}ms...`);
+          await this.sleep(delay);
+          return this.parseBusinessCardText(cardText, retryCount + 1, model);
         }
 
+        // All retries failed - return with raw text for manual entry
+        console.error('❌ All parsing attempts failed');
+        this.resetToDefaultModel();
         return {
           success: false,
           data: null,
           confidence: null,
           error: parsedData.error,
-          rawText: cardText // Return raw text for manual entry fallback
+          rawText: cardText,
+          fallbackToManual: true
         };
       }
 
-      // Validate and clean the parsed data
+      // Success! Validate and clean the parsed data
       const validatedData = this.validateAndCleanData(parsedData.data);
+      console.log('✅ Business card parsed successfully');
+      this.resetToDefaultModel();
 
       return {
         success: true,
@@ -143,40 +253,61 @@ Return ONLY the JSON object, nothing else.`;
         error: null
       };
     } catch (error) {
-      console.error('Gemini API error:', error);
+      console.error(`❌ Gemini API error (attempt ${retryCount + 1}):`, error.message);
 
-      // Handle API errors
-      if (error.message && error.message.includes('API key')) {
+      // Handle non-retryable errors immediately
+      if (error.message?.includes('API key') || error.message?.includes('API_KEY_INVALID')) {
+        this.resetToDefaultModel();
         return {
           success: false,
           data: null,
           confidence: null,
-          error: 'Invalid Gemini API key. Please check your configuration.'
+          error: 'Invalid Gemini API key. Please check your configuration.',
+          rawText: cardText,
+          fallbackToManual: true
         };
       }
 
-      if (error.message && error.message.includes('quota')) {
+      if (error.message?.includes('quota') && !error.message?.includes('per minute')) {
+        this.resetToDefaultModel();
         return {
           success: false,
           data: null,
           confidence: null,
-          error: 'Gemini API quota exceeded. Please try again later.'
+          error: 'Gemini API quota exceeded. Please try again later or upgrade your plan.',
+          rawText: cardText,
+          fallbackToManual: true
         };
       }
 
-      // Retry once on network/temporary errors
-      if (retryCount === 0) {
-        console.warn('Gemini API call failed, retrying...', error.message);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return this.parseBusinessCardText(cardText, 1);
+      // Try fallback model if current model not found
+      if (this.shouldTryFallbackModel(error)) {
+        const fallbackModel = this.getNextFallbackModel();
+        if (fallbackModel) {
+          console.log('🔄 Trying fallback model...');
+          return this.parseBusinessCardText(cardText, 0, fallbackModel);
+        }
       }
 
+      // Retry with exponential backoff for transient errors
+      if (this.isRetryableError(error) && retryCount < MAX_RETRIES - 1) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.warn(`⚠️ Retryable error, waiting ${delay}ms before retry...`);
+        await this.sleep(delay);
+        return this.parseBusinessCardText(cardText, retryCount + 1, model);
+      }
+
+      // All retries exhausted
+      console.error('❌ All retry attempts exhausted');
+      this.resetToDefaultModel();
       return {
         success: false,
         data: null,
         confidence: null,
         error: error.message || 'Failed to parse business card text',
-        rawText: cardText
+        rawText: cardText,
+        fallbackToManual: true,
+        suggestion: 'AI parsing failed. You can use the extracted text for manual entry.'
       };
     }
   }
@@ -361,25 +492,77 @@ Return ONLY the JSON object, nothing else.`;
   }
 
   /**
-   * Tests the API connection
-   * @returns {Promise<boolean>} True if API is accessible
+   * Tests the API connection and finds available models
+   * @returns {Promise<Object>} { connected: boolean, availableModels: string[], error: string }
    */
   async testConnection() {
+    const results = {
+      connected: false,
+      availableModels: [],
+      testedModels: {},
+      error: null
+    };
+
     try {
       if (!process.env.GEMINI_API_KEY) {
-        console.error('GEMINI_API_KEY not found in environment variables');
-        return false;
+        results.error = 'GEMINI_API_KEY not found in environment variables';
+        console.error('❌', results.error);
+        return results;
       }
 
-      // Simple test prompt
-      const result = await this.model.generateContent('Hello');
-      const response = await result.response;
+      console.log('🔍 Testing Gemini API connection...');
 
-      return response.text().length > 0;
+      // Test each model in the fallback chain
+      for (const modelName of this.modelFallbackChain) {
+        try {
+          const testModel = this.genAI.getGenerativeModel({ model: modelName });
+          const result = await testModel.generateContent('Hello');
+          const response = await result.response;
+
+          if (response.text().length > 0) {
+            results.testedModels[modelName] = 'available';
+            results.availableModels.push(modelName);
+            console.log(`  ✅ ${modelName}: Available`);
+          }
+        } catch (modelError) {
+          if (modelError.message?.includes('404') || modelError.message?.includes('not found')) {
+            results.testedModels[modelName] = 'not_found';
+            console.log(`  ⚠️ ${modelName}: Not found`);
+          } else if (modelError.message?.includes('quota') || modelError.message?.includes('429')) {
+            results.testedModels[modelName] = 'quota_exceeded';
+            results.availableModels.push(modelName); // Model exists, just rate limited
+            console.log(`  ⚠️ ${modelName}: Available (quota limited)`);
+          } else {
+            results.testedModels[modelName] = 'error';
+            console.log(`  ❌ ${modelName}: Error - ${modelError.message}`);
+          }
+        }
+      }
+
+      results.connected = results.availableModels.length > 0;
+      this.availableModels = results.availableModels;
+
+      if (results.connected) {
+        console.log(`\n✅ Gemini API connected. Available models: ${results.availableModels.join(', ')}`);
+      } else {
+        results.error = 'No Gemini models available. Check your API key and quota.';
+        console.error('\n❌', results.error);
+      }
+
+      return results;
     } catch (error) {
-      console.error('Gemini API connection test failed:', error);
-      return false;
+      results.error = error.message;
+      console.error('❌ Gemini API connection test failed:', error.message);
+      return results;
     }
+  }
+
+  /**
+   * Get list of available models (from last test)
+   * @returns {string[]} Array of available model names
+   */
+  getAvailableModels() {
+    return this.availableModels || [];
   }
 }
 

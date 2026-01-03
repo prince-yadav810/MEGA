@@ -6,11 +6,15 @@ const cloudinary = require('../config/cloudinary');
 /**
  * Get all team members
  * @route GET /api/users
+ * @note super_admin users are hidden from all listings (invisible owner)
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    // Fetch all users except passwords
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    // Fetch all users except super_admin (they should be invisible)
+    // Also exclude passwords
+    const users = await User.find({
+      role: { $ne: 'super_admin' }  // Hide super_admin from all listings
+    }).select('-password').sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,

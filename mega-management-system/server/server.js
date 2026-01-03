@@ -31,7 +31,7 @@ if (!DISABLE_CRON) {
   setTimeout(() => {
     // Set Socket.IO instance for scheduler notifications
     paymentReminderScheduler.setSocketIO(io);
-    
+
     paymentReminderScheduler.start();
     attendanceCleanupScheduler.start();
     attendanceLocationCleanupService.start();  // Start location cleanup service
@@ -348,7 +348,7 @@ server.listen(PORT, async () => {
   ));
   console.log('  - Gemini API configured:', !!process.env.GEMINI_API_KEY);
   console.log('  - Vision API configured:', !!process.env.GOOGLE_VISION_API_KEY);
-  
+
   // Warn about critical missing environment variables
   if (!process.env.MONGODB_URI) {
     console.error('⚠️  WARNING: MONGODB_URI not set! Authentication will fail!');
@@ -378,5 +378,15 @@ server.listen(PORT, async () => {
     }
   } else {
     console.log('\n⚠️  Cloudinary credentials not fully configured - PDF features may not work');
+  }
+
+  // Validate AI APIs for business card OCR
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_VISION_API_KEY) {
+    try {
+      const { checkAllAPIs } = require('./src/utils/apiHealthCheck');
+      await checkAllAPIs();
+    } catch (error) {
+      console.error('⚠️  API health check failed:', error.message);
+    }
   }
 });

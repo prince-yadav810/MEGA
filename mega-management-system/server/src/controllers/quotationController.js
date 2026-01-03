@@ -18,6 +18,18 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
+/**
+ * Helper: Get all admin and manager user IDs (excludes super_admin)
+ * @returns {Promise<string[]>} Array of user ID strings
+ */
+const getAdminManagerIds = async () => {
+  const adminManagers = await User.find({
+    isActive: true,
+    role: { $in: ['admin', 'manager'] }
+  }).select('_id');
+  return adminManagers.map(u => u._id.toString());
+};
+
 // Helper: Upload PDF to Cloudinary
 const uploadPdfToCloudinary = async (filePath, fileName) => {
   try {
@@ -87,10 +99,10 @@ const isCloudinaryConfigured = () => {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
   const isConfigured = cloudName &&
-         apiKey &&
-         apiSecret &&
-         cloudName !== 'your-cloudinary-cloud-name' &&
-         cloudName !== 'your_cloud_name';
+    apiKey &&
+    apiSecret &&
+    cloudName !== 'your-cloudinary-cloud-name' &&
+    cloudName !== 'your_cloud_name';
 
   // Debug logging
   if (!isConfigured) {
@@ -114,7 +126,7 @@ exports.getQuotations = async (req, res) => {
   try {
     // Build query object
     const query = {};
-    
+
     // Filter by clientName if provided (case-insensitive matching)
     if (req.query.clientName) {
       query.clientName = { $regex: req.query.clientName, $options: 'i' };
@@ -284,20 +296,16 @@ exports.uploadExcel = async (req, res) => {
       console.log('🗑️  Temporary Excel file deleted');
     }
 
-    // Step 6: Notify all employees and managers (not super admins)
+    // Step 6: Notify only admin/managers (not employees, not super_admin)
     if (req.user) {
       try {
-        // Get all active users who are NOT super admins
-        const employeesAndManagers = await User.find({
-          isActive: true,
-          role: { $in: ['employee', 'manager', 'admin'] }
-        }).select('_id');
+        const adminManagerIds = await getAdminManagerIds();
+        // Exclude self from notifications
+        const usersToNotify = adminManagerIds.filter(id => id !== req.user.id?.toString());
 
-        const userIds = employeesAndManagers.map(u => u._id);
-
-        if (userIds.length > 0) {
+        if (usersToNotify.length > 0) {
           await notifyMultipleUsers(
-            userIds,
+            usersToNotify,
             {
               type: 'success',
               category: 'quotation',
@@ -310,7 +318,7 @@ exports.uploadExcel = async (req, res) => {
             },
             req.io
           );
-          console.log(`✉️  Quotation creation notification sent to ${userIds.length} user(s) (employees & managers)`);
+          console.log(`✉️  Quotation creation notification sent to ${usersToNotify.length} admin/manager(s)`);
         }
       } catch (notifyError) {
         console.error('Error sending quotation creation notifications:', notifyError);
@@ -637,19 +645,32 @@ exports.deleteQuotation = async (req, res) => {
     // Delete from database
     await Quotation.findByIdAndDelete(req.params.id);
 
-    // Create notification
+    // --- NOTIFICATION: Notify all admin/managers (exclude self) ---
     if (req.user) {
-      await createNotification({
-        userId: req.user.id,
-        type: 'warning',
-        category: 'quotation',
-        title: 'Quotation Deleted',
-        message: `Quotation "${quotation.refNo}" for ${quotation.clientName} has been deleted from the system`,
-        entityType: 'quotation',
-        entityId: null,
-        actionUrl: '/quotations',
-        createdBy: req.user.name || 'System'
-      }, req.io);
+      try {
+        const adminManagerIds = await getAdminManagerIds();
+        const usersToNotify = adminManagerIds.filter(id => id !== req.user.id?.toString());
+
+        if (usersToNotify.length > 0) {
+          await notifyMultipleUsers(
+            usersToNotify,
+            {
+              type: 'warning',
+              category: 'quotation',
+              title: 'Quotation Deleted',
+              message: `Quotation "${quotation.refNo}" for ${quotation.clientName} has been deleted by ${req.user.name}`,
+              entityType: 'quotation',
+              entityId: null,
+              actionUrl: '/quotations',
+              createdBy: req.user.name || 'System'
+            },
+            req.io
+          );
+          console.log(`✉️  Quotation deleted notification sent to ${usersToNotify.length} admin/manager(s)`);
+        }
+      } catch (notifyError) {
+        console.error('Error sending quotation delete notifications:', notifyError);
+      }
     }
 
     res.status(200).json({
@@ -700,16 +721,12 @@ exports.updateStatus = async (req, res) => {
     quotation.updatedBy = req.user?._id;
     await quotation.save();
 
-    // Notify all employees and managers (NOT super admins) about status change
+    // --- NOTIFICATION: Notify only admin/managers (exclude self) ---
     try {
-      const employeesAndManagers = await User.find({
-        isActive: true,
-        role: { $in: ['employee', 'manager', 'admin'] }
-      }).select('_id');
+      const adminManagerIds = await getAdminManagerIds();
+      const usersToNotify = adminManagerIds.filter(id => id !== req.user?.id?.toString());
 
-      const userIds = employeesAndManagers.map(u => u._id);
-
-      if (userIds.length > 0) {
+      if (usersToNotify.length > 0) {
         const statusLabels = {
           on_hold: 'On Hold',
           approved: 'Approved',
@@ -720,7 +737,7 @@ exports.updateStatus = async (req, res) => {
         const currentLabel = statusLabels[status] || status;
 
         await notifyMultipleUsers(
-          userIds,
+          usersToNotify,
           {
             type: status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'warning',
             category: 'quotation',
@@ -733,7 +750,7 @@ exports.updateStatus = async (req, res) => {
           },
           req.io
         );
-        console.log(`✉️  Status change notification sent to ${userIds.length} user(s): ${previousLabel} → ${currentLabel}`);
+        console.log(`✉️  Status change notification sent to ${usersToNotify.length} admin/manager(s): ${previousLabel} → ${currentLabel}`);
       }
     } catch (notifyError) {
       console.error('Error sending notifications:', notifyError);
@@ -787,16 +804,12 @@ exports.updatePriority = async (req, res) => {
     quotation.updatedBy = req.user?._id;
     await quotation.save();
 
-    // Notify all employees and managers (NOT super admins) about priority change
+    // --- NOTIFICATION: Notify only admin/managers (exclude self) ---
     try {
-      const employeesAndManagers = await User.find({
-        isActive: true,
-        role: { $in: ['employee', 'manager', 'admin'] }
-      }).select('_id');
+      const adminManagerIds = await getAdminManagerIds();
+      const usersToNotify = adminManagerIds.filter(id => id !== req.user?.id?.toString());
 
-      const userIds = employeesAndManagers.map(u => u._id);
-
-      if (userIds.length > 0) {
+      if (usersToNotify.length > 0) {
         const priorityLabels = {
           low: 'Low',
           high: 'High',
@@ -807,7 +820,7 @@ exports.updatePriority = async (req, res) => {
         const currentLabel = priorityLabels[priority] || priority;
 
         await notifyMultipleUsers(
-          userIds,
+          usersToNotify,
           {
             type: priority === 'extreme' ? 'error' : priority === 'high' ? 'warning' : 'info',
             category: 'quotation',
@@ -820,7 +833,7 @@ exports.updatePriority = async (req, res) => {
           },
           req.io
         );
-        console.log(`✉️  Priority change notification sent to ${userIds.length} user(s): ${previousLabel} → ${currentLabel}`);
+        console.log(`✉️  Priority change notification sent to ${usersToNotify.length} admin/manager(s): ${previousLabel} → ${currentLabel}`);
       }
     } catch (notifyError) {
       console.error('Error sending notifications:', notifyError);

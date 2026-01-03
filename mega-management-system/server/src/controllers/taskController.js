@@ -3,6 +3,31 @@ const User = require('../models/User');
 const { validationResult } = require('express-validator');
 const { createNotification, notifyMultipleUsers } = require('./notificationController');
 
+/**
+ * Helper: Get all admin and manager user IDs (excludes super_admin)
+ * Used to notify admin/managers when employees create tasks
+ * @returns {Promise<string[]>} Array of user ID strings
+ */
+const getAdminManagerIds = async () => {
+  const adminManagers = await User.find({
+    isActive: true,
+    role: { $in: ['admin', 'manager'] }
+  }).select('_id');
+  return adminManagers.map(u => u._id.toString());
+};
+
+/**
+ * Helper: Merge user IDs without duplicates
+ * @param {Array} baseIds - Base array of user IDs
+ * @param {Array} additionalIds - IDs to add (if not already present)
+ * @returns {string[]} Deduplicated array of ID strings
+ */
+const mergeUserIds = (baseIds, additionalIds) => {
+  const baseSet = new Set(baseIds.map(id => id.toString()));
+  additionalIds.forEach(id => baseSet.add(id.toString()));
+  return Array.from(baseSet);
+};
+
 // @desc    Get all tasks
 // @route   GET /api/tasks
 // @access  Private
@@ -113,7 +138,7 @@ exports.createTask = async (req, res) => {
     if (assignees.length > 0) {
       const assignedUsers = await User.find({ _id: { $in: assignees } });
       const superAdmins = assignedUsers.filter(user => user.role === 'super_admin');
-      
+
       if (superAdmins.length > 0) {
         return res.status(400).json({
           success: false,
@@ -149,10 +174,30 @@ exports.createTask = async (req, res) => {
       req.io.emit('task:created', task);
     }
 
-    // Create notifications for assignees ONLY (not everyone)
-    if (task.assignees && task.assignees.length > 0) {
+    // --- NOTIFICATION LOGIC ---
+    // If employee creates task: notify assignees + all admin/managers (deduplicated)
+    // If admin/manager creates task: notify assignees only
+
+    const creatorRole = req.user.role;
+    const isEmployeeCreating = creatorRole === 'employee';
+    const assigneeIds = task.assignees?.map(a => (a._id || a).toString()) || [];
+
+    let usersToNotify = [...assigneeIds];
+
+    // If employee creates task, also notify all admin/managers
+    if (isEmployeeCreating && assigneeIds.length >= 0) {
+      const adminManagerIds = await getAdminManagerIds();
+      usersToNotify = mergeUserIds(assigneeIds, adminManagerIds);
+      // Remove the creator from notifications (don't notify yourself)
+      usersToNotify = usersToNotify.filter(id => id !== req.user._id.toString());
+    } else {
+      // Admin/manager creating - just notify assignees (exclude self)
+      usersToNotify = assigneeIds.filter(id => id !== req.user._id.toString());
+    }
+
+    if (usersToNotify.length > 0) {
       await notifyMultipleUsers(
-        task.assignees.map(a => a._id || a),
+        usersToNotify,
         {
           type: 'success',
           category: 'task',
@@ -166,7 +211,7 @@ exports.createTask = async (req, res) => {
         },
         req.io
       );
-      console.log(`✉️  Notifications sent to ${task.assignees.length} assignee(s)`);
+      console.log(`✉️  Notifications sent to ${usersToNotify.length} user(s) (assignees${isEmployeeCreating ? ' + admin/managers' : ''})`);
     }
 
     res.status(201).json({
@@ -224,7 +269,7 @@ exports.updateTask = async (req, res) => {
       if (updateData.assignees.length > 0) {
         const assignedUsers = await User.find({ _id: { $in: updateData.assignees } });
         const superAdmins = assignedUsers.filter(user => user.role === 'super_admin');
-        
+
         if (superAdmins.length > 0) {
           return res.status(400).json({
             success: false,
@@ -273,16 +318,29 @@ exports.updateTask = async (req, res) => {
     }
 
     // --- NOTIFICATION LOGIC ---
-    
+    const updaterRole = req.user.role;
+    const isEmployeeUpdating = updaterRole === 'employee';
+
     // 1. Find NEW assignees (people who weren't assigned before)
     const newAssignees = task.assignees.filter(
       assignee => !previousAssignees.includes(assignee._id.toString())
     );
 
-    // 2. Notify ONLY NEW assignees about task assignment
-    if (newAssignees.length > 0) {
+    // 2. Determine who to notify for new assignment
+    let newAssignmentNotifyList = newAssignees.map(a => a._id.toString());
+
+    // If employee is updating, also notify admin/managers about new assignments
+    if (isEmployeeUpdating && newAssignees.length > 0) {
+      const adminManagerIds = await getAdminManagerIds();
+      newAssignmentNotifyList = mergeUserIds(newAssignmentNotifyList, adminManagerIds);
+    }
+    // Remove self from notifications
+    newAssignmentNotifyList = newAssignmentNotifyList.filter(id => id !== req.user._id.toString());
+
+    // 3. Notify about new assignments
+    if (newAssignmentNotifyList.length > 0) {
       await notifyMultipleUsers(
-        newAssignees.map(a => a._id),
+        newAssignmentNotifyList,
         {
           type: 'success',
           category: 'task',
@@ -296,7 +354,7 @@ exports.updateTask = async (req, res) => {
         },
         req.io
       );
-      console.log(`✉️  Assignment notification sent to ${newAssignees.length} new assignee(s)`);
+      console.log(`✉️  Assignment notification sent to ${newAssignmentNotifyList.length} user(s)`);
     }
 
     // 3. Prepare change messages for existing assignees
@@ -339,23 +397,36 @@ exports.updateTask = async (req, res) => {
     }
 
     // 4. Notify ALL assignees (including old ones) if there were significant changes
-    if (changes.length > 0 && task.assignees.length > 0) {
+    // If employee updates, also notify admin/managers
+    if (changes.length > 0) {
       const changeMessage = changes.join(', ');
-      await notifyMultipleUsers(
-        task.assignees.map(a => a._id),
-        {
-          type: 'info',
-          category: 'task',
-          title: 'Task Updated',
-          message: `"${task.title}" updated by ${req.user.name}: ${changeMessage}`,
-          entityType: 'task',
-          entityId: task._id,
-          actionUrl: '/workspace/tasks',
-          createdBy: req.user.name || 'System'
-        },
-        req.io
-      );
-      console.log(`✉️  Update notification sent to ${task.assignees.length} assignee(s): ${changeMessage}`);
+      let updateNotifyList = task.assignees.map(a => a._id.toString());
+
+      // If employee is updating, also notify admin/managers
+      if (isEmployeeUpdating) {
+        const adminManagerIds = await getAdminManagerIds();
+        updateNotifyList = mergeUserIds(updateNotifyList, adminManagerIds);
+      }
+      // Remove self from notifications
+      updateNotifyList = updateNotifyList.filter(id => id !== req.user._id.toString());
+
+      if (updateNotifyList.length > 0) {
+        await notifyMultipleUsers(
+          updateNotifyList,
+          {
+            type: 'info',
+            category: 'task',
+            title: 'Task Updated',
+            message: `"${task.title}" updated by ${req.user.name}: ${changeMessage}`,
+            entityType: 'task',
+            entityId: task._id,
+            actionUrl: '/workspace/tasks',
+            createdBy: req.user.name || 'System'
+          },
+          req.io
+        );
+        console.log(`✉️  Update notification sent to ${updateNotifyList.length} user(s): ${changeMessage}`);
+      }
     }
 
     res.json({
@@ -401,18 +472,31 @@ exports.deleteTask = async (req, res) => {
       req.io.emit('task:deleted', { id: req.params.id });
     }
 
+    // --- NOTIFICATION LOGIC ---
+    const deleterRole = req.user.role;
+    const isEmployeeDeleting = deleterRole === 'employee';
+
     // Collect all users to notify (assignees + creator)
     const usersToNotify = new Set();
-    
+
     // Add all assignees
     if (assignees && assignees.length > 0) {
       assignees.forEach(a => usersToNotify.add(a._id.toString()));
     }
-    
+
     // Add creator (if not already in the set and if creator exists)
     if (creator && creator._id) {
       usersToNotify.add(creator._id.toString());
     }
+
+    // If employee is deleting, also notify admin/managers
+    if (isEmployeeDeleting) {
+      const adminManagerIds = await getAdminManagerIds();
+      adminManagerIds.forEach(id => usersToNotify.add(id));
+    }
+
+    // Remove self from notifications
+    usersToNotify.delete(req.user._id.toString());
 
     // Send notifications to all relevant users
     if (usersToNotify.size > 0) {
@@ -428,7 +512,7 @@ exports.deleteTask = async (req, res) => {
         },
         req.io
       );
-      console.log(`✉️  Delete notification sent to ${usersToNotify.size} user(s) (creator + assignees)`);
+      console.log(`✉️  Delete notification sent to ${usersToNotify.size} user(s)`);
     }
 
     res.json({
@@ -498,28 +582,39 @@ exports.addComment = async (req, res) => {
       req.io.emit('task:comment', { taskId: task._id, comment });
     }
 
-    // Notify assignees (except the commenter)
-    if (task.assignees && task.assignees.length > 0) {
-      const usersToNotify = task.assignees
-        .map(a => a._id)
-        .filter(id => id.toString() !== req.user._id.toString());
+    // --- NOTIFICATION LOGIC ---
+    const commenterRole = req.user.role;
+    const isEmployeeCommenting = commenterRole === 'employee';
 
-      if (usersToNotify.length > 0) {
-        await notifyMultipleUsers(
-          usersToNotify,
-          {
-            type: 'info',
-            category: 'task',
-            title: 'New Comment on Task',
-            message: `${req.user.name} commented on "${task.title}"`,
-            entityType: 'task',
-            entityId: task._id,
-            actionUrl: '/workspace/tasks',
-            createdBy: req.user.name || 'System'
-          },
-          req.io
-        );
-      }
+    // Start with assignees (except the commenter)
+    let usersToNotify = (task.assignees || [])
+      .map(a => a._id.toString())
+      .filter(id => id !== req.user._id.toString());
+
+    // If employee is commenting, also notify admin/managers
+    if (isEmployeeCommenting) {
+      const adminManagerIds = await getAdminManagerIds();
+      usersToNotify = mergeUserIds(usersToNotify, adminManagerIds);
+      // Remove self again (to be safe)
+      usersToNotify = usersToNotify.filter(id => id !== req.user._id.toString());
+    }
+
+    if (usersToNotify.length > 0) {
+      await notifyMultipleUsers(
+        usersToNotify,
+        {
+          type: 'info',
+          category: 'task',
+          title: 'New Comment on Task',
+          message: `${req.user.name} commented on "${task.title}"`,
+          entityType: 'task',
+          entityId: task._id,
+          actionUrl: '/workspace/tasks',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
+      console.log(`✉️  Comment notification sent to ${usersToNotify.length} user(s)`);
     }
 
     res.json({

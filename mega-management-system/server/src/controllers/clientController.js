@@ -1,14 +1,27 @@
 // File Path: server/src/controllers/clientController.js
 
 const Client = require('../models/Client');
+const User = require('../models/User');
 const PaymentReminder = require('../models/PaymentReminder');
-const { createNotification } = require('./notificationController');
+const { createNotification, notifyMultipleUsers } = require('./notificationController');
 const fs = require('fs').promises;
 const googleVisionService = require('../services/googleVisionService');
 const geminiService = require('../services/geminiService');
 const duplicateDetectionService = require('../services/duplicateDetectionService');
 const { validateBusinessCardImages } = require('../utils/imageValidator');
 const { logBusinessCardExtraction } = require('../utils/apiUsageTracker');
+
+/**
+ * Helper: Get all admin and manager user IDs (excludes super_admin)
+ * @returns {Promise<string[]>} Array of user ID strings
+ */
+const getAdminManagerIds = async () => {
+  const adminManagers = await User.find({
+    isActive: true,
+    role: { $in: ['admin', 'manager'] }
+  }).select('_id');
+  return adminManagers.map(u => u._id.toString());
+};
 
 // @desc    Get all clients
 // @route   GET /api/clients
@@ -41,17 +54,17 @@ exports.getAllClients = async (req, res) => {
     if (clientType && ['supplier', 'buyer', 'both'].includes(clientType)) {
       query.clientType = clientType;
     }
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const clients = await Client.find(query)
       .populate('createdBy', 'name email')
       .sort(sortBy)
       .limit(parseInt(limit))
       .skip(skip);
-    
+
     const total = await Client.countDocuments(query);
-    
+
     res.json({
       success: true,
       count: clients.length,
@@ -77,14 +90,14 @@ exports.getClientById = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id)
       .populate('createdBy', 'name email avatar');
-    
+
     if (!client) {
       return res.status(404).json({
         success: false,
         message: 'Client not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: client
@@ -108,7 +121,7 @@ exports.createClient = async (req, res) => {
       ...req.body,
       createdBy: req.user.id
     };
-    
+
     // Validate at least one contact person
     if (!clientData.contactPersons || clientData.contactPersons.length === 0) {
       return res.status(400).json({
@@ -116,18 +129,18 @@ exports.createClient = async (req, res) => {
         message: 'At least one contact person is required'
       });
     }
-    
+
     // Ensure at least one primary contact
     const hasPrimary = clientData.contactPersons.some(contact => contact.isPrimary);
     if (!hasPrimary) {
       clientData.contactPersons[0].isPrimary = true;
     }
-    
+
     const client = await Client.create(clientData);
-    
+
     // Populate created client
     await client.populate('createdBy', 'name email');
-    
+
     // Emit socket notification
     if (req.io) {
       req.io.emit('client:created', {
@@ -136,18 +149,27 @@ exports.createClient = async (req, res) => {
       });
     }
 
-    // Create notification for user
-    await createNotification({
-      userId: req.user.id,
-      type: 'success',
-      category: 'client',
-      title: 'Client Created',
-      message: `Client "${client.companyName}" has been added to your clients list`,
-      entityType: 'client',
-      entityId: client._id,
-      actionUrl: '/clients',
-      createdBy: req.user.name || 'System'
-    }, req.io);
+    // --- NOTIFICATION: Notify all admin/managers (exclude self) ---
+    const adminManagerIds = await getAdminManagerIds();
+    const usersToNotify = adminManagerIds.filter(id => id !== req.user.id.toString());
+
+    if (usersToNotify.length > 0) {
+      await notifyMultipleUsers(
+        usersToNotify,
+        {
+          type: 'success',
+          category: 'client',
+          title: 'Client Created',
+          message: `Client "${client.companyName}" has been added by ${req.user.name}`,
+          entityType: 'client',
+          entityId: client._id,
+          actionUrl: '/clients',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
+      console.log(`✉️  Client created notification sent to ${usersToNotify.length} admin/manager(s)`);
+    }
 
     res.status(201).json({
       success: true,
@@ -156,7 +178,7 @@ exports.createClient = async (req, res) => {
     });
   } catch (error) {
     console.error('Create client error:', error);
-    
+
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
@@ -164,7 +186,7 @@ exports.createClient = async (req, res) => {
         errors: Object.values(error.errors).map(err => err.message)
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Server error while creating client',
@@ -179,21 +201,21 @@ exports.createClient = async (req, res) => {
 exports.updateClient = async (req, res) => {
   try {
     let client = await Client.findById(req.params.id);
-    
+
     if (!client) {
       return res.status(404).json({
         success: false,
         message: 'Client not found'
       });
     }
-    
+
     // Update fields
     Object.keys(req.body).forEach(key => {
       if (key !== 'createdBy') {
         client[key] = req.body[key];
       }
     });
-    
+
     // Ensure at least one primary contact
     if (client.contactPersons && client.contactPersons.length > 0) {
       const hasPrimary = client.contactPersons.some(contact => contact.isPrimary);
@@ -201,10 +223,10 @@ exports.updateClient = async (req, res) => {
         client.contactPersons[0].isPrimary = true;
       }
     }
-    
+
     await client.save();
     await client.populate('createdBy', 'name email');
-    
+
     // Emit socket notification
     if (req.io) {
       req.io.emit('client:updated', {
@@ -213,18 +235,27 @@ exports.updateClient = async (req, res) => {
       });
     }
 
-    // Create notification for user
-    await createNotification({
-      userId: req.user.id,
-      type: 'success',
-      category: 'client',
-      title: 'Client Updated',
-      message: `Client "${client.companyName}" has been updated successfully`,
-      entityType: 'client',
-      entityId: client._id,
-      actionUrl: '/clients',
-      createdBy: req.user.name || 'System'
-    }, req.io);
+    // --- NOTIFICATION: Notify all admin/managers (exclude self) ---
+    const adminManagerIds = await getAdminManagerIds();
+    const usersToNotify = adminManagerIds.filter(id => id !== req.user.id.toString());
+
+    if (usersToNotify.length > 0) {
+      await notifyMultipleUsers(
+        usersToNotify,
+        {
+          type: 'success',
+          category: 'client',
+          title: 'Client Updated',
+          message: `Client "${client.companyName}" has been updated by ${req.user.name}`,
+          entityType: 'client',
+          entityId: client._id,
+          actionUrl: '/clients',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
+      console.log(`✉️  Client updated notification sent to ${usersToNotify.length} admin/manager(s)`);
+    }
 
     res.json({
       success: true,
@@ -233,7 +264,7 @@ exports.updateClient = async (req, res) => {
     });
   } catch (error) {
     console.error('Update client error:', error);
-    
+
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
@@ -241,7 +272,7 @@ exports.updateClient = async (req, res) => {
         errors: Object.values(error.errors).map(err => err.message)
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Server error while updating client',
@@ -256,14 +287,14 @@ exports.updateClient = async (req, res) => {
 exports.deleteClient = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id);
-    
+
     if (!client) {
       return res.status(404).json({
         success: false,
         message: 'Client not found'
       });
     }
-    
+
     const clientName = client.companyName;
     await client.deleteOne();
 
@@ -275,18 +306,27 @@ exports.deleteClient = async (req, res) => {
       });
     }
 
-    // Create notification for user
-    await createNotification({
-      userId: req.user.id,
-      type: 'warning',
-      category: 'client',
-      title: 'Client Deleted',
-      message: `Client "${clientName}" has been deleted from the system`,
-      entityType: 'client',
-      entityId: null,
-      actionUrl: '/clients',
-      createdBy: req.user.name || 'System'
-    }, req.io);
+    // --- NOTIFICATION: Notify all admin/managers (exclude self) ---
+    const adminManagerIds = await getAdminManagerIds();
+    const usersToNotify = adminManagerIds.filter(id => id !== req.user.id.toString());
+
+    if (usersToNotify.length > 0) {
+      await notifyMultipleUsers(
+        usersToNotify,
+        {
+          type: 'warning',
+          category: 'client',
+          title: 'Client Deleted',
+          message: `Client "${clientName}" has been deleted by ${req.user.name}`,
+          entityType: 'client',
+          entityId: null,
+          actionUrl: '/clients',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
+      console.log(`✉️  Client deleted notification sent to ${usersToNotify.length} admin/manager(s)`);
+    }
 
     res.json({
       success: true,
@@ -309,29 +349,37 @@ exports.deleteClient = async (req, res) => {
 exports.toggleClientActive = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id);
-    
+
     if (!client) {
       return res.status(404).json({
         success: false,
         message: 'Client not found'
       });
     }
-    
+
     client.isActive = !client.isActive;
     await client.save();
 
-    // Create notification for user
-    await createNotification({
-      userId: req.user.id,
-      type: client.isActive ? 'success' : 'warning',
-      category: 'client',
-      title: `Client ${client.isActive ? 'Activated' : 'Deactivated'}`,
-      message: `Client "${client.companyName}" has been ${client.isActive ? 'activated' : 'deactivated'}`,
-      entityType: 'client',
-      entityId: client._id,
-      actionUrl: '/clients',
-      createdBy: req.user.name || 'System'
-    }, req.io);
+    // --- NOTIFICATION: Notify all admin/managers (exclude self) ---
+    const adminManagerIds = await getAdminManagerIds();
+    const usersToNotify = adminManagerIds.filter(id => id !== req.user.id.toString());
+
+    if (usersToNotify.length > 0) {
+      await notifyMultipleUsers(
+        usersToNotify,
+        {
+          type: client.isActive ? 'success' : 'warning',
+          category: 'client',
+          title: `Client ${client.isActive ? 'Activated' : 'Deactivated'}`,
+          message: `Client "${client.companyName}" has been ${client.isActive ? 'activated' : 'deactivated'} by ${req.user.name}`,
+          entityType: 'client',
+          entityId: client._id,
+          actionUrl: '/clients',
+          createdBy: req.user.name || 'System'
+        },
+        req.io
+      );
+    }
 
     res.json({
       success: true,
@@ -396,16 +444,16 @@ exports.getClientStats = async (req, res) => {
 exports.updateCallFrequency = async (req, res) => {
   try {
     const { frequency } = req.body;
-    
+
     const client = await Client.findById(req.params.id);
-    
+
     if (!client) {
       return res.status(404).json({
         success: false,
         message: 'Client not found'
       });
     }
-    
+
     client.callFrequency = frequency;
     await client.save();
 
@@ -441,8 +489,8 @@ exports.extractFromCard = async (req, res) => {
     const validation = validateBusinessCardImages(frontImage, backImage);
     if (!validation.valid) {
       // Clean up uploaded files
-      if (frontImage) await fs.unlink(frontImage.path).catch(() => {});
-      if (backImage) await fs.unlink(backImage.path).catch(() => {});
+      if (frontImage) await fs.unlink(frontImage.path).catch(() => { });
+      if (backImage) await fs.unlink(backImage.path).catch(() => { });
 
       return res.status(400).json({
         success: false,
@@ -462,8 +510,8 @@ exports.extractFromCard = async (req, res) => {
 
     if (!textExtractionResult.success) {
       // Delete images immediately
-      await fs.unlink(frontImagePath).catch(() => {});
-      if (backImagePath) await fs.unlink(backImagePath).catch(() => {});
+      await fs.unlink(frontImagePath).catch(() => { });
+      if (backImagePath) await fs.unlink(backImagePath).catch(() => { });
 
       // Log failed extraction
       await logBusinessCardExtraction({
@@ -491,8 +539,8 @@ exports.extractFromCard = async (req, res) => {
 
     if (!parsingResult.success) {
       // Delete images
-      await fs.unlink(frontImagePath).catch(() => {});
-      if (backImagePath) await fs.unlink(backImagePath).catch(() => {});
+      await fs.unlink(frontImagePath).catch(() => { });
+      if (backImagePath) await fs.unlink(backImagePath).catch(() => { });
 
       // Log failed parsing
       await logBusinessCardExtraction({
@@ -571,10 +619,10 @@ exports.extractFromCard = async (req, res) => {
 
     // Clean up uploaded files
     if (frontImagePath) {
-      await fs.unlink(frontImagePath).catch(() => {});
+      await fs.unlink(frontImagePath).catch(() => { });
     }
     if (backImagePath) {
-      await fs.unlink(backImagePath).catch(() => {});
+      await fs.unlink(backImagePath).catch(() => { });
     }
 
     // Log error

@@ -134,6 +134,20 @@ const Inbox = () => {
     }
   };
 
+  // Helper to format time in 12-hour AM/PM format
+  const formatTime = (createdAt) => {
+    if (!createdAt) return '';
+    const date = new Date(createdAt);
+    if (isNaN(date.getTime())) return '';
+
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+    return `${hours}:${minutesStr} ${ampm}`;
+  };
+
   const getCategoryIcon = (category) => {
     const config = categoryConfig[category] || categoryConfig.all;
     const Icon = config.icon;
@@ -260,9 +274,8 @@ const Inbox = () => {
         >
           <div className="flex items-start space-x-4">
             {/* Icon */}
-            <div className={`flex-shrink-0 p-2 rounded-lg ${
-              isAssignment ? 'bg-indigo-100' : categoryConfig[notification.category]?.bg || 'bg-gray-100'
-            }`}>
+            <div className={`flex-shrink-0 p-2 rounded-lg ${isAssignment ? 'bg-indigo-100' : categoryConfig[notification.category]?.bg || 'bg-gray-100'
+              }`}>
               {getCategoryIcon(notification.category)}
             </div>
 
@@ -302,7 +315,7 @@ const Inbox = () => {
 
                   <div className="flex items-center space-x-4 mt-2">
                     <span className="text-xs text-gray-500">
-                      {notification.timeAgo || notification.time || 'Just now'}
+                      {formatTime(notification.createdAt)}
                     </span>
                     {notification.category && (
                       <span className="text-xs text-gray-500 capitalize">

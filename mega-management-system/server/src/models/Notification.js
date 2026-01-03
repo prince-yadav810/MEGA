@@ -86,16 +86,22 @@ notificationSchema.index({ userId: 1, category: 1, createdAt: -1 });
 // TTL index - automatically delete notifications after 7 days (604800 seconds)
 notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 604800 });
 
-// Virtual for time ago
-notificationSchema.virtual('timeAgo').get(function() {
-  const seconds = Math.floor((new Date() - this.createdAt) / 1000);
+// Virtual for time display (12-hour AM/PM format)
+notificationSchema.virtual('timeAgo').get(function () {
+  const date = this.createdAt;
+  if (!date) return '';
 
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  // Format time in 12-hour AM/PM format
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
 
-  return this.createdAt.toLocaleDateString();
+  hours = hours % 12;
+  hours = hours ? hours : 12; // 0 should be 12
+
+  const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+
+  return `${hours}:${minutesStr} ${ampm}`;
 });
 
 // Ensure virtuals are included in JSON
