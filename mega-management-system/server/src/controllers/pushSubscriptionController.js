@@ -38,6 +38,10 @@ const subscribe = async (req, res) => {
   try {
     const { endpoint, keys, userAgent, deviceInfo } = req.body;
 
+    console.log(`📥 Received push subscription request for user ${req.user.id}`);
+    console.log(`   Endpoint: ${endpoint ? endpoint.substring(0, 50) + '...' : 'MISSING'}`);
+
+
     if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
       return res.status(400).json({
         success: false,
@@ -51,12 +55,15 @@ const subscribe = async (req, res) => {
     if (existingSubscription) {
       // Update if it belongs to a different user or update metadata
       if (existingSubscription.userId.toString() !== req.user.id) {
+        console.log(`   ♻️ Updating existing subscription ownership: ${existingSubscription.userId} -> ${req.user.id}`);
         existingSubscription.userId = req.user.id;
         existingSubscription.userAgent = userAgent || '';
         existingSubscription.deviceInfo = deviceInfo || '';
         await existingSubscription.save();
+      } else {
+        console.log(`   ℹ️ Subscription already exists for this user`);
       }
-      
+
       return res.status(200).json({
         success: true,
         message: 'Subscription updated',
@@ -77,7 +84,9 @@ const subscribe = async (req, res) => {
         deviceInfo: deviceInfo || ''
       });
 
-      console.log(`✅ Push subscription created for user ${req.user.id}`);
+      console.log(`✅ Push subscription created successfully for user ${req.user.id}`);
+      console.log(`   Subscription ID: ${subscription._id}`);
+
 
       res.status(201).json({
         success: true,
@@ -94,7 +103,7 @@ const subscribe = async (req, res) => {
           existing.userAgent = userAgent || req.get('user-agent') || '';
           existing.deviceInfo = deviceInfo || '';
           await existing.save();
-          
+
           return res.status(200).json({
             success: true,
             message: 'Subscription updated',

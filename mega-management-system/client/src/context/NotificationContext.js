@@ -21,6 +21,7 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [pushPermission, setPushPermission] = useState('default');
 
   // Fetch notifications from backend on mount and set up polling
   useEffect(() => {
@@ -140,56 +141,28 @@ export const NotificationProvider = ({ children }) => {
       });
     }
 
-    // Initialize push subscription
+    // Initialize push subscription (only if already granted)
     const initializePush = async () => {
       try {
         // Wait a bit more to ensure service worker is fully ready
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // First, check and request permission if needed
-        let permission = pushService.getNotificationPermission();
+        // specific check: iOS requires user gesture, so we only auto-subscribe if ALREADY granted
+        const permission = pushService.getNotificationPermission();
+        setPushPermission(permission);
 
-        if (permission === 'default') {
-          // Request permission first
-          try {
-            permission = await pushService.requestNotificationPermission();
-            console.log('Permission result:', permission);
-          } catch (permError) {
-            console.log('ℹ️  Notification permission request cancelled or failed');
-            return; // Can't proceed without permission
-          }
-        }
-
-        if (permission !== 'granted') {
-          console.warn('⚠️  Notification permission not granted. Push notifications will not work.');
-          console.warn('   Please enable notifications in your browser settings.');
-          return;
-        }
-
-        // Now check if already subscribed
-        const isSubscribed = await pushService.isSubscribed();
-
-        if (!isSubscribed) {
-          // Permission granted but not subscribed - subscribe now
+        if (permission === 'granted') {
+          // Always try to sync subscription to backend to ensure server has it
+          // (pushService.subscribeToPush is now idempotent - it uses existing sub if found)
           try {
             await pushService.subscribeToPush();
-            console.log('✅ Push notifications subscribed');
+            console.log('✅ Push notifications synced with server');
           } catch (subError) {
-            // Subscription failed but permission is granted - might be server issue
-            console.warn('⚠️  Failed to subscribe to push notifications:', subError.message);
+            console.warn('⚠️  Failed to sync push notifications:', subError.message);
           }
-        } else {
-          // Verify subscription is still valid by checking with backend
-          console.log('ℹ️  Already subscribed to push notifications');
         }
       } catch (error) {
-        // Don't show error to user - push notifications are optional
-        // Only log if it's not a known expected error
-        if (!error.message?.includes('not supported') &&
-          !error.message?.includes('permission') &&
-          !error.message?.includes('not configured')) {
-          console.error('Error initializing push notifications:', error.message);
-        }
+        console.error('Error initializing push notifications:', error.message);
       }
     };
 
@@ -200,6 +173,27 @@ export const NotificationProvider = ({ children }) => {
       clearTimeout(timer);
     };
   }, [user]);
+
+  // Manual function to enable push notifications (to be called by user click)
+  const enablePushNotifications = async () => {
+    console.log('[NotificationContext] enablePushNotifications called');
+    try {
+      console.log('[NotificationContext] Requesting permission...');
+      const permission = await pushService.requestNotificationPermission();
+      console.log('[NotificationContext] Permission result:', permission);
+      setPushPermission(permission);
+      if (permission === 'granted') {
+        console.log('[NotificationContext] Calling subscribeToPush...');
+        await pushService.subscribeToPush();
+        console.log('[NotificationContext] subscribeToPush completed');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('[NotificationContext] Error enabling push notifications:', error);
+      throw error; // Re-throw to handle in UI
+    }
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -410,7 +404,10 @@ export const NotificationProvider = ({ children }) => {
     notifyReminderDeleted,
     // Note helpers
     notifyNoteCreated,
-    notifyNotePinned
+    notifyNotePinned,
+    // Push Notification
+    enablePushNotifications,
+    pushPermission
   };
 
   return (

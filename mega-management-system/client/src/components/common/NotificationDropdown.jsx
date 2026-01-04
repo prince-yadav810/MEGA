@@ -6,7 +6,7 @@ import { useNotifications } from '../../context/NotificationContext.js';
 const NotificationDropdown = () => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, enablePushNotifications, pushPermission } = useNotifications();
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -61,19 +61,51 @@ const NotificationDropdown = () => {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <div>
+          <div className="px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
               {unreadCount > 0 && (
-                <p className="text-xs text-gray-500">{unreadCount} unread</p>
+                <button
+                  onClick={markAllAsRead}
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  Mark all read
+                </button>
               )}
             </div>
-            {unreadCount > 0 && (
+
+            {/* Push Notification Request Button */}
+            {pushPermission === 'default' && (
               <button
-                onClick={markAllAsRead}
-                className="text-xs text-primary-600 hover:text-primary-700"
+                onClick={() => {
+                  enablePushNotifications()
+                    .then(granted => {
+                      if (granted) alert('✅ Push Notifications Enabled Successfully!');
+                      else alert('⚠️ Permission granted but setup failed. Check console.');
+                    })
+                    .catch(err => {
+                      alert(`❌ Error enabling push: ${err.message}`);
+                    });
+                }}
+                className="w-full mt-1 mb-1 px-3 py-1.5 bg-primary-50 text-primary-700 text-xs font-medium rounded-md hover:bg-primary-100 transition-colors flex items-center justify-center gap-2"
               >
-                Mark all read
+                <Bell className="h-3 w-3" />
+                Enable Push Notifications
+              </button>
+            )}
+
+            {/* Sync button for users who already granted permission but may not have subscription */}
+            {pushPermission === 'granted' && (
+              <button
+                onClick={() => {
+                  enablePushNotifications()
+                    .then(() => alert('✅ Push subscription synced!'))
+                    .catch(err => alert(`❌ Sync failed: ${err.message}`));
+                }}
+                className="w-full mt-1 mb-1 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium rounded-md hover:bg-green-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <Bell className="h-3 w-3" />
+                Sync Push Notifications
               </button>
             )}
           </div>

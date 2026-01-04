@@ -65,8 +65,10 @@ const sendPushNotification = async (userId, notificationData) => {
 
     // Get all subscriptions for this user
     const subscriptions = await PushSubscription.find({ userId });
+    console.log(`🔔 Found ${subscriptions.length} push subscriptions for user ${userId}`);
 
     if (subscriptions.length === 0) {
+      console.log(`ℹ️  No push subscriptions found to send notification to user ${userId}`);
       return []; // No subscriptions - silently return (user hasn't subscribed)
     }
 
@@ -74,12 +76,12 @@ const sendPushNotification = async (userId, notificationData) => {
     let notificationUrl = '/';
     if (notificationData.actionUrl) {
       // If actionUrl is provided, use it (should be relative like '/tasks' or '/clients')
-      notificationUrl = notificationData.actionUrl.startsWith('/') 
-        ? notificationData.actionUrl 
+      notificationUrl = notificationData.actionUrl.startsWith('/')
+        ? notificationData.actionUrl
         : '/' + notificationData.actionUrl;
     } else if (notificationData.url) {
-      notificationUrl = notificationData.url.startsWith('/') 
-        ? notificationData.url 
+      notificationUrl = notificationData.url.startsWith('/')
+        ? notificationData.url
         : '/' + notificationData.url;
     }
 
@@ -101,27 +103,29 @@ const sendPushNotification = async (userId, notificationData) => {
 
     const sendPromises = subscriptions.map(async (subscription) => {
       try {
+        console.log(`📤 Sending push to endpoint: ${subscription.endpoint.substring(0, 50)}...`);
         await webpush.sendNotification(
           subscription.toWebPushSubscription(),
           payload
         );
+        console.log(`✅ Push sent successfully to ${subscription.endpoint.substring(0, 30)}...`);
         return { success: true, endpoint: subscription.endpoint };
       } catch (error) {
         const statusCode = error.statusCode || error.code;
         const endpoint = subscription.endpoint;
-        
+
         // Detect push service provider from endpoint
         const isWindows = endpoint.includes('notify.windows.com');
         const isFCM = endpoint.includes('fcm.googleapis.com');
         const isMozilla = endpoint.includes('updates.push.services.mozilla.com');
-        
+
         // Handle expired/invalid subscriptions (410 = Gone, 404 = Not Found)
         if (statusCode === 410 || statusCode === 404) {
           console.log(`🗑️  Removing expired subscription (${statusCode}): ${endpoint.substring(0, 50)}...`);
           await PushSubscription.findByIdAndDelete(subscription._id);
           return { success: false, endpoint, error: 'expired', statusCode };
         }
-        
+
         // Handle unauthorized errors (401 = Unauthorized, 403 = Forbidden)
         // These usually mean the subscription is invalid or VAPID keys don't match
         if (statusCode === 401 || statusCode === 403) {
@@ -129,7 +133,7 @@ const sendPushNotification = async (userId, notificationData) => {
           await PushSubscription.findByIdAndDelete(subscription._id);
           return { success: false, endpoint, error: 'unauthorized', statusCode };
         }
-        
+
         // Handle bad request (400) - usually means invalid payload or subscription
         if (statusCode === 400) {
           // For Windows, this might be a temporary issue, don't delete immediately
@@ -144,13 +148,13 @@ const sendPushNotification = async (userId, notificationData) => {
             return { success: false, endpoint, error: 'invalid', statusCode };
           }
         }
-        
+
         // Handle other errors (500, 503, etc.) - might be temporary
         if (statusCode >= 500) {
           console.warn(`⚠️  Push service error (${statusCode}) - may retry later: ${error.message}`);
           return { success: false, endpoint, error: 'service_error', statusCode, retry: true };
         }
-        
+
         // Handle "unexpected response code" - common with Windows
         if (error.message && error.message.includes('unexpected response code')) {
           if (isWindows) {
@@ -159,7 +163,7 @@ const sendPushNotification = async (userId, notificationData) => {
             return { success: false, endpoint, error: 'windows_error', statusCode, retry: true };
           }
         }
-        
+
         // Log other errors but don't delete subscription (might be temporary)
         console.warn(`⚠️  Push notification error (${statusCode || 'unknown'}): ${error.message}`);
         return { success: false, endpoint, error: error.message, statusCode };
@@ -170,12 +174,12 @@ const sendPushNotification = async (userId, notificationData) => {
     const successCount = results.filter(r => r.success).length;
     const failedCount = results.filter(r => !r.success).length;
     const expiredCount = results.filter(r => r.error === 'expired' || r.error === 'unauthorized').length;
-    
+
     // Log summary
     if (successCount > 0) {
       console.log(`📱 Push notification sent to ${successCount}/${subscriptions.length} device(s) for user ${userId}`);
     }
-    
+
     if (failedCount > 0 && expiredCount > 0) {
       console.log(`ℹ️  ${expiredCount} expired subscription(s) removed, ${failedCount - expiredCount} other error(s)`);
     } else if (failedCount > 0) {

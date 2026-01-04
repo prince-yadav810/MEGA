@@ -81,6 +81,13 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Request logging for push endpoints (debug)
+app.use('/api/push', (req, res, next) => {
+  console.log(`📨 [PUSH REQUEST] ${req.method} ${req.originalUrl} from ${req.ip}`);
+  console.log(`   Headers: Auth=${req.headers.authorization ? 'Present' : 'MISSING'}`);
+  next();
+});
+
 // ⭐ YOUR express-fileupload middleware
 // Exclude business card route (uses multer instead)
 app.use((req, res, next) => {
@@ -304,11 +311,14 @@ if (process.env.NODE_ENV === 'production') {
 
 // Socket.io events
 io.on('connection', (socket) => {
+  console.log(`🔌 Socket connected: ${socket.id}`);
+
   // Join user to their personal room when they send their userId
   socket.on('join-user-room', (userId) => {
     if (userId) {
       const roomName = `user:${userId}`;
       socket.join(roomName);
+      console.log(`👤 Socket ${socket.id} joined room: ${roomName}`);
     }
   });
 
@@ -317,11 +327,12 @@ io.on('connection', (socket) => {
     if (userId) {
       const roomName = `user:${userId}`;
       socket.leave(roomName);
+      console.log(`👋 Socket ${socket.id} left room: ${roomName}`);
     }
   });
 
   socket.on('disconnect', () => {
-    // Socket disconnected
+    console.log(`❌ Socket disconnected: ${socket.id}`);
   });
 });
 

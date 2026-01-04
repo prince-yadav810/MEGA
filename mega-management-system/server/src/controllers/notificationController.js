@@ -16,11 +16,13 @@ const createNotification = async (notificationData, io) => {
       const notifData = notification.toJSON();
 
       // Emit to user-specific room
+      console.log(`📣 Emitting notification:new to room ${roomName}`);
       io.to(roomName).emit('notification:new', notifData);
     }
 
     // Send push notification (works even when app is closed)
     if (notification.userId) {
+      console.log(`🚀 Triggering push notification for user ${notification.userId} (Title: ${notification.title})`);
       pushService.sendPushNotification(notification.userId.toString(), {
         title: notification.title,
         message: notification.message,

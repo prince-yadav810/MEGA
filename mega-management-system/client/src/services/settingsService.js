@@ -52,6 +52,28 @@ const settingsService = {
       console.error('Error fetching departments:', error);
       throw error;
     }
+  },
+
+  // General Settings (for notifications, etc.)
+  getSettings: async () => {
+    try {
+      const response = await api.get('/settings');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      throw error;
+    }
+  },
+
+  updateSettings: async (settings) => {
+    try {
+      // For notification settings, use the notifications-specific endpoint
+      const response = await api.put('/settings/notifications', settings.notifications || settings);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
+    }
   }
 };
 

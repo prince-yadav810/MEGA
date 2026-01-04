@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 const NotificationsTab = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  
+
   const [settings, setSettings] = useState({
     inAppNotifications: {
       desktopNotifications: true,
@@ -52,6 +52,17 @@ const NotificationsTab = () => {
           body: 'You will now receive desktop notifications.',
           icon: '/favicon.ico'
         });
+
+        // IMPORTANT: Also register push subscription with server
+        // This ensures server can send push notifications for tasks, etc.
+        try {
+          const { subscribeToPush } = await import('../../services/pushService');
+          await subscribeToPush();
+          console.log('✅ Push subscription registered with server');
+        } catch (pushError) {
+          console.error('Failed to register push subscription:', pushError);
+          // Don't show error to user - desktop notifications still work
+        }
       } else {
         toast.error('Desktop notification permission denied');
       }
@@ -173,14 +184,12 @@ const NotificationsTab = () => {
     <button
       type="button"
       onClick={onToggle}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        enabled ? 'bg-blue-600' : 'bg-gray-200'
-      }`}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-blue-600' : 'bg-gray-200'
+        }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-          enabled ? 'translate-x-6' : 'translate-x-1'
-        }`}
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
       />
     </button>
   );
