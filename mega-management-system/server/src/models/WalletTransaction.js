@@ -23,7 +23,7 @@ const walletTransactionSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: function() {
+    required: function () {
       // Description is required for debit transactions (employee expenses)
       return this.type === 'debit';
     },
@@ -37,8 +37,8 @@ const walletTransactionSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    // TTL index - automatically delete documents after 60 days (2 months)
-    expires: 5184000 // 60 days in seconds
+    // TTL index - automatically delete documents after 365 days (1 year)
+    expires: 31536000 // 365 days in seconds
   }
 });
 
@@ -46,7 +46,7 @@ const walletTransactionSchema = new mongoose.Schema({
 walletTransactionSchema.index({ userId: 1, createdAt: -1 });
 
 // Virtual for transaction metadata
-walletTransactionSchema.virtual('transactionDate').get(function() {
+walletTransactionSchema.virtual('transactionDate').get(function () {
   return this.createdAt;
 });
 

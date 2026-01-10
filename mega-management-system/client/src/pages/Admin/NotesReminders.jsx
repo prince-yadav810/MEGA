@@ -10,7 +10,6 @@ import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { formatNaturalDate, formatDateTime, formatTime, getSmartDefaults, formatRepeatPattern } from '../../utils/formatters';
-import EmployeeWalletSection from '../../components/wallet/EmployeeWalletSection';
 
 const NotesReminders = () => {
   const { user } = useAuth();
@@ -27,7 +26,7 @@ const NotesReminders = () => {
 
   // Note form state
   const [noteForm, setNoteForm] = useState({ heading: '', content: '', visibility: 'private' });
-  
+
   // File management state (separate section)
   const [files, setFiles] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState([]);
@@ -81,7 +80,7 @@ const NotesReminders = () => {
         noteService.getAllNotes(),
         reminderService.getAllReminders()
       ]);
-      
+
       if (notesRes.success) setNotes(notesRes.data);
       if (remindersRes.success) setReminders(remindersRes.data);
     } catch (error) {
@@ -95,7 +94,7 @@ const NotesReminders = () => {
     try {
       // Fetch documents from the new document service
       const response = await documentService.getAllDocuments();
-      
+
       if (response.success) {
         setFiles(response.data || []);
       }
@@ -146,18 +145,18 @@ const NotesReminders = () => {
   // File management functions
   const handleFileUpload = (e) => {
     const selectedFiles = Array.from(e.target.files);
-    
+
     // Validate file types
     const invalidFiles = selectedFiles.filter(file => {
       const ext = file.name.split('.').pop().toLowerCase();
       return !allowedFileTypes.includes(ext);
     });
-    
+
     if (invalidFiles.length > 0) {
       toast.error(`Invalid file type. Allowed: ${allowedFileTypes.join(', ')}`);
       return;
     }
-    
+
     // Add to uploading queue
     setUploadingFiles([...uploadingFiles, ...selectedFiles]);
     toast.success(`${selectedFiles.length} file(s) selected. Click on each to add details and save.`);
@@ -172,7 +171,7 @@ const NotesReminders = () => {
 
   const handleSaveFile = async () => {
     if (!currentFile) return;
-    
+
     try {
       // Upload document using the new document service
       const response = await documentService.uploadDocument(
@@ -180,7 +179,7 @@ const NotesReminders = () => {
         fileNote,
         fileVisibility
       );
-      
+
       if (response.success) {
         // Remove from uploading queue
         setUploadingFiles(uploadingFiles.filter(f => f !== currentFile));
@@ -188,10 +187,10 @@ const NotesReminders = () => {
         setCurrentFile(null);
         setFileNote('');
         setFileVisibility('private');
-        
+
         // Refresh files
         await fetchFiles();
-        
+
         toast.success('Document uploaded successfully');
       }
     } catch (error) {
@@ -204,7 +203,7 @@ const NotesReminders = () => {
 
     try {
       const response = await documentService.deleteDocument(file._id);
-      
+
       if (response.success) {
         toast.success('Document deleted successfully');
         await fetchFiles();
@@ -232,7 +231,7 @@ const NotesReminders = () => {
 
     try {
       const response = await documentService.renameDocument(renamingFile._id, renameValue);
-      
+
       if (response.success) {
         toast.success('Document renamed successfully');
         cancelRename();
@@ -338,7 +337,7 @@ const NotesReminders = () => {
   // Reminder handlers
   const validateReminderForm = () => {
     const errors = {};
-    
+
     // Title is always required
     if (!reminderForm.title || !reminderForm.title.trim()) {
       errors.title = 'Title is required';
@@ -393,7 +392,7 @@ const NotesReminders = () => {
 
     try {
       const dataToSend = { ...reminderForm };
-      
+
       if (showAdvancedOptions || reminderForm.isAdvanced) {
         // Advanced mode: use startDate as reminderDate
         dataToSend.reminderDate = reminderForm.startDate || reminderForm.reminderDate;
@@ -428,7 +427,7 @@ const NotesReminders = () => {
 
     try {
       const dataToSend = { ...reminderForm };
-      
+
       if (showAdvancedOptions || reminderForm.isAdvanced) {
         // Advanced mode: use startDate as reminderDate
         dataToSend.reminderDate = reminderForm.startDate || reminderForm.reminderDate;
@@ -613,7 +612,7 @@ const NotesReminders = () => {
                 <div
                   key={note._id}
                   className="relative group rounded-lg p-4 shadow-md hover:shadow-lg transition-all duration-200 flex flex-col"
-                  style={{ 
+                  style={{
                     backgroundColor: note.color,
                     minHeight: '200px'
                   }}
@@ -724,18 +723,18 @@ const NotesReminders = () => {
             {reminders.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {reminders.map((reminder) => {
-                  const reminderDate = reminder.isAdvanced && reminder.startDate 
-                    ? reminder.startDate 
+                  const reminderDate = reminder.isAdvanced && reminder.startDate
+                    ? reminder.startDate
                     : reminder.reminderDate;
                   const naturalDate = formatNaturalDate(reminderDate);
                   const timeDisplay = reminder.alertTimes && reminder.alertTimes.length > 0
                     ? reminder.alertTimes.map(t => formatTime(t)).join(', ')
                     : formatTime(reminder.reminderTime);
                   const repeatPattern = formatRepeatPattern(reminder, weekDays);
-                  
+
                   return (
-                    <div 
-                      key={reminder._id} 
+                    <div
+                      key={reminder._id}
                       className="p-4 hover:bg-gray-50 transition-colors group"
                     >
                       <div className="flex items-start gap-3">
@@ -745,7 +744,7 @@ const NotesReminders = () => {
                             <div className="w-3 h-3 rounded-full bg-primary-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
                         </div>
-                        
+
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-3">
@@ -753,7 +752,7 @@ const NotesReminders = () => {
                               <h3 className="font-semibold text-gray-900 mb-1.5 text-base">
                                 {reminder.title}
                               </h3>
-                              
+
                               <div className="space-y-1.5 text-sm text-gray-600">
                                 {/* Date and Time */}
                                 <div className="flex items-center gap-4 flex-wrap">
@@ -769,7 +768,7 @@ const NotesReminders = () => {
                                     <span>{timeDisplay}</span>
                                   </div>
                                 </div>
-                                
+
                                 {/* Repeat Pattern */}
                                 {repeatPattern !== 'One-time' && (
                                   <div className="flex items-center gap-1.5">
@@ -778,7 +777,7 @@ const NotesReminders = () => {
                                   </div>
                                 )}
                               </div>
-                              
+
                               <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
                                 <span>Created by {reminder.createdByName}</span>
                                 {reminder.visibility === 'public' ? (
@@ -828,13 +827,6 @@ const NotesReminders = () => {
             )}
           </div>
         </div>
-
-        {/* Wallet Section - Below Reminders, Above Documents (Employee Only) */}
-        {user && user.role === 'employee' && (
-          <div className="mt-8">
-            <EmployeeWalletSection />
-          </div>
-        )}
       </div>
 
       {/* Note Modal */}
@@ -887,11 +879,10 @@ const NotesReminders = () => {
                   <button
                     type="button"
                     onClick={() => setNoteForm({ ...noteForm, visibility: 'private' })}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                      noteForm.visibility === 'private'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${noteForm.visibility === 'private'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
                   >
                     <Lock className="h-4 w-4" />
                     <span className="font-medium">Only Me</span>
@@ -899,11 +890,10 @@ const NotesReminders = () => {
                   <button
                     type="button"
                     onClick={() => setNoteForm({ ...noteForm, visibility: 'public' })}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                      noteForm.visibility === 'public'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${noteForm.visibility === 'public'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
                   >
                     <Globe className="h-4 w-4" />
                     <span className="font-medium">Everyone</span>
@@ -941,7 +931,7 @@ const NotesReminders = () => {
 
       {/* Reminder Modal - iOS Style */}
       {showReminderModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -979,9 +969,8 @@ const NotesReminders = () => {
                     setReminderForm({ ...reminderForm, title: e.target.value });
                     if (formErrors.title) setFormErrors({ ...formErrors, title: null });
                   }}
-                  className={`w-full text-lg font-medium text-gray-900 bg-transparent border-0 border-b-2 pb-2 focus:outline-none focus:border-primary-500 transition-colors ${
-                    formErrors.title ? 'border-red-500' : 'border-gray-200'
-                  }`}
+                  className={`w-full text-lg font-medium text-gray-900 bg-transparent border-0 border-b-2 pb-2 focus:outline-none focus:border-primary-500 transition-colors ${formErrors.title ? 'border-red-500' : 'border-gray-200'
+                    }`}
                   placeholder="Title"
                   autoFocus
                 />
@@ -1014,9 +1003,8 @@ const NotesReminders = () => {
                             if (formErrors.reminderDate) setFormErrors({ ...formErrors, reminderDate: null });
                           }
                         }}
-                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${
-                          (formErrors.reminderDate || formErrors.startDate) ? 'border-red-500' : 'border-gray-200'
-                        }`}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${(formErrors.reminderDate || formErrors.startDate) ? 'border-red-500' : 'border-gray-200'
+                          }`}
                       />
                       {showAdvancedOptions ? reminderForm.startDate && (
                         <div className="mt-1 text-xs text-gray-500">
@@ -1035,7 +1023,7 @@ const NotesReminders = () => {
                       </p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                       Time
@@ -1048,9 +1036,8 @@ const NotesReminders = () => {
                           setReminderForm({ ...reminderForm, reminderTime: e.target.value });
                           if (formErrors.reminderTime) setFormErrors({ ...formErrors, reminderTime: null });
                         }}
-                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${
-                          formErrors.reminderTime ? 'border-red-500' : 'border-gray-200'
-                        }`}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${formErrors.reminderTime ? 'border-red-500' : 'border-gray-200'
+                          }`}
                       />
                       {reminderForm.reminderTime && (
                         <div className="mt-1 text-xs text-gray-500">
@@ -1094,11 +1081,10 @@ const NotesReminders = () => {
                     <button
                       type="button"
                       onClick={() => setReminderForm({ ...reminderForm, visibility: 'private' })}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
-                        reminderForm.visibility === 'private'
-                          ? 'border-primary-500 bg-primary-50 text-primary-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${reminderForm.visibility === 'private'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
                     >
                       <Lock className="h-4 w-4" />
                       <span className="font-medium">Only Me</span>
@@ -1106,11 +1092,10 @@ const NotesReminders = () => {
                     <button
                       type="button"
                       onClick={() => setReminderForm({ ...reminderForm, visibility: 'public' })}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
-                        reminderForm.visibility === 'public'
-                          ? 'border-primary-500 bg-primary-50 text-primary-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${reminderForm.visibility === 'public'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
                     >
                       <Globe className="h-4 w-4" />
                       <span className="font-medium">Everyone</span>
@@ -1145,10 +1130,9 @@ const NotesReminders = () => {
               </button>
 
               {/* Advanced Options - Expandable with animation */}
-              <div 
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  showAdvancedOptions ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-                }`}
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${showAdvancedOptions ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}
               >
                 <div className="space-y-5 pt-2 border-t border-gray-100">
                   {/* Date Range */}
@@ -1164,9 +1148,8 @@ const NotesReminders = () => {
                           setReminderForm({ ...reminderForm, startDate: e.target.value });
                           if (formErrors.startDate) setFormErrors({ ...formErrors, startDate: null });
                         }}
-                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${
-                          formErrors.startDate ? 'border-red-500' : 'border-gray-200'
-                        }`}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${formErrors.startDate ? 'border-red-500' : 'border-gray-200'
+                          }`}
                       />
                       {formErrors.startDate && (
                         <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
@@ -1175,29 +1158,28 @@ const NotesReminders = () => {
                         </p>
                       )}
                     </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                          End Date (Optional)
-                        </label>
-                        <input
-                          type="date"
-                          value={reminderForm.endDate}
-                          onChange={(e) => {
-                            setReminderForm({ ...reminderForm, endDate: e.target.value });
-                            if (formErrors.endDate) setFormErrors({ ...formErrors, endDate: null });
-                          }}
-                          min={reminderForm.startDate || reminderForm.reminderDate}
-                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${
-                            formErrors.endDate ? 'border-red-500' : 'border-gray-200'
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                        End Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={reminderForm.endDate}
+                        onChange={(e) => {
+                          setReminderForm({ ...reminderForm, endDate: e.target.value });
+                          if (formErrors.endDate) setFormErrors({ ...formErrors, endDate: null });
+                        }}
+                        min={reminderForm.startDate || reminderForm.reminderDate}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all ${formErrors.endDate ? 'border-red-500' : 'border-gray-200'
                           }`}
-                        />
-                        {formErrors.endDate && (
-                          <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3" />
-                            {formErrors.endDate}
-                          </p>
-                        )}
-                      </div>
+                      />
+                      {formErrors.endDate && (
+                        <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {formErrors.endDate}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Multiple Alert Times */}
@@ -1272,11 +1254,10 @@ const NotesReminders = () => {
                             key={day}
                             type="button"
                             onClick={() => toggleWeekDay(index)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                              reminderForm.weeklyDays.includes(index)
-                                ? 'bg-primary-600 text-white shadow-sm'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${reminderForm.weeklyDays.includes(index)
+                              ? 'bg-primary-600 text-white shadow-sm'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
                           >
                             {day}
                           </button>
@@ -1289,7 +1270,7 @@ const NotesReminders = () => {
                   {reminderForm.repeatFrequency === 'monthly' && (
                     <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
                       <label className="block text-xs font-medium text-gray-700 mb-3">Monthly Pattern</label>
-                      
+
                       <div className="space-y-3">
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
@@ -1311,7 +1292,7 @@ const NotesReminders = () => {
                             ))}
                           </select>
                         )}
-                        
+
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
                             type="radio"
@@ -1452,11 +1433,10 @@ const NotesReminders = () => {
                   <button
                     type="button"
                     onClick={() => setFileVisibility('private')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                      fileVisibility === 'private'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${fileVisibility === 'private'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
                   >
                     <Lock className="h-4 w-4" />
                     <span className="font-medium">Only Me</span>
@@ -1464,11 +1444,10 @@ const NotesReminders = () => {
                   <button
                     type="button"
                     onClick={() => setFileVisibility('public')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                      fileVisibility === 'public'
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${fileVisibility === 'public'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
                   >
                     <Globe className="h-4 w-4" />
                     <span className="font-medium">Everyone</span>

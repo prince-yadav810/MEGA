@@ -11,7 +11,8 @@ import {
   Home,
   Package,
   StickyNote,
-  Inbox
+  Inbox,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -73,6 +74,12 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
       path: '/notes-reminders'
     },
     {
+      id: 'wallet',
+      name: 'Wallet',
+      icon: Wallet,
+      path: '/wallet'
+    },
+    {
       id: 'users',
       name: 'Team',
       icon: UserCog,
@@ -99,7 +106,7 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   const isActive = (path) => {
     const searchParams = new URLSearchParams(location.search);
     const viewParam = searchParams.get('view');
-    
+
     if (path === '/dashboard') {
       return location.pathname === '/dashboard' || location.pathname === '/';
     }
@@ -114,13 +121,13 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
     }
     if (path === '/products') {
       // Products route redirects to /quotations?view=products
-      return (location.pathname === '/quotations' && viewParam === 'products') || 
-             (location.pathname.startsWith('/products'));
+      return (location.pathname === '/quotations' && viewParam === 'products') ||
+        (location.pathname.startsWith('/products'));
     }
     if (path === '/quotations') {
       // Only active if on quotations and NOT viewing products
-      return (location.pathname === '/quotations' || location.pathname.startsWith('/quotations')) && 
-             viewParam !== 'products';
+      return (location.pathname === '/quotations' || location.pathname.startsWith('/quotations')) &&
+        viewParam !== 'products';
     }
     if (path === '/clients') {
       return location.pathname === '/clients' || location.pathname.startsWith('/clients');
@@ -130,6 +137,9 @@ const MobileBottomNav = ({ activeTab, setActiveTab }) => {
     }
     if (path === '/users') {
       return location.pathname === '/users' || location.pathname.startsWith('/users');
+    }
+    if (path === '/wallet') {
+      return location.pathname === '/wallet' || location.pathname.startsWith('/wallet');
     }
     if (path === '/settings') {
       return location.pathname === '/settings' || location.pathname.startsWith('/settings');

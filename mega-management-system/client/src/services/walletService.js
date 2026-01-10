@@ -11,7 +11,7 @@ const walletService = {
     } catch (error) {
       console.error('Get wallet error:', error);
       throw error;
-    } 
+    }
   },
 
   // Get transaction history
@@ -52,6 +52,62 @@ const walletService = {
       console.error('Add debit error:', error);
       throw error;
     }
+  },
+
+  // Get wallet analytics (Admin/Manager only)
+  getAnalytics: async (params = {}) => {
+    try {
+      const { startDate, endDate } = params;
+      const queryParams = new URLSearchParams();
+      if (startDate) queryParams.append('startDate', startDate);
+      if (endDate) queryParams.append('endDate', endDate);
+
+      const url = `/wallet/stats/analytics${queryParams.toString() ? `?${queryParams}` : ''}`;
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      console.error('Get analytics error:', error);
+      throw error;
+    }
+  },
+
+  // Bulk credit to multiple employees (Admin/Manager only)
+  bulkCredit: async (employeeIds, amount, description) => {
+    try {
+      const response = await api.post('/wallet/bulk/credit', {
+        employeeIds,
+        amount,
+        description
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Bulk credit error:', error);
+      throw error;
+    }
+  },
+
+  // Export transactions as CSV
+  exportTransactionsCSV: (transactions) => {
+    const headers = ['Date', 'Type', 'Amount', 'Description', 'Balance After'];
+    const rows = transactions.map(tx => [
+      new Date(tx.createdAt).toLocaleDateString(),
+      tx.type,
+      tx.amount.toFixed(2),
+      tx.description || '',
+      tx.balanceAfter.toFixed(2)
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wallet_transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   }
 };
 

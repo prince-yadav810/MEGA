@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   Inbox,
   ClipboardCheck,
-  Home
+  Home,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -77,6 +78,12 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       path: '/notes-reminders'
     },
     {
+      id: 'wallet',
+      name: 'Wallet',
+      icon: Wallet,
+      path: '/wallet'
+    },
+    {
       id: 'users',
       name: 'Team',
       icon: UserCog,
@@ -111,8 +118,8 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
     }
     // For workspace, check if we're on any workspace route
     if (path === '/workspace') {
-      return location.pathname === '/workspace' || 
-             location.pathname.startsWith('/workspace/');
+      return location.pathname === '/workspace' ||
+        location.pathname.startsWith('/workspace/');
     }
     // For quotations page, check view parameter to determine which tab is active
     if (location.pathname.startsWith('/quotations') || location.pathname.startsWith('/products')) {
@@ -138,9 +145,8 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
   };
 
   return (
-    <div className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${
-      collapsed ? 'w-16' : 'w-64'
-    }`}>
+    <div className={`bg-white border-r border-gray-200 flex flex-col h-screen transition-all duration-300 ease-in-out ${collapsed ? 'w-16' : 'w-64'
+      }`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         {!collapsed && (
@@ -162,7 +168,7 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {filteredNavigationItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path, item.id);
@@ -220,7 +226,7 @@ const Sidebar = ({ collapsed, onToggle, activeTab, setActiveTab }) => {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-200 space-y-3">
+      <div className="p-4 border-t border-gray-200 space-y-3 flex-shrink-0">
         {/* User Info */}
         {!collapsed && user && (
           <div className="flex items-center space-x-3 p-2 rounded-lg bg-gray-50">

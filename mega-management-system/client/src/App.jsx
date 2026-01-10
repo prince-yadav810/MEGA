@@ -18,6 +18,7 @@ import NotesReminders from './pages/Admin/NotesReminders';
 import Settings from './pages/Admin/Settings';
 import UserManagement from './pages/Admin/UserManagement';
 import EmployeeDetail from './pages/Admin/EmployeeDetail';
+import WalletPage from './pages/Wallet/WalletPage';
 import Login from './pages/Login';
 import PrivateRoute from './components/PrivateRoute';
 import RoleBasedRoute from './components/RoleBasedRoute';
@@ -51,6 +52,8 @@ function Layout() {
       setActiveTab('products'); // Products route redirects to quotations?view=products
     } else if (path.startsWith('/notes-reminders')) {
       setActiveTab('notes-reminders');
+    } else if (path.startsWith('/wallet')) {
+      setActiveTab('wallet');
     } else if (path.startsWith('/settings')) {
       setActiveTab('settings');
     } else if (path.startsWith('/users')) {
@@ -94,6 +97,7 @@ function Layout() {
             <Route path="clients/:id" element={<ClientDetails />} />
             <Route path="products" element={<Navigate to="/quotations?view=products" replace />} />
             <Route path="notes-reminders" element={<NotesReminders />} />
+            <Route path="wallet" element={<WalletPage />} />
             <Route path="settings" element={<Settings />} />
             <Route
               path="users"

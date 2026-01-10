@@ -19,4 +19,10 @@ router.post('/:userId/credit', protect, restrictTo('super_admin', 'manager', 'ad
 // Record expense/debit (Employee - own wallet only, validated in controller)
 router.post('/:userId/debit', protect, walletController.addDebit);
 
+// Get wallet analytics (Admin/Manager only)
+router.get('/stats/analytics', protect, restrictTo('super_admin', 'manager', 'admin'), walletController.getAnalytics);
+
+// Bulk credit to multiple employees (Admin/Manager only)
+router.post('/bulk/credit', protect, restrictTo('super_admin', 'manager', 'admin'), walletController.bulkCredit);
+
 module.exports = router;

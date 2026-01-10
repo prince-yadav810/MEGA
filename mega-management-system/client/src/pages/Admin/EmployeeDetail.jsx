@@ -48,7 +48,7 @@ export default function EmployeeDetail() {
   const [showAttendanceEditModal, setShowAttendanceEditModal] = useState(false);
   const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(null);
   const [selectedDayData, setSelectedDayData] = useState(null);
-  
+
   // Advance edit modal state
   const [showAdvanceEditModal, setShowAdvanceEditModal] = useState(false);
   const [editingAdvance, setEditingAdvance] = useState(null);
@@ -263,16 +263,16 @@ export default function EmployeeDetail() {
   // Handle date click in calendar (admin only)
   const handleDateClick = (dayData) => {
     if (!isAdmin) return;
-    
+
     // Check if date is in the future or unmarked
     const isFutureDate = moment(dayData.date).isAfter(moment(), 'day');
     const isUnmarked = dayData.status === 'unmarked';
-    
+
     if (isFutureDate || isUnmarked) {
       toast.error('Cannot edit attendance for future dates');
       return;
     }
-    
+
     setSelectedDayData(dayData);
     setSelectedAttendanceDate(dayData.date);
     setShowAttendanceEditModal(true);
@@ -282,7 +282,7 @@ export default function EmployeeDetail() {
   const handleUpdateAttendance = async (date, status) => {
     try {
       const response = await attendanceService.updateAttendanceManually(userId, date, status);
-      
+
       if (response.success) {
         toast.success(response.message || 'Attendance updated successfully');
         // Refresh attendance summary to update stats
@@ -347,7 +347,7 @@ export default function EmployeeDetail() {
     try {
       setIsDeleting(true);
       const response = await userService.deleteUser(userId);
-      
+
       if (response.success) {
         toast.success('Employee deleted successfully');
         navigate('/users');
@@ -688,12 +688,11 @@ export default function EmployeeDetail() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-gray-900">₹{advance.amount.toLocaleString('en-IN')}</p>
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                              advance.status === 'paid' ? 'bg-green-100 text-green-800' :
-                              advance.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                              advance.status === 'deducted' ? 'bg-gray-100 text-gray-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${advance.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                advance.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                                  advance.status === 'deducted' ? 'bg-gray-100 text-gray-800' :
+                                    'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {advance.status.charAt(0).toUpperCase() + advance.status.slice(1)}
                             </span>
                           </div>
