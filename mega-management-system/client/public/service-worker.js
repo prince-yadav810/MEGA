@@ -1,13 +1,17 @@
 // Service Worker for PWA Push Notifications
 // This file must be in the public folder to be accessible at the root
 
-const CACHE_NAME = 'mega-management-v1';
+// INCREMENT THIS VERSION ON EACH DEPLOYMENT to bust old caches
+const CACHE_VERSION = 2;
+const CACHE_NAME = `mega-management-v${CACHE_VERSION}`;
+
+// Only cache static assets that don't change frequently
+// CRA's JS/CSS files have content hashes in their names, so we don't need to cache them here
 const urlsToCache = [
   '/',
-  '/static/css/main.css',
-  '/static/js/main.js',
   '/logo192.png',
-  '/logo512.png'
+  '/logo512.png',
+  '/favicon.ico'
 ];
 
 // Install event - cache resources
@@ -62,7 +66,7 @@ self.addEventListener('push', (event) => {
     try {
       // Try to get the data - web-push sends it as ArrayBuffer or text
       let textData;
-      
+
       // Check if data has text() method (PushMessageData)
       if (typeof event.data.text === 'function') {
         textData = event.data.text();
@@ -72,7 +76,7 @@ self.addEventListener('push', (event) => {
       } else {
         textData = String(event.data);
       }
-      
+
       // Try to parse as JSON
       if (textData) {
         try {
@@ -105,7 +109,7 @@ self.addEventListener('push', (event) => {
     (async () => {
       try {
         console.log('Service Worker: Attempting to show notification:', notificationData.title);
-        
+
         // Show the notification
         await self.registration.showNotification(notificationData.title, {
           body: notificationData.body,
@@ -128,16 +132,16 @@ self.addEventListener('push', (event) => {
             }
           ]
         });
-        
+
         console.log('Service Worker: ✅ Notification shown successfully');
       } catch (error) {
         // If permission denied, log it but don't crash
         console.error('Service Worker: ❌ Cannot show notification:', error.message);
-        
+
         if (error.message.includes('permission') || error.name === 'NotAllowedError') {
           console.warn('Service Worker: ⚠️  Notification permission not granted');
           console.warn('Service Worker: Please enable notifications in browser settings');
-          
+
           // Try to notify the client page about permission issue
           try {
             const clients = await self.clients.matchAll();
@@ -217,24 +221,72 @@ self.addEventListener('notificationclose', (event) => {
   console.log('Service Worker: Notification closed', event);
 });
 
-// Fetch event - serve cached resources when offline
+// Fetch event - serve resources with smart caching strategy
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests
+  // Only handle GET requests
   if (event.request.method !== 'GET') {
     return;
   }
 
+  // Skip cross-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  // NETWORK-FIRST for navigation requests (HTML documents)
+  // This ensures users always get the latest HTML, fixing the white screen issue
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Only cache successful responses
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Network failed (offline) - fall back to cached version
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/');
+          });
+        })
+    );
+    return;
+  }
+
+  // CACHE-FIRST for other assets (images, fonts, etc.)
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
+        if (response) {
+          return response;
+        }
+        // Not in cache, fetch from network
+        return fetch(event.request).then((networkResponse) => {
+          // Cache static assets for offline use
+          if (networkResponse.ok &&
+            (event.request.destination === 'image' ||
+              event.request.url.includes('/logo') ||
+              event.request.url.includes('/favicon'))) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        });
       })
       .catch(() => {
-        // If both fail, return offline page or fallback
+        // If both cache and network fail for documents, return cached root
         if (event.request.destination === 'document') {
           return caches.match('/');
         }
+        // For other resources, just fail silently
+        return new Response('', { status: 404 });
       })
   );
 });
