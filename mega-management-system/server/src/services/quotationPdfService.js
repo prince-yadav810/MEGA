@@ -14,7 +14,7 @@ class QuotationPdfService {
   static COMPANY_NAME = 'MEGA ENTERPRISE';
   static COMPANY_ADDRESS = '1ST LEVEL, PLOT NO PAP-57, MIDC WATER TANK, MIDC TALOJA, NAVI MUMBAI -410208';
   static COMPANY_PHONE = '7506070157';
-  static COMPANY_EMAIL = 'info@megaenterprise.com';
+  static COMPANY_EMAIL = 'info@megaenterprise.in';
   static GST_NUMBER = '27DRGPD9065L1ZA';
 
   // Bank details
@@ -104,90 +104,18 @@ class QuotationPdfService {
 
         writeStream.on('finish', async () => {
           try {
-            // Post-process PDF to remove blank pages
+            // Post-process PDF - blank page removal disabled to prevent removing advertisement pages
             const pdfBytes = fs.readFileSync(outputPath);
             const pdfDoc = await PDFLibDocument.load(pdfBytes);
-            let pages = pdfDoc.getPages();
-            
-            // Find and remove blank pages (pages with only footer, minimal content)
-            // Only check last pages as they're most likely to be blank
-            let removedCount = 0;
-            const maxPagesToCheck = Math.min(3, pages.length - 1); // Check up to last 3 pages, never the first
-            
-            for (let checked = 0; checked < maxPagesToCheck; checked++) {
-              pages = pdfDoc.getPages(); // Refresh pages array after each removal
-              if (pages.length <= 1) break; // Never remove if only 1 page left
-              
-              const lastPageIndex = pages.length - 1;
-              const lastPage = pages[lastPageIndex];
-              
-              try {
-                // Get content streams from the page
-                const contents = lastPage.node.get('Contents');
-                let isBlank = false;
-                
-                if (!contents) {
-                  // No content stream at all - definitely blank
-                  isBlank = true;
-                } else if (contents.objectType === 'PDFArray' || Array.isArray(contents)) {
-                  // Multiple content streams - check how many
-                  const contentArray = contents.objectType === 'PDFArray' ? contents.asArray() : contents;
-                  // If very few content streams (just footer), might be blank
-                  // Footer typically adds 1-2 small content streams
-                  if (contentArray.length <= 2) {
-                    // Check the total content size - footer is small
-                    // We'll be more aggressive here since blank pages are a problem
-                    isBlank = true;
-                  }
-                } else {
-                  // Single content stream - likely just footer
-                  // Check if this is a minimal page (footer only)
-                  try {
-                    const contentRef = contents.objectType === 'PDFRef' ? contents : null;
-                    if (contentRef) {
-                      const contentStream = pdfDoc.context.lookup(contentRef);
-                      if (contentStream && contentStream.getContents) {
-                        const bytes = contentStream.getContents();
-                        // Footer-only pages typically have very small content (< 2000 bytes)
-                        // Regular content pages have much more
-                        if (bytes && bytes.length < 1500) {
-                          isBlank = true;
-                        }
-                      }
-                    }
-                  } catch (e) {
-                    // If we can't check content size, be conservative
-                    isBlank = false;
-                  }
-                }
-                
-                if (isBlank) {
-                  pdfDoc.removePage(lastPageIndex);
-                  removedCount++;
-                  console.log(`  🗑️ Removed blank page ${lastPageIndex + 1}`);
-                } else {
-                  // If this page isn't blank, stop checking
-                  break;
-                }
-              } catch (error) {
-                // If we can't check, stop and keep remaining pages
-                console.error('Error checking page:', error.message);
-                break;
-              }
-            }
-            
-            if (removedCount > 0) {
-              console.log(`  ✅ Removed ${removedCount} blank page(s)`);
-            }
-            
-            // Save the cleaned PDF
+
+            // Save the PDF (keeping all pages intact)
             const cleanedPdfBytes = await pdfDoc.save();
             fs.writeFileSync(outputPath, cleanedPdfBytes);
-            
+
             resolve(outputPath);
           } catch (error) {
             // If post-processing fails, still resolve with original PDF
-            console.error('Error removing blank pages:', error);
+            console.error('Error in PDF post-processing:', error);
             resolve(outputPath);
           }
         });
@@ -208,52 +136,18 @@ class QuotationPdfService {
     const pageWidth = doc.page.width;
     const headerHeight = 120;
 
-    // Draw gradient-like effect with two overlapping shapes
+    // Draw white header background
     doc.save();
-    // Darker bottom layer
     doc.moveTo(0, 0)
       .lineTo(pageWidth, 0)
-      .lineTo(pageWidth, headerHeight - 20)
+      .lineTo(pageWidth, headerHeight)
       .lineTo(0, headerHeight)
       .closePath()
-      .fillColor(this.HEADER_DARK)
+      .fillColor('white')
       .fill();
-
-    // Lighter gradient overlay (top portion)
-    doc.moveTo(0, 0)
-      .lineTo(pageWidth, 0)
-      .lineTo(pageWidth, headerHeight - 50)
-      .lineTo(0, headerHeight - 30)
-      .closePath()
-      .fillColor(this.HEADER_LIGHT)
-      .fillOpacity(0.3)
-      .fill();
-    doc.fillOpacity(1); // Reset opacity
     doc.restore();
 
-    // Add decorative stars (small white circles)
-    const stars = [
-      { x: 60, y: 20, r: 1.5 },
-      { x: 150, y: 30, r: 1 },
-      { x: 90, y: 45, r: 2 },
-      { x: 240, y: 25, r: 1.2 },
-      { x: 200, y: 50, r: 1.8 },
-      { x: 320, y: 35, r: 1 },
-      { x: 380, y: 22, r: 1.5 },
-      { x: 420, y: 48, r: 1.2 },
-      { x: 480, y: 28, r: 2 },
-      { x: 520, y: 40, r: 1 },
-      { x: 550, y: 18, r: 1.5 },
-      { x: 100, y: 65, r: 0.8 }
-    ];
-
-    stars.forEach(star => {
-      doc.circle(star.x, star.y, star.r)
-        .fillColor('white')
-        .fillOpacity(0.4)
-        .fill();
-    });
-    doc.fillOpacity(1); // Reset opacity
+    // Removed decorative stars for clean white header
 
     // Add logo at leftmost position (rounded square, not circular)
     const logoPath = this.findLogo();
@@ -261,7 +155,7 @@ class QuotationPdfService {
     const logoX = 18; // Leftmost position
     const logoY = 32; // Moved lower (was 15)
     const logoCornerRadius = 8; // Rounded corner radius for square logo
-    
+
     if (logoPath) {
       // Create rounded rectangle with all corners properly rounded
       doc.save();
@@ -270,7 +164,7 @@ class QuotationPdfService {
       const y = logoY;
       const w = logoSize;
       const h = logoSize;
-      
+
       // Create a proper rounded rectangle clipping path
       // This ensures all 4 corners (including bottom corners) are rounded
       doc
@@ -285,56 +179,52 @@ class QuotationPdfService {
         .quadraticCurveTo(x, y, x + r, y)    // Top-left corner
         .closePath()                         // Close the path
         .clip();                             // Apply clipping
-      
+
       // Draw the logo image - it will be clipped to the rounded rectangle
       doc.image(logoPath, logoX, logoY, {
         width: logoSize,
         height: logoSize,
         fit: [logoSize, logoSize]
       });
-      
+
       doc.restore();
     }
 
-    // Company name (white text on dark background) - positioned after logo with proper spacing
+    // Company name (blue text on white background) - positioned after logo with proper spacing
     const companyNameX = logoPath ? logoSize + 33 : 50; // Ensure no overlap with logo
     const companyNameY = logoPath ? 32 : 35; // Moved up a bit (was 50)
     doc.fontSize(28)
-      .fillColor('white')
+      .fillColor(this.PRIMARY_COLOR)
       .font('Helvetica-Bold')
       .text(this.COMPANY_NAME, companyNameX, companyNameY, { characterSpacing: 2, lineBreak: false });
 
     // Company tagline - positioned after logo to avoid overlap
     const taglineX = logoPath ? logoSize + 34 : 50;
     doc.fontSize(12)
-      .fillColor('white')
+      .fillColor(this.PRIMARY_COLOR)
       .font('Helvetica')
-      .fillOpacity(0.9)
       .text('Reach For Everything You Need', taglineX, 60, { characterSpacing: 1, lineBreak: false });
-    doc.fillOpacity(1);
 
     // Contact info in header - positioned after logo to avoid overlap
     const addressX = logoPath ? logoSize + 34 : 50;
     doc.fontSize(10)
-      .fillColor('white')
-      .fillOpacity(0.95)
+      .fillColor(this.PRIMARY_COLOR)
       .text(`${this.COMPANY_ADDRESS}`, addressX, 81, { lineBreak: false });
-    doc.fillOpacity(1);
 
     // Quotation title (below header, styled)
     const titleY = headerHeight + 25;
-    doc.fontSize(28)
+    doc.fontSize(22)
       .fillColor(this.PRIMARY_COLOR)
       .font('Helvetica')
       .text('QUOTATION', 50, titleY, { width: pageWidth - 100, align: 'center', characterSpacing: 2, lineBreak: false });
 
     // Underline for title
-    const titleWidth = 120;
+    const titleWidth = 100;
     const centerX = pageWidth / 2;
-    doc.moveTo(centerX - titleWidth / 2, titleY + 32)
-      .lineTo(centerX + titleWidth / 2, titleY + 32)
+    doc.moveTo(centerX - titleWidth / 2, titleY + 26)
+      .lineTo(centerX + titleWidth / 2, titleY + 26)
       .strokeColor(this.PRIMARY_COLOR)
-      .lineWidth(3)
+      .lineWidth(2)
       .stroke();
   }
 
@@ -476,16 +366,16 @@ class QuotationPdfService {
         // Add new page
         doc.addPage();
         yPosition = 50; // Start from top margin
-        
+
         // Redraw table header on new page
         doc.rect(tableLeft, yPosition, pageWidth, headerHeight)
           .fillColor(this.HEADER_DARK)
           .fill();
-        
+
         doc.fontSize(10)
           .fillColor('white')
           .font('Helvetica-Bold');
-        
+
         const headerY = yPosition + 9;
         doc.text('SR', columns.srNo.x + 10, headerY, { width: columns.srNo.width, characterSpacing: 0.5, lineBreak: false });
         doc.text('DESCRIPTION', columns.description.x + 10, headerY, { width: columns.description.width, characterSpacing: 0.5, lineBreak: false });
@@ -494,14 +384,14 @@ class QuotationPdfService {
         doc.text('RATE', columns.rate.x + 10, headerY, { width: columns.rate.width, characterSpacing: 0.5, lineBreak: false });
         doc.text('GST%', columns.gst.x + 10, headerY, { width: columns.gst.width, characterSpacing: 0.5, lineBreak: false });
         doc.text('AMOUNT', columns.amount.x + 5, headerY, { width: columns.amount.width - 15, align: 'right', characterSpacing: 0.5, lineBreak: false });
-        
+
         yPosition += headerHeight;
       }
 
       // Calculate the height needed for each cell's text
       const cellPadding = 8; // Top and bottom padding
       const minRowHeight = 23; // Minimum row height
-      
+
       // Calculate text heights for each cell (allowing text to wrap)
       const srNoHeight = doc.heightOfString((index + 1).toString(), { width: columns.srNo.width });
       const descriptionHeight = doc.heightOfString(item.description || '', { width: columns.description.width - 10 });
@@ -512,7 +402,7 @@ class QuotationPdfService {
       const gstDisplayValue = item.gstPercent < 1 && item.gstPercent > 0 ? Math.round(item.gstPercent * 100) : Math.round(item.gstPercent);
       const gstHeight = doc.heightOfString(`${gstDisplayValue}%`, { width: columns.gst.width });
       const amountHeight = doc.heightOfString(this.formatCurrency(item.amount), { width: columns.amount.width - 15 });
-      
+
       // Find the maximum height among all cells in this row
       const maxCellHeight = Math.max(
         srNoHeight,
@@ -524,7 +414,7 @@ class QuotationPdfService {
         amountHeight,
         minRowHeight - (cellPadding * 2) // Ensure at least minimum height
       );
-      
+
       // Calculate actual row height (max cell height + padding)
       const actualRowHeight = Math.max(maxCellHeight + (cellPadding * 2), minRowHeight);
 
@@ -533,16 +423,16 @@ class QuotationPdfService {
         // Add new page
         doc.addPage();
         yPosition = 50; // Start from top margin
-        
+
         // Redraw table header on new page
         doc.rect(tableLeft, yPosition, pageWidth, headerHeight)
           .fillColor(this.HEADER_DARK)
           .fill();
-        
+
         doc.fontSize(10)
           .fillColor('white')
           .font('Helvetica-Bold');
-        
+
         const headerY = yPosition + 9;
         doc.text('SR', columns.srNo.x + 10, headerY, { width: columns.srNo.width, characterSpacing: 0.5, lineBreak: false });
         doc.text('DESCRIPTION', columns.description.x + 10, headerY, { width: columns.description.width, characterSpacing: 0.5, lineBreak: false });
@@ -551,7 +441,7 @@ class QuotationPdfService {
         doc.text('RATE', columns.rate.x + 10, headerY, { width: columns.rate.width, characterSpacing: 0.5, lineBreak: false });
         doc.text('GST%', columns.gst.x + 10, headerY, { width: columns.gst.width, characterSpacing: 0.5, lineBreak: false });
         doc.text('AMOUNT', columns.amount.x + 5, headerY, { width: columns.amount.width - 15, align: 'right', characterSpacing: 0.5, lineBreak: false });
-        
+
         yPosition += headerHeight;
       }
 
@@ -576,7 +466,7 @@ class QuotationPdfService {
       doc.fillColor(this.TEXT_COLOR)
         .font('Helvetica')
         .fontSize(10);
-      
+
       // Draw text in each cell (text will wrap automatically)
       doc.text((index + 1).toString(), columns.srNo.x + 10, textY, { width: columns.srNo.width, lineBreak: true });
       doc.text(item.description || '', columns.description.x + 10, textY, { width: columns.description.width - 10, lineBreak: true });
@@ -602,13 +492,13 @@ class QuotationPdfService {
     const calcHeight = 30; // Height needed for calculations section (just one line)
     const footerSectionHeight = 80; // Height needed for footer sections below
     const bottomFooterHeight = 45; // Height of bottom footer
-    
+
     // Check if we need a new page for calculations
     let yPosition = tableEndY + 10;
-    
+
     // Total space needed for calculations + footer sections + bottom footer
     const totalNeeded = calcHeight + footerSectionHeight + bottomFooterHeight;
-    
+
     // Only add new page if there's truly not enough space for everything
     // Be very conservative to avoid blank pages
     if (yPosition + totalNeeded > pageHeight && yPosition > 300) {
@@ -616,7 +506,7 @@ class QuotationPdfService {
       doc.addPage();
       yPosition = 50;
     }
-    
+
     const boxLeft = 350;
     const boxWidth = 195;
 
@@ -640,16 +530,16 @@ class QuotationPdfService {
     const footerHeight = 75; // Height of footer sections
     const bottomFooterHeight = 40; // Height of bottom footer
     const bottomMargin = 50;
-    
+
     // Calculate Y position - ensure it fits on current page
     let yStart = calcEndY + 15; // Position after calculations (reduced gap)
-    
+
     // Total space needed for footer sections
     const totalNeeded = footerHeight + bottomFooterHeight;
-    
+
     // Available space on current page
     const availableSpace = pageHeight - yStart - bottomMargin;
-    
+
     // Only add new page if footer sections absolutely won't fit (be conservative)
     // We need at least totalNeeded space
     if (availableSpace < totalNeeded && yStart > 200) {
@@ -666,87 +556,70 @@ class QuotationPdfService {
       .fillColor(this.TEXT_COLOR)
       .font('Helvetica');
 
-    // Bank Details (Left) - with box and left border like HTML
-    const bankBoxWidth = 160;
-    const bankBoxHeight = 65;
+    // Calculate box widths to fill the space (two boxes side by side)
+    const pageWidth = doc.page.width;
+    const boxGap = 20;
+    const totalWidth = pageWidth - 100; // 50px margin on each side
+    const boxWidth = (totalWidth - boxGap) / 2;
+    const boxHeight = 80;
 
-    // White box background with shadow
-    doc.rect(50, yStart - 8, bankBoxWidth, bankBoxHeight)
+    // Bank Details (Left) - larger box
+    doc.rect(50, yStart - 8, boxWidth, boxHeight)
       .fillColor('white')
       .fill();
-    doc.rect(50, yStart - 8, bankBoxWidth, bankBoxHeight)
+    doc.rect(50, yStart - 8, boxWidth, boxHeight)
       .strokeColor('#e8e8e8')
       .lineWidth(1)
       .stroke();
 
     // Blue left border accent
-    doc.rect(50, yStart - 8, 4, bankBoxHeight)
+    doc.rect(50, yStart - 8, 4, boxHeight)
       .fillColor(this.PRIMARY_COLOR)
       .fill();
 
     doc.font('Helvetica-Bold')
       .fillColor(this.PRIMARY_COLOR)
-      .fontSize(9)
+      .fontSize(11)
       .text('BANK DETAILS', 62, yStart, { lineBreak: false, characterSpacing: 1 });
 
     doc.font('Helvetica')
       .fillColor(this.TEXT_COLOR)
-      .fontSize(7);
-    doc.text(this.COMPANY_NAME, 62, yStart + 14, { lineBreak: false });
-    doc.text(`Bank: ${this.BANK_NAME}`, 62, yStart + 25, { lineBreak: false });
-    doc.text(`A/c No.: ${this.ACCOUNT_NUMBER}`, 62, yStart + 36, { lineBreak: false });
-    doc.text(`IFSC: ${this.IFSC_CODE}`, 62, yStart + 47, { lineBreak: false });
+      .fontSize(9);
+    doc.text(this.COMPANY_NAME, 62, yStart + 18, { lineBreak: false });
+    doc.text(`Bank: ${this.BANK_NAME}`, 62, yStart + 32, { lineBreak: false });
+    doc.text(`A/c No.: ${this.ACCOUNT_NUMBER}`, 62, yStart + 46, { lineBreak: false });
+    doc.text(`IFSC: ${this.IFSC_CODE}`, 62, yStart + 60, { lineBreak: false });
 
-    // Terms & Conditions (Center) - with box and left border like HTML
-    const termsBoxX = 225;
-    const termsBoxWidth = 170;
-    const termsBoxHeight = 65;
+    // Terms & Conditions (Right) - larger box
+    const termsBoxX = 50 + boxWidth + boxGap;
 
-    // White box background with shadow
-    doc.rect(termsBoxX, yStart - 8, termsBoxWidth, termsBoxHeight)
+    doc.rect(termsBoxX, yStart - 8, boxWidth, boxHeight)
       .fillColor('white')
       .fill();
-    doc.rect(termsBoxX, yStart - 8, termsBoxWidth, termsBoxHeight)
+    doc.rect(termsBoxX, yStart - 8, boxWidth, boxHeight)
       .strokeColor('#e8e8e8')
       .lineWidth(1)
       .stroke();
 
     // Blue left border accent
-    doc.rect(termsBoxX, yStart - 8, 4, termsBoxHeight)
+    doc.rect(termsBoxX, yStart - 8, 4, boxHeight)
       .fillColor(this.PRIMARY_COLOR)
       .fill();
 
     doc.font('Helvetica-Bold')
       .fillColor(this.PRIMARY_COLOR)
-      .fontSize(9)
+      .fontSize(11)
       .text('TERMS & CONDITIONS', termsBoxX + 12, yStart, { lineBreak: false, characterSpacing: 1 });
 
     doc.font('Helvetica')
       .fillColor('#666666')
-      .fontSize(7);
-    doc.text('GST EXTRA AS APPLICABLE', termsBoxX + 12, yStart + 14, { lineBreak: false });
-    doc.text(data.paymentTerms || 'PAYMENT IMMEDIATE', termsBoxX + 12, yStart + 25, { lineBreak: false });
-    doc.text(data.offerValidity || 'OFFER VALIDITY 1 WEEK', termsBoxX + 12, yStart + 36, { lineBreak: false });
-    doc.text('TRANSPORT EXTRA', termsBoxX + 12, yStart + 47, { lineBreak: false });
+      .fontSize(9);
+    doc.text('GST EXTRA AS APPLICABLE', termsBoxX + 12, yStart + 18, { lineBreak: false });
+    doc.text(data.paymentTerms || 'PAYMENT IMMEDIATE', termsBoxX + 12, yStart + 32, { lineBreak: false });
+    doc.text(data.offerValidity || 'OFFER VALIDITY 1 WEEK', termsBoxX + 12, yStart + 46, { lineBreak: false });
+    doc.text('TRANSPORT EXTRA', termsBoxX + 12, yStart + 60, { lineBreak: false });
 
-    // Signature (Right)
-    doc.font('Helvetica-Bold')
-      .fillColor(this.PRIMARY_COLOR)
-      .fontSize(9)
-      .text('For, MEGA ENTERPRISE', 420, yStart, { lineBreak: false });
-
-    doc.moveTo(420, yStart + 38)
-      .lineTo(540, yStart + 38)
-      .strokeColor(this.PRIMARY_COLOR)
-      .lineWidth(2)
-      .stroke();
-
-    doc.font('Helvetica')
-      .fillColor('#666666')
-      .fontSize(8)
-      .text('Authorised Signatory', 420, yStart + 42, { lineBreak: false });
-
-    return yStart + footerHeight + 20;
+    return yStart + boxHeight + 20;
   }
 
   /**
@@ -771,9 +644,9 @@ class QuotationPdfService {
     const bannerHeight = 35;
 
     // Check if we have enough space for banner + at least one row
-    const cardHeight = 105; // Slightly reduced
+    const cardHeight = 130; // Increased for full product names
     const minSpaceNeeded = bannerHeight + 20 + cardHeight;
-    
+
     if (currentY + minSpaceNeeded > pageHeight - bottomMargin) {
       doc.addPage();
       currentY = margin;
@@ -818,16 +691,16 @@ class QuotationPdfService {
     for (let index = 0; index < data.advertisementProducts.length; index++) {
       const product = data.advertisementProducts[index];
       const colIndex = index % columns;
-      
+
       // At the start of a new row (except first row), move Y down
       if (index > 0 && colIndex === 0) {
         rowStartY = lastRowEndY + gap;
-        
+
         // Check if new row fits on current page
         if (rowStartY + cardHeight > pageHeight - bottomMargin) {
           doc.addPage();
           rowStartY = margin;
-          
+
           // Add small continuation indicator
           doc.font('Helvetica')
             .fontSize(9)
@@ -907,40 +780,50 @@ class QuotationPdfService {
       const contentX = imageX + imageSize + 8;
       const cardContentWidth = cardWidth - imageSize - (cardPadding * 2) - 8;
       let contentY = cardY + 8;
-      
+
       // Track the end of this row
       lastRowEndY = cardY + cardHeight;
 
-      // Product Name (prominent, in theme blue color)
+      // Product Name (prominent, in theme blue color - allow wrapping)
       doc.font('Helvetica-Bold')
         .fontSize(9)
         .fillColor(this.PRIMARY_COLOR)
         .text(product.name, contentX, contentY, {
           width: cardContentWidth,
-          height: 24,
-          ellipsis: true,
+          lineGap: 2,
           align: 'left'
         });
 
-      contentY += 26;
+      // Calculate actual height used by product name
+      const nameHeight = doc.heightOfString(product.name, {
+        width: cardContentWidth,
+        lineGap: 2
+      });
 
-      // Product Description (only if not empty)
+      contentY += Math.max(nameHeight + 4, 28);
+
+      // Product Description (only if not empty - allow wrapping)
       if (product.description && product.description.trim().length > 0) {
         doc.font('Helvetica')
           .fontSize(7)
           .fillColor('#555555')
           .text(
-            product.description.substring(0, 60).replace(/\n/g, ' ') + (product.description.length > 60 ? '...' : ''),
+            product.description.replace(/\n/g, ' '),
             contentX,
             contentY,
             {
               width: cardContentWidth,
-              height: 20,
-              align: 'left',
-              ellipsis: true
+              lineGap: 1,
+              align: 'left'
             }
           );
-        contentY += 22;
+
+        // Calculate actual height used by description
+        const descHeight = doc.heightOfString(product.description.replace(/\n/g, ' '), {
+          width: cardContentWidth,
+          lineGap: 1
+        });
+        contentY += Math.max(descHeight + 2, 18);
       }
 
       // Product Specifications (properly handle Mongoose Map)
@@ -992,7 +875,7 @@ class QuotationPdfService {
   static addBottomFooter(doc) {
     const pageCount = doc.bufferedPageRange().count;
     const pageWidth = doc.page.width;
-    const footerHeight = 40;
+    const footerHeight = 35; // Reduced height
 
     // Add footer to all pages
     for (let i = 0; i < pageCount; i++) {
@@ -1000,27 +883,44 @@ class QuotationPdfService {
       const pageHeight = doc.page.height;
       const footerY = pageHeight - footerHeight;
 
+      // Save state before drawing rectangle
+      doc.save();
+
       // Dark blue footer background
       doc.rect(0, footerY, pageWidth, footerHeight)
-        .fillColor(this.HEADER_DARK)
-        .fill();
+        .fill(this.HEADER_DARK);
 
-      // GST Number and Contact in footer
-      doc.fontSize(9)
-        .fillColor('white')
-        .font('Helvetica')
-        .text(`GST NO: ${this.GST_NUMBER} | Phone: ${this.COMPANY_PHONE} | Email: ${this.COMPANY_EMAIL}`, 0, footerY + 10, {
-          align: 'center',
-          width: pageWidth,
-          lineBreak: false,
-          characterSpacing: 0.3
-        });
+      // Restore state after rectangle
+      doc.restore();
 
-      // Page number (dynamic based on total pages)
-      doc.fontSize(8)
-        .text(`Page ${i + 1} of ${pageCount}`, 0, footerY + 24, { align: 'center', width: pageWidth, lineBreak: false });
+      // Helper function to manually center text (bypasses margin clipping)
+      const drawCenteredText = (text, y, fontSize, fontName = 'Helvetica') => {
+        doc.font(fontName).fontSize(fontSize);
+        const textWidth = doc.widthOfString(text);
+        const x = (pageWidth - textWidth) / 2;
+        doc.fillColor('#FFFFFF').text(text, x, y, { lineBreak: false });
+      };
+
+      // GST Number and Contact in footer (centered)
+      const gstText = `GST NO: ${this.GST_NUMBER} | Phone: ${this.COMPANY_PHONE} | Email: ${this.COMPANY_EMAIL}`;
+      drawCenteredText(gstText, footerY + 6, 8);
+
+      // Second line: Computer generated notice (centered) and Page number (right)
+      const secondLineY = footerY + 20;
+
+      // Computer generated quotation notice (properly centered)
+      doc.font('Helvetica-Oblique').fontSize(8);
+      const noticeText = 'This is a computer generated quotation.';
+      const noticeWidth = doc.widthOfString(noticeText);
+      doc.fillColor('#FFFFFF').text(noticeText, (pageWidth - noticeWidth) / 2, secondLineY, { lineBreak: false });
+
+      // Page number (far right)
+      doc.font('Helvetica').fontSize(7);
+      const pageText = `Page ${i + 1} of ${pageCount}`;
+      const pageTextWidth = doc.widthOfString(pageText);
+      doc.fillColor('#FFFFFF').text(pageText, pageWidth - pageTextWidth - 15, secondLineY, { lineBreak: false });
     }
-    
+
     // Switch back to last page
     doc.switchToPage(pageCount - 1);
   }
@@ -1037,21 +937,21 @@ class QuotationPdfService {
       const cleaned = amount.replace(/[¹²³⁴⁵⁶⁷⁸⁹⁰]/g, '').replace(/[^\d.-]/g, '');
       numAmount = parseFloat(cleaned);
     }
-    
+
     // Ensure it's a valid number
     if (isNaN(numAmount) || numAmount === null || numAmount === undefined) {
       numAmount = 0;
     }
-    
+
     // Round to nearest integer
     numAmount = Math.round(Number(numAmount));
-    
+
     // Format number manually - convert to string and add commas for thousands
     const numStr = numAmount.toString();
-    
+
     // Add comma separators for thousands (standard format: 1,234,567)
     const formatted = numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    
+
     // Return with "Rs" instead of ₹ symbol to avoid any rendering issues
     return `Rs ${formatted}`;
   }
