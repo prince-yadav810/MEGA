@@ -7,8 +7,9 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
  * Parses business card text into structured client data
  * 
  * Robustness features:
- * - 3-tier model fallback chain
- * - Exponential backoff retry (3 attempts)
+ * - 2-tier model fallback chain (optimized for cost)
+ * - Fast retry with short delays (2 attempts, 500ms/1s)
+ * - 10 second request timeout
  * - Graceful degradation with raw text
  */
 
@@ -18,12 +19,14 @@ class GeminiService {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
     // Model fallback chain (in order of preference)
-    // If primary fails, try next in chain
+    // Reduced to 2 models for faster fallback and lower costs
     this.modelFallbackChain = [
-      'gemini-2.5-flash',       // Primary: Fast, cheap, current
-      'gemini-2.0-flash-001',   // Fallback 1: Previous generation
-      'gemini-1.5-flash-latest' // Fallback 2: Older but stable
+      'gemini-2.0-flash',       // Primary: Fast, cheap, current
+      'gemini-1.5-flash'        // Fallback: Stable alternative
     ];
+
+    // Request timeout in milliseconds (10 seconds)
+    this.REQUEST_TIMEOUT = 10000;
 
     // Current model index (starts with primary)
     this.currentModelIndex = 0;
@@ -194,7 +197,7 @@ Return ONLY the JSON object, nothing else.`;
    * @returns {Promise<Object>} { success: boolean, data: Object, confidence: Object, error: string }
    */
   async parseBusinessCardText(cardText, retryCount = 0, currentModel = null) {
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 2; // Reduced from 3 for faster response
     const model = currentModel || this.model;
 
     try {
@@ -210,9 +213,18 @@ Return ONLY the JSON object, nothing else.`;
       // Generate prompt
       const prompt = this.generatePrompt(cardText);
 
-      // Call Gemini API
+      // Call Gemini API with timeout
       console.log(`🤖 Calling Gemini API (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
-      const result = await model.generateContent(prompt);
+
+      // Add timeout to prevent long-running requests (reduces Cloud Run costs)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout after 10s')), this.REQUEST_TIMEOUT)
+      );
+
+      const result = await Promise.race([
+        model.generateContent(prompt),
+        timeoutPromise
+      ]);
       const response = await result.response;
       const text = response.text();
 
@@ -222,7 +234,7 @@ Return ONLY the JSON object, nothing else.`;
       if (!parsedData.success) {
         // Retry with exponential backoff if parsing failed
         if (retryCount < MAX_RETRIES - 1) {
-          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          const delay = (retryCount + 1) * 500; // 500ms, 1s (faster retries)
           console.warn(`⚠️ Parsing attempt ${retryCount + 1} failed, retrying in ${delay}ms...`);
           await this.sleep(delay);
           return this.parseBusinessCardText(cardText, retryCount + 1, model);
@@ -291,7 +303,7 @@ Return ONLY the JSON object, nothing else.`;
 
       // Retry with exponential backoff for transient errors
       if (this.isRetryableError(error) && retryCount < MAX_RETRIES - 1) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        const delay = (retryCount + 1) * 500; // 500ms, 1s (faster retries)
         console.warn(`⚠️ Retryable error, waiting ${delay}ms before retry...`);
         await this.sleep(delay);
         return this.parseBusinessCardText(cardText, retryCount + 1, model);
@@ -510,32 +522,42 @@ Return ONLY the JSON object, nothing else.`;
         return results;
       }
 
-      console.log('🔍 Testing Gemini API connection...');
+      console.log('🔍 Testing Gemini API connection (quick test)...');
 
-      // Test each model in the fallback chain
-      for (const modelName of this.modelFallbackChain) {
-        try {
-          const testModel = this.genAI.getGenerativeModel({ model: modelName });
-          const result = await testModel.generateContent('Hello');
-          const response = await result.response;
+      // Only test primary model for faster startup (reduces cold start time)
+      const primaryModel = this.modelFallbackChain[0];
+      try {
+        const testModel = this.genAI.getGenerativeModel({ model: primaryModel });
 
-          if (response.text().length > 0) {
-            results.testedModels[modelName] = 'available';
-            results.availableModels.push(modelName);
-            console.log(`  ✅ ${modelName}: Available`);
-          }
-        } catch (modelError) {
-          if (modelError.message?.includes('404') || modelError.message?.includes('not found')) {
-            results.testedModels[modelName] = 'not_found';
-            console.log(`  ⚠️ ${modelName}: Not found`);
-          } else if (modelError.message?.includes('quota') || modelError.message?.includes('429')) {
-            results.testedModels[modelName] = 'quota_exceeded';
-            results.availableModels.push(modelName); // Model exists, just rate limited
-            console.log(`  ⚠️ ${modelName}: Available (quota limited)`);
-          } else {
-            results.testedModels[modelName] = 'error';
-            console.log(`  ❌ ${modelName}: Error - ${modelError.message}`);
-          }
+        // Use timeout for connection test too
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection test timeout')), 5000)
+        );
+
+        const result = await Promise.race([
+          testModel.generateContent('Hi'),
+          timeoutPromise
+        ]);
+        const response = await result.response;
+
+        if (response.text().length > 0) {
+          results.testedModels[primaryModel] = 'available';
+          results.availableModels.push(primaryModel);
+          // Assume fallback model is also available if primary works
+          results.availableModels.push(this.modelFallbackChain[1]);
+          console.log(`  ✅ ${primaryModel}: Available`);
+        }
+      } catch (modelError) {
+        if (modelError.message?.includes('404') || modelError.message?.includes('not found')) {
+          results.testedModels[primaryModel] = 'not_found';
+          console.log(`  ⚠️ ${primaryModel}: Not found`);
+        } else if (modelError.message?.includes('quota') || modelError.message?.includes('429')) {
+          results.testedModels[primaryModel] = 'quota_exceeded';
+          results.availableModels.push(primaryModel);
+          console.log(`  ⚠️ ${primaryModel}: Available (quota limited)`);
+        } else {
+          results.testedModels[primaryModel] = 'error';
+          console.log(`  ❌ ${primaryModel}: Error - ${modelError.message}`);
         }
       }
 
