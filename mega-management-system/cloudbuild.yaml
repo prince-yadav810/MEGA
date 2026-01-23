@@ -36,7 +36,7 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/mega-management:$COMMIT_SHA'
       - '--region'
-      - 'asia-south1'
+      - 'asia-east1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
