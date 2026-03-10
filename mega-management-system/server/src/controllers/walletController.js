@@ -499,3 +499,163 @@ exports.bulkCredit = async (req, res) => {
     });
   }
 };
+
+/**
+ * Edit a wallet transaction (amount and/or description)
+ * Admin/Manager can edit credit transactions
+ * Employee can edit their own debit transactions
+ * @route PUT /api/wallet/transaction/:transactionId
+ */
+exports.editTransaction = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const { amount, description } = req.body;
+    const requesterId = req.user.id;
+    const requesterRole = req.user.role;
+
+    // Find the transaction
+    const transaction = await WalletTransaction.findById(transactionId);
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: 'Transaction not found'
+      });
+    }
+
+    // Authorization checks
+    const isAdminOrManager = ['admin', 'manager', 'super_admin'].includes(requesterRole);
+
+    if (transaction.type === 'credit' && !isAdminOrManager) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can edit credit transactions'
+      });
+    }
+
+    if (transaction.type === 'debit') {
+      if (requesterRole === 'employee' && transaction.userId.toString() !== requesterId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only edit your own expenses'
+        });
+      }
+      if (requesterRole === 'employee' && transaction.createdBy.toString() !== requesterId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only edit expenses you created'
+        });
+      }
+    }
+
+    // Validate new amount if provided
+    const newAmount = amount !== undefined ? parseFloat(amount) : transaction.amount;
+    if (newAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be greater than 0'
+      });
+    }
+
+    const newDescription = description !== undefined ? description.trim() : transaction.description;
+
+    // For debit transactions, description is required
+    if (transaction.type === 'debit' && (!newDescription || newDescription === '')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Description is required for expenses'
+      });
+    }
+
+    // Calculate the balance difference
+    const oldAmount = transaction.amount;
+    let balanceDiff = 0;
+
+    if (transaction.type === 'credit') {
+      // Credit: increasing amount adds more, decreasing removes some
+      balanceDiff = newAmount - oldAmount;
+    } else {
+      // Debit: increasing amount removes more, decreasing adds back
+      balanceDiff = oldAmount - newAmount;
+    }
+
+    // Update the user's wallet balance
+    const employee = await User.findById(transaction.userId);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    employee.walletBalance = (employee.walletBalance || 0) + balanceDiff;
+    await employee.save();
+
+    // Store previous values for audit trail
+    const previousAmount = transaction.amount;
+    const previousDescription = transaction.description;
+
+    // Update the transaction
+    transaction.amount = newAmount;
+    transaction.description = newDescription;
+    transaction.balanceAfter = transaction.balanceAfter + balanceDiff;
+    transaction.editedAt = new Date();
+    transaction.editedBy = requesterId;
+    transaction.previousAmount = previousAmount;
+    transaction.previousDescription = previousDescription;
+    await transaction.save();
+
+    // Recalculate balanceAfter for all subsequent transactions of this user
+    if (balanceDiff !== 0) {
+      await WalletTransaction.updateMany(
+        {
+          userId: transaction.userId,
+          createdAt: { $gt: transaction.createdAt }
+        },
+        {
+          $inc: { balanceAfter: balanceDiff }
+        }
+      );
+    }
+
+    // If employee edited a debit transaction, notify admins
+    if (transaction.type === 'debit' && requesterRole === 'employee' && req.io) {
+      try {
+        const admins = await User.find({
+          role: { $in: ['admin', 'manager'] },
+          isActive: true
+        }).select('_id');
+
+        for (const admin of admins) {
+          await createNotification({
+            userId: admin._id,
+            type: 'warning',
+            category: 'payment',
+            title: 'Expense Edited by Employee',
+            message: `${employee.name} edited an expense: ₹${previousAmount.toFixed(2)} → ₹${newAmount.toFixed(2)}. Note: ${newDescription}`,
+            entityType: 'wallet',
+            entityId: transaction._id
+          }, req.io);
+        }
+      } catch (notificationError) {
+        console.error('Notification error (non-blocking):', notificationError);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Transaction updated successfully',
+      data: {
+        transaction,
+        newBalance: employee.walletBalance
+      }
+    });
+
+  } catch (error) {
+    console.error('Edit transaction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to edit transaction',
+      error: error.message
+    });
+  }
+};

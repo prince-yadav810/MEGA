@@ -86,6 +86,17 @@ const walletService = {
     }
   },
 
+  // Edit a transaction (amount and/or description)
+  editTransaction: async (transactionId, data) => {
+    try {
+      const response = await api.put(`/wallet/transaction/${transactionId}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Edit transaction error:', error);
+      throw error;
+    }
+  },
+
   // Export transactions as CSV
   exportTransactionsCSV: (transactions) => {
     const headers = ['Date', 'Type', 'Amount', 'Description', 'Balance After'];

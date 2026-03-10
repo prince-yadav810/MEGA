@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Wallet, Search, Plus, ArrowDownRight, ArrowUpRight, X,
-  ChevronDown, ChevronUp, Download, Calendar, Loader2
+  ChevronDown, ChevronUp, Download, Calendar, Loader2, Pencil
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import walletService from '../../services/walletService';
@@ -26,6 +26,11 @@ export default function WalletPage() {
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [creditForm, setCreditForm] = useState({ amount: '', description: '' });
+
+  // Edit transaction state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [editForm, setEditForm] = useState({ amount: '', description: '' });
 
   // Export modal state
   const [showExportModal, setShowExportModal] = useState(false);
@@ -158,6 +163,56 @@ export default function WalletPage() {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to add money');
+    }
+  };
+
+  // Edit transaction handlers
+  const handleOpenEditModal = (transaction, employeeId) => {
+    setEditingTransaction({ ...transaction, employeeId });
+    setEditForm({
+      amount: transaction.amount?.toString() || '',
+      description: transaction.description || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditTransaction = async (e) => {
+    e.preventDefault();
+
+    if (!editForm.amount || parseFloat(editForm.amount) <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      const response = await walletService.editTransaction(editingTransaction._id, {
+        amount: parseFloat(editForm.amount),
+        description: editForm.description
+      });
+
+      if (response.success) {
+        toast.success('Transaction updated successfully');
+        setShowEditModal(false);
+        setEditingTransaction(null);
+
+        const empId = editingTransaction.employeeId;
+
+        // Refresh wallet data
+        const walletRes = await walletService.getWallet(empId);
+        if (walletRes.success) {
+          setEmployeeWallets(prev => ({
+            ...prev,
+            [empId]: walletRes.data
+          }));
+        }
+
+        // Refresh transactions
+        if (expandedEmployee === empId) {
+          await fetchEmployeeTransactions(empId, 1);
+        }
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update transaction');
     }
   };
 
@@ -399,15 +454,32 @@ export default function WalletPage() {
                                   <div>
                                     <p className="text-sm font-medium text-gray-900">
                                       {tx.type === 'credit' ? 'Credit' : 'Expense'}
+                                      {tx.editedAt && (
+                                        <span className="text-xs text-amber-600 ml-1">(edited)</span>
+                                      )}
                                     </p>
                                     <p className="text-xs text-gray-500">
                                       {moment(tx.createdAt).format('DD/MM/YY HH:mm')}
                                     </p>
+                                    {tx.description && (
+                                      <p className="text-xs text-gray-400 truncate max-w-[180px]">{tx.description}</p>
+                                    )}
                                   </div>
                                 </div>
-                                <span className={`text-sm font-semibold ${tx.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                                  {tx.type === 'credit' ? '+' : '-'}₹{tx.amount?.toFixed(2)}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  {tx.type === 'credit' && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleOpenEditModal(tx, employee._id); }}
+                                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
+                                      title="Edit credit"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  <span className={`text-sm font-semibold ${tx.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {tx.type === 'credit' ? '+' : '-'}₹{tx.amount?.toFixed(2)}
+                                  </span>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -595,6 +667,66 @@ export default function WalletPage() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {showEditModal && editingTransaction && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-xl font-semibold text-gray-800">Edit Credit</h3>
+              <button
+                onClick={() => { setShowEditModal(false); setEditingTransaction(null); }}
+                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditTransaction} className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={editForm.amount}
+                  onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                  placeholder="Enter amount"
+                  required
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Reason for credit"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingTransaction(null); }}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition font-medium shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

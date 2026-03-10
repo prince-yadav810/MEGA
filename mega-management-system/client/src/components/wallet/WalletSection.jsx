@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, Plus, ArrowDownRight, ArrowUpRight, Calendar, User, X } from 'lucide-react';
+import { Wallet, Plus, ArrowDownRight, ArrowUpRight, Calendar, User, X, Pencil } from 'lucide-react';
 import walletService from '../../services/walletService';
 import toast from 'react-hot-toast';
 import moment from 'moment';
@@ -13,6 +13,9 @@ export default function WalletSection({ userId, employeeName }) {
     amount: '',
     description: ''
   });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [editForm, setEditForm] = useState({ amount: '', description: '' });
 
   useEffect(() => {
     if (userId) {
@@ -73,6 +76,41 @@ export default function WalletSection({ userId, employeeName }) {
     }
   };
 
+  const handleOpenEditModal = (transaction) => {
+    setEditingTransaction(transaction);
+    setEditForm({
+      amount: transaction.amount?.toString() || '',
+      description: transaction.description || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditTransaction = async (e) => {
+    e.preventDefault();
+
+    if (!editForm.amount || parseFloat(editForm.amount) <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      const response = await walletService.editTransaction(editingTransaction._id, {
+        amount: parseFloat(editForm.amount),
+        description: editForm.description
+      });
+
+      if (response.success) {
+        toast.success('Transaction updated successfully');
+        setShowEditModal(false);
+        setEditingTransaction(null);
+        fetchWalletData();
+        fetchTransactions();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update transaction');
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-6">
@@ -118,11 +156,10 @@ export default function WalletSection({ userId, employeeName }) {
                 className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
               >
                 <div className="flex items-start gap-3 flex-1">
-                  <div className={`p-2 rounded-full ${
-                    transaction.type === 'credit'
+                  <div className={`p-2 rounded-full ${transaction.type === 'credit'
                       ? 'bg-green-100 text-green-600'
                       : 'bg-red-100 text-red-600'
-                  }`}>
+                    }`}>
                     {transaction.type === 'credit' ? (
                       <ArrowUpRight className="w-4 h-4" />
                     ) : (
@@ -152,14 +189,27 @@ export default function WalletSection({ userId, employeeName }) {
                       <span>
                         Balance: ₹{transaction.balanceAfter?.toFixed(2)}
                       </span>
+                      {transaction.editedAt && (
+                        <span className="text-amber-600">(edited)</span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className={`text-lg font-semibold ${
-                  transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount?.toFixed(2)}
+                <div className="flex items-center gap-2">
+                  {transaction.type === 'credit' && (
+                    <button
+                      onClick={() => handleOpenEditModal(transaction)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                      title="Edit credit"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
+                  <div className={`text-lg font-semibold ${transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                    {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount?.toFixed(2)}
+                  </div>
                 </div>
               </div>
             ))}
@@ -234,6 +284,70 @@ export default function WalletSection({ userId, employeeName }) {
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
                 >
                   Add Money
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Credit Modal */}
+      {showEditModal && editingTransaction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-xl font-semibold text-gray-800">Edit Credit</h3>
+              <button
+                onClick={() => { setShowEditModal(false); setEditingTransaction(null); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditTransaction} className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount (₹) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={editForm.amount}
+                  onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter amount"
+                  required
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Reason for credit"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingTransaction(null); }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

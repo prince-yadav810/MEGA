@@ -25,4 +25,7 @@ router.get('/stats/analytics', protect, restrictTo('super_admin', 'manager', 'ad
 // Bulk credit to multiple employees (Admin/Manager only)
 router.post('/bulk/credit', protect, restrictTo('super_admin', 'manager', 'admin'), walletController.bulkCredit);
 
+// Edit a transaction (Admin edits credits, Employee edits own debits)
+router.put('/transaction/:transactionId', protect, walletController.editTransaction);
+
 module.exports = router;
