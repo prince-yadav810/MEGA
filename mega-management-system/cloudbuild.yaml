@@ -5,7 +5,9 @@
 
 steps:
   # Step 1: Build the Docker image
+  # dir points to the subdirectory where Dockerfile lives (repo root != project root)
   - name: 'gcr.io/cloud-builders/docker'
+    dir: 'mega-management-system'
     args:
       - 'build'
       - '-t'
